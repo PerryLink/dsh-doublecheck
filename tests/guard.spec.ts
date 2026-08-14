@@ -240,6 +240,24 @@ describe('doublecheck-guard', () => {
     expect(after.additionalContexts).toBeUndefined()
   })
 
+  it('pairs a spec call and its result folded in separate snapshot batches', async () => {
+    const ctx = await setup(fullConfig({ remindOnce: false }))
+    const events = [userTask('帮我做那个功能')]
+    const session = fakeSession(events)
+    const agent = fakeAgent(session)
+    const first = await runEdit(ctx, agent, 'edit-15')
+    expect(first.additionalContexts).toHaveLength(1)
+
+    // The spec call folds now; its result only enters the log in a later batch.
+    events.push(toolCall(SPEC_TOOL_NAME, 'spec-3'))
+    const pending = await runEdit(ctx, agent, 'edit-16')
+    expect(pending.additionalContexts).toHaveLength(1)
+
+    events.push(toolResult('spec-3'))
+    const committed = await runEdit(ctx, agent, 'edit-17')
+    expect(committed.additionalContexts).toBeUndefined()
+  })
+
   it('emits one reminder event per reaction with the intensity verdict', async () => {
     const ctx = await setup(fullConfig({ intensity: 'block' }))
     const session = vagueSession()

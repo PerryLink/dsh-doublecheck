@@ -28,7 +28,7 @@ import type { Session, SessionEvent, UserMessage } from '@deepseek-ai/dsh-sessio
 import type { PostToolDecision, PreToolDecision, ToolExecution } from '@deepseek-ai/dsh-tools'
 import z from '@deepseek-ai/schemastery'
 import type Schema from '@deepseek-ai/schemastery'
-import { sessionHasSpec } from '../domain/stages.ts'
+import { SPEC_TOOL_NAME } from '../domain/stages.ts'
 import { isVagueTask } from '../domain/vagueness.ts'
 import type { GuardIntensity } from '../events.ts'
 
@@ -93,11 +93,20 @@ const ASK_REASON =
   'The task statement is vague and no doublecheck spec exists for this '
   + 'session. Allow this edit before the requirements grill has run?'
 
-/** Cached per-session guard facts, valid while the event log has not grown. */
+/** Cached per-session guard facts, folded incrementally from the append-only log. */
 interface Snapshot {
-  eventsLength: number
+  /** The log snapshot this fold last consumed; an append yields a new one. */
+  events: readonly SessionEvent[]
+  /** Number of events already folded. */
+  scanned: number
+  /** Latest direct-user task text folded so far. */
+  latestUserText: string
+  /** `isVagueTask` applied to `latestUserText`. */
   vague: boolean
+  /** Whether a successful `doublecheck_spec` pair has been folded. */
   hasSpec: boolean
+  /** Spec-tool call ids whose results have not been folded yet. */
+  pendingSpecCalls: Set<string>
 }
 
 /**
@@ -130,17 +139,66 @@ export function apply(ctx: Context, config: Config): void {
   /** Sessions that already received a reminder, for `remindOnce`. */
   const remindedSessions = new WeakSet<Session>()
 
-  /** Fold the session log to its current guard facts, cached by log length. */
-  function snapshotOf(session: Session): Snapshot {
-    const cached = snapshots.get(session)
-    if (cached !== undefined && cached.eventsLength === session.events.length) return cached
-    const snapshot: Snapshot = {
-      eventsLength: session.events.length,
-      vague: isVagueTask(latestUserTaskText(session.events), config),
-      hasSpec: sessionHasSpec(session.events),
+  /** Fold `events[start..end)` into the snapshot; each event is folded once per session. */
+  function foldEvents(snapshot: Snapshot, events: readonly SessionEvent[], start: number, end: number): void {
+    for (let index = start; index < end; index += 1) {
+      const event = events[index]
+      if (event === undefined) continue
+      if (event.type === 'tool/call') {
+        if (event.data.name === SPEC_TOOL_NAME) snapshot.pendingSpecCalls.add(event.data.callId)
+      } else if (event.type === 'tool/result') {
+        if (event.data.error === undefined && snapshot.pendingSpecCalls.delete(event.data.message.source.callId)) {
+          snapshot.hasSpec = true
+        }
+      } else if (event.type === 'user/message') {
+        if ((event.data.source as { kind?: unknown }).kind !== 'user') continue
+        const parts: string[] = []
+        for (const block of event.data.content) {
+          if (block.type === 'text') parts.push(block.text)
+        }
+        if (parts.length > 0) {
+          snapshot.latestUserText = parts.join('\n')
+          snapshot.vague = isVagueTask(snapshot.latestUserText, config)
+        }
+      }
     }
+    snapshot.scanned = end
+  }
+
+  /** Start a fresh fold over the whole current log. */
+  function refold(session: Session, events: readonly SessionEvent[]): Snapshot {
+    const snapshot: Snapshot = {
+      events,
+      scanned: 0,
+      latestUserText: '',
+      vague: false,
+      hasSpec: false,
+      pendingSpecCalls: new Set(),
+    }
+    foldEvents(snapshot, events, 0, events.length)
     snapshots.set(session, snapshot)
     return snapshot
+  }
+
+  /**
+   * Fold the session log to its current guard facts. The log is append-only
+   * and `session.events` is an immutable snapshot replaced on each append, so
+   * a resumed fold reuses the already-folded prefix: a per-call read costs
+   * O(new events) instead of rescanning the whole log. A committed spec is
+   * sticky and needs no further scanning at all.
+   */
+  function snapshotOf(session: Session): Snapshot {
+    const events = session.events
+    const cached = snapshots.get(session)
+    if (cached !== undefined) {
+      if (cached.hasSpec) return cached
+      if (cached.events === events && events.length === cached.scanned) return cached
+      if (events.length < cached.scanned) return refold(session, events)
+      foldEvents(cached, events, cached.scanned, events.length)
+      cached.events = events
+      return cached
+    }
+    return refold(session, events)
   }
 
   /** The reminder message for this reaction, or undefined when already reminded. */
@@ -232,23 +290,6 @@ export function apply(ctx: Context, config: Config): void {
 /** Prepend our reminder while preserving every downstream context's source and metadata. */
 function prependContext(ours: UserMessage, theirs: UserMessage[] | undefined): UserMessage[] {
   return [ours, ...theirs ?? []]
-}
-
-/** The latest direct-user task text in the log, or '' before any user message. */
-function latestUserTaskText(events: readonly SessionEvent[]): string {
-  for (let index = events.length - 1; index >= 0; index -= 1) {
-    const event = events[index]
-    /* v8 ignore next -- the loop bounds prove this index exists. */
-    if (event === undefined) continue
-    if (event.type !== 'user/message') continue
-    if ((event.data.source as { kind?: unknown }).kind !== 'user') continue
-    const parts: string[] = []
-    for (const block of event.data.content) {
-      if (block.type === 'text') parts.push(block.text)
-    }
-    if (parts.length > 0) return parts.join('\n')
-  }
-  return ''
 }
 
 function assertPositiveInteger(field: string, value: number): void {

@@ -70,16 +70,21 @@ export class BundledSkillProvider implements SkillProvider {
    * @returns the complete candidate list for the bundled root.
    */
   async list(options: SkillLookupOptions): Promise<SkillCandidate[]> {
-    // A bundled-root listing is a single directory read; the abort signal
-    // still guards every file read through `get()` and the candidate parse.
+    // A bundled-root listing is a single directory read plus one parallel file
+    // read per skill; the abort signal still guards every read through `parse`.
     const entries = await readdir(SKILLS_ROOT, { withFileTypes: true })
+    const parsedEntries = await Promise.all(entries
+      .filter(entry => entry.isDirectory())
+      .map(async entry => {
+        const directory = join(SKILLS_ROOT, entry.name)
+        const file = join(directory, 'SKILL.md')
+        const parsed = await this.parse(file, options.signal)
+        return parsed === undefined ? undefined : { parsed, file, directory }
+      }))
     const candidates: SkillCandidate[] = []
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue
-      const directory = join(SKILLS_ROOT, entry.name)
-      const file = join(directory, 'SKILL.md')
-      const parsed = await this.parse(file, options.signal)
-      if (parsed === undefined) continue
+    for (const entry of parsedEntries) {
+      if (entry === undefined) continue
+      const { parsed, file, directory } = entry
       candidates.push({
         name: parsed.name,
         description: parsed.description,
