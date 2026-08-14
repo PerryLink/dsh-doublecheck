@@ -20,6 +20,11 @@ The discipline loop gets a human-facing cockpit and a hardened delivery pipeline
 - Code Mode edit dispatches count as implementation edits in the guard and report folds (the policy gates already saw them).
 - Three new bundled skills: `red-green-tdd`, `delivery-review`, `delivery-proof` — stages 3–6 of the loop now have model guidance.
 - Report timeline rows truncate long shell commands to a readable preview.
+- The `doublecheck` session projection registers through the `sessionProjections` seam (plain-JSON discipline view for UI consumers, zod-validated wire value), and the invariant companion reports package-owned write-path contradictions through the host `invariants` registry.
+- The durable `doublecheck/state` write is adaptive: hosts that stamp `ignorable` store it durably; rc.6 peers keep the override process-local instead of writing an event first-party readers would reject.
+- A `strict.patch.yml` overlay turns every gate on at `block` intensity; a tag-driven `publish.yml` releases to npm (needs the `NPM_TOKEN` secret).
+- Guard hardening: the detection knobs always compile (bad regexes fail loud even in grill-only configs), the verify workflow's broken engine settles the report as unverified instead of failing the call, and the review text names how many findings `adversaryMaxFindings` held back.
+- Coverage thresholds gate CI: ≥90% statements/lines, ≥80% branches, ≥85% functions.
 
 ## v0.4.0 — 2026-08-14
 

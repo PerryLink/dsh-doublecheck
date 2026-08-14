@@ -490,6 +490,12 @@ async function runVerifyWorkflow(
     // upgrade the delivery.
     const complete = VERIFY_DIMENSIONS.every(dimension => checks.some(check => check.dimension === dimension))
     return { checks, complete }
+  } catch (error) {
+    // A broken workflow engine must not fail the report call itself: the
+    // delivery settles as unverified and the markdown says verification did
+    // not run.
+    ctx.logger.warn(`dsh-doublecheck: verification workflow failed: ${String(error)}`)
+    return null
   } finally {
     await run.dispose()
   }

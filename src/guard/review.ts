@@ -92,7 +92,7 @@ const CRITIC_TASK =
 export const CLEAN_TEXT = PROSE.en.reviewClean
 
 /** Render structured findings as the model-facing review text. */
-export function renderFindings(findings: readonly ReviewFinding[], prose: GuardProse = PROSE.en): string {
+export function renderFindings(findings: readonly ReviewFinding[], prose: GuardProse = PROSE.en, totalCount: number = findings.length): string {
   const lines = [
     prose.reviewFindingsHeader(findings.length),
     '',
@@ -100,6 +100,9 @@ export function renderFindings(findings: readonly ReviewFinding[], prose: GuardP
   for (const finding of findings) {
     lines.push(`- [${finding.severity}] ${finding.title}`)
     lines.push(`  ${finding.detail}`)
+  }
+  if (totalCount > findings.length) {
+    lines.push(`… ${totalCount - findings.length} further objection(s) held back by adversaryMaxFindings`)
   }
   lines.push('', prose.reviewFindingsFooter)
   return lines.join('\n')
@@ -183,7 +186,7 @@ async function settleResult(run: SubagentRun, signal: AbortSignal, prose: GuardP
   }
   const findings = raw.slice(0, maxFindings) as ReviewFinding[]
   if (findings.length === 0) return { verdict: 'clean', findings: [], text: prose.reviewClean }
-  return { verdict: 'findings', findings, text: renderFindings(findings, prose) }
+  return { verdict: 'findings', findings, text: renderFindings(findings, prose, raw.length) }
 }
 
 /** Join a result's content blocks, with a fallback line when they are empty. */

@@ -17,6 +17,8 @@ const signal = new AbortController().signal
 interface SetupOptions {
   /** Mount the fake workflow engine (for verify tests). */
   workflowChecks?: unknown[] | null
+  /** Reject the workflow run's result instead of settling checks (failure path). */
+  workflowReject?: boolean
 }
 
 async function setup(options: SetupOptions = {}, configOverrides: Partial<grillModule.Config> = {}) {
@@ -25,7 +27,7 @@ async function setup(options: SetupOptions = {}, configOverrides: Partial<grillM
   await ctx.plugin(SkillRegistry)
   await ctx.plugin(ToolRuntime)
   const starts: WorkflowStartRequest[] = []
-  if (options.workflowChecks !== undefined) {
+  if (options.workflowChecks !== undefined || options.workflowReject === true) {
     class FakeWorkflowEngine extends Service {
       constructor(childCtx: Context) {
         super(childCtx, 'workflowEngine')
@@ -36,11 +38,13 @@ async function setup(options: SetupOptions = {}, configOverrides: Partial<grillM
         return {
           id: WorkflowRunId('wf-1'),
           meta: request.meta,
-          result: Promise.resolve({
-            value: { checks: options.workflowChecks ?? [] },
-            stopReason: 'completed',
-            agentsStarted: 6,
-          }),
+          result: options.workflowReject === true
+            ? Promise.reject(new Error('engine down'))
+            : Promise.resolve({
+              value: { checks: options.workflowChecks ?? [] },
+              stopReason: 'completed',
+              agentsStarted: 6,
+            }),
           cancel() {},
           async dispose() {},
         }
@@ -221,6 +225,15 @@ describe('doublecheck-grill', () => {
   it('skips verification when the caller passes verify false', async () => {
     const { ctx } = await setup()
     const result = await runReport(ctx, fakeAgent(reportSession()), { verify: false })
+    const value = result.value as { verdict: string; verification: unknown }
+    expect(value.verification).toBeNull()
+    expect(value.verdict).toBe('green')
+  })
+
+  it('settles as unverified when the workflow run fails, without failing the report', async () => {
+    const { ctx } = await setup({ workflowReject: true })
+    const result = await runReport(ctx, fakeAgent(reportSession()), { verify: true })
+    expect(result.isError).toBe(false)
     const value = result.value as { verdict: string; verification: unknown }
     expect(value.verification).toBeNull()
     expect(value.verdict).toBe('green')

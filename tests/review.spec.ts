@@ -26,6 +26,13 @@ describe('adversary review schema and rendering', () => {
     expect(text).toContain('Answer each')
   })
 
+  it('notes findings held back by the max-findings cap', () => {
+    const text = renderFindings([findings[0]!], undefined, 4)
+    expect(text).toContain('3 further objection(s) held back by adversaryMaxFindings')
+    expect(text).toContain('[blocker] no acceptance evidence')
+    expect(text).not.toContain('[major] scope drift')
+  })
+
   it('renders the clean verdict text', () => {
     expect(CLEAN_TEXT).toContain('no objections')
   })

@@ -43,7 +43,7 @@ export declare const REVIEW_OUTPUT_SCHEMA: ObjectJsonSchema;
 /** Injected when the critic found nothing supportable (English contract text). */
 export declare const CLEAN_TEXT: string;
 /** Render structured findings as the model-facing review text. */
-export declare function renderFindings(findings: readonly ReviewFinding[], prose?: GuardProse): string;
+export declare function renderFindings(findings: readonly ReviewFinding[], prose?: GuardProse, totalCount?: number): string;
 /**
  * Run one adversary review for the given agent and settle it to an
  * injectable outcome. Failures of the review mechanism itself (provider

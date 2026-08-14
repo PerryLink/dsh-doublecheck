@@ -174,16 +174,15 @@ export function apply(ctx: Context, config: Config): void {
   }
 
   const guardToolSet = new Set(config.guardTools)
-  // Evidence folding backs the tdd gate AND the adversary trigger, so either
-  // module compiles the test-run detection; only the gate behavior differs.
-  const detection: TestRunDetection = config.modules.tdd || config.modules.adversary
-    ? compileDetection({
-      testToolNames: config.testToolNames,
-      testCommandPatterns: config.testCommandPatterns,
-      guardTools: config.guardTools,
-      testFilePatterns: config.testFilePatterns,
-    })
-    : { testToolNames: [], testCommandPatterns: [], mutationTools: [], testFilePatterns: [] }
+  // The detection knobs always compile, so a bad regex or an empty name list
+  // fails loud at load even when no module consumes them yet (a later
+  // `/doublecheck report` and the delivery gate read the same compiled table).
+  const detection: TestRunDetection = compileDetection({
+    testToolNames: config.testToolNames,
+    testCommandPatterns: config.testCommandPatterns,
+    guardTools: config.guardTools,
+    testFilePatterns: config.testFilePatterns,
+  })
 
   const snapshots = new WeakMap<Session, Snapshot>()
   /** Reminder queued at pre-execute, attached to the same execution at post-execute. */

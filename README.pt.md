@@ -2,7 +2,7 @@
 
 > **Verifique duas vezes antes de publicar: interrogue os requisitos, teste a implementação, comprove a entrega.**
 
-[![version](https://img.shields.io/badge/version-0.4.0-blue)](https://github.com/PerryLink/dsh-doublecheck/releases)
+[![version](https://img.shields.io/badge/version-0.5.0-blue)](https://github.com/PerryLink/dsh-doublecheck/releases)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![topics](https://img.shields.io/badge/topics-dsh%20%7C%20dsh--plugin-22c55e)](https://github.com/topics/dsh-plugin)
 
@@ -35,15 +35,19 @@ grill ──▶ design ──▶ red ──▶ green ──▶ review ──▶ 
 | **review** | Um crítico adversário bifurcado audita a entrega contra o spec. | ✅ v0.3 |
 | **verify** | `doublecheck_report` + um workflow de verificação por dimensão comprovam a entrega. | ✅ v0.4 |
 
-## Recursos (v0.4)
+## Recursos (v0.5)
 
 - 🔥 **Skill `grill-requirements`** — um skill empacotado no formato Agent Skills que interroga a tarefa em seis dimensões (**objetivo, escopo, critérios de aceite, modos de falha, prioridades, não-objetivos**) usando a UI nativa `ask_user_question` do DSH, recusa escrever código até o consenso e registra o contrato.
+- 🧰 **Skills de etapa para o ciclo inteiro** — `red-green-tdd` (escreva o teste que falha, rode red, implemente, rode green), `delivery-review` (autorrevisão adversária contra o spec uma vez em green) e `delivery-proof` (consolide a evidência no relatório de entrega antes de declarar concluído) juntam-se ao `grill-requirements`: as seis etapas têm orientação de modelo, não só a primeira.
 - 📜 **Ferramenta `doublecheck_spec`** — grava o spec acordado no log da sessão e escreve uma cópia em markdown no workspace, para o contrato sobreviver à conversa.
+- 🔄 **Re-grill na mudança de tarefa** — um spec registrado cobre a própria tarefa: um novo pedido direto do usuário após o último spec reabre o portão grill para esse follow-up, em vez de herdar o contrato anterior em silêncio.
 - 🛡️ **Guard de disciplina** — um portão suave no pipeline de políticas de ferramentas. Tarefa vaga + sem spec + rumo a `edit`/`write` → **lembrar**, **pedir aprovação humana** ou **bloquear**, conforme `intensity`.
 - 🟥🟩 **Portões de evidência red/green** (`modules.tdd`) — verificações duras sobre o log da sessão: uma edição de implementação exige um **teste que falha registrado** desde o último teste que passa (escrever arquivos de teste é sempre permitido — é assim que o passo red acontece), e um turno que termina com edições mas sem nenhum teste que passa recebe um lembrete green injetado.
-- 👁️ **Revisão adversária** (`modules.adversary`) — assim que a entrega chega ao green, um subagente crítico bifurcado (seam nativo de subagentes do DSH, provider `fork` por padrão) audita a sessão contra o spec registrado com postura adversária e devolve achados estruturados. `remind` injeta a crítica; `warn`/`block` ainda direcionam uma rodada para o modelo responder aos achados. `adversaryModel` roteia o crítico para um modelo separado; a allowlist de ferramentas do crítico é somente leitura por padrão. Os achados trafegam pela fonte de mensagens durável `doublecheck-review`.
-- 📊 **Relatório doublecheck + workflow de verificação** (`doublecheck_report`, v0.4) — consolida a evidência de disciplina da sessão (spec, cronologia red/green, achados da revisão, edições) em um relatório de entrega com um veredito derivado (`grill → draft → red → green → objections/verified → proven/challenged`), gravado no workspace. Com `verify`, um verificador paralelo por dimensão do spec roda pelo seam de workflow do DSH e os vereditos se dobram no relatório.
-- 🔁 **Estado durável** — todo artefato visível ao modelo (spec, lembretes, feedback de negação, achados da revisão) fica no log da sessão; as decisões dos portões derivam só do log (`tool/call` + `tool/result`, incluindo os sub-despachos do Code Mode), então sessões retomadas ou bifurcadas se comportam igual.
+- 👁️ **Revisão adversária** (`modules.adversary`) — assim que a entrega chega ao green, um subagente crítico bifurcado (seam nativo de subagentes do DSH, provider `fork` por padrão) audita a sessão contra o spec registrado com postura adversária e devolve achados estruturados. `remind` injeta a crítica; `warn`/`block` ainda direcionam uma rodada para o modelo responder aos achados. `adversaryModel` roteia o crítico para um modelo separado; a allowlist de ferramentas do crítico é somente leitura por padrão. Os achados trafegam pela fonte de mensagens durável `doublecheck-review`. A revisão se rearma quando o crítico termina: edições de implementação após o último registro de revisão disparam outra rodada, e cancelar o turno aborta o crítico em voo.
+- 📊 **Relatório doublecheck + workflow de verificação** (`doublecheck_report`, v0.4) — consolida a evidência de disciplina da sessão (spec, cronologia red/green, achados da revisão, edições) em um relatório de entrega com um veredito derivado (`grill → draft → red → green → objections/verified → proven/challenged/unverified`), gravado no workspace. Com `verify`, os verificadores por dimensão rodam pelo seam de workflow do DSH (`verifyMode: all` lança um verificador paralelo por dimensão; `single` executa um combinado) e os vereditos se dobram no relatório — `proven` exige um veredito para cada dimensão.
+- 🚦 **Portão de entrega** — no limite do turno, uma entrega que chegou ao green sem `doublecheck_report` registrado recebe um lembrete de relatório esperado antes de declarar concluído; um relatório bem-sucedido avança a etapa para `verify`.
+- 🔁 **Estado durável** — todo artefato visível ao modelo (spec, lembretes, feedback de negação, achados da revisão, o interruptor `/doublecheck on|off`) fica no log da sessão; as decisões dos portões derivam só do log (`tool/call` + `tool/result`, incluindo os sub-despachos do Code Mode), então sessões retomadas ou bifurcadas se comportam igual. `remindOnce` também é durável: uma sessão que já recebeu um lembrete nunca o recebe duas vezes, mesmo após reiniciar.
+- ⌨️ **Comando de sessão `/doublecheck`** — `status` informa o interruptor efetivo, os módulos configurados e a etapa dobrada; `report` dobra o relatório de entrega na hora; `on|off` grava o override durável `doublecheck/state` e injeta um aviso de troca.
 - 📚 **Ferramenta `doublecheck_skills`** — lista e carrega os skills do pacote pelo seam oficial do registro de skills.
 
 ## Demo

@@ -180,6 +180,9 @@ describe('doublecheck-guard', () => {
       fullConfig({ vagueTaskMaxChars: 0 }),
       fullConfig({ modules: { grill: true, tdd: true, adversary: false }, testCommandPatterns: ['(unclosed'] }),
       fullConfig({ modules: { grill: true, tdd: false, adversary: true }, testCommandPatterns: ['(unclosed'] }),
+      // The detection knobs always compile, so even a grill-only config fails
+      // loud on a bad pattern (the /doublecheck report reads the same table).
+      fullConfig({ modules: { grill: true, tdd: false, adversary: false }, testCommandPatterns: ['(unclosed'] }),
       fullConfig({ modules: { grill: true, tdd: false, adversary: true }, adversaryMaxFindings: 0 }),
       fullConfig({ modules: { grill: true, tdd: false, adversary: true }, adversaryMaxFindings: 21 }),
       fullConfig({ modules: { grill: true, tdd: false, adversary: true }, adversaryTimeoutMs: 0 }),
