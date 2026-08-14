@@ -12,7 +12,7 @@ import {
   type ReportData,
 } from '../src/domain/report.ts'
 import type { ReviewFinding, VerifyCheck } from '../src/domain/vocabulary.ts'
-import { codeDispatchRun, mutationCall, reviewInjectionEvent, shellCall, shellResult, specToolCall, userTask } from './helpers.ts'
+import { codeDispatchRun, mutationCall, reviewInjectionEvent, sessionEvent, shellCall, shellResult, specToolCall, toolResult, userTask } from './helpers.ts'
 
 const specFields = {
   goal: 'Ship the widget.',
@@ -32,11 +32,11 @@ function detection() {
   })
 }
 
-function reportData(facts = emptyReportFacts(), checks: VerifyCheck[] | null = null): ReportData {
+function reportData(facts = emptyReportFacts(), verification: ReportData['verification'] = null): ReportData {
   return {
     ...facts,
-    verdict: deriveReportVerdict(facts, checks),
-    verification: checks === null ? null : { checks },
+    verdict: deriveReportVerdict(facts, verification),
+    verification,
     path: null,
     written: false,
   }
@@ -47,6 +47,7 @@ describe('foldReportFacts', () => {
     const events = [
       userTask('fix the bug in parser.ts'),
       specToolCall(specFields, 'spec-1'),
+      toolResult('spec-1'),
       shellCall('bash', 'pnpm test', 't-1'),
       shellResult('t-1', '[exit code: 1]'),
       mutationCall('edit', 'src/app.ts', 'e-1'),
@@ -74,6 +75,23 @@ describe('foldReportFacts', () => {
     expect(facts.spec).toBeNull()
     expect(facts.testRuns).toEqual({ failed: 0, passed: 0 })
     expect(facts.timeline).toHaveLength(0)
+  })
+
+  it('only a successful spec pair commits the spec (an errored call leaves it null)', () => {
+    const errored = [
+      specToolCall(specFields, 'spec-err'),
+      sessionEvent('tool/result', { message: { source: { kind: 'tool', callId: 'spec-err' } }, error: { name: 'ToolError', code: 'broken' } }),
+    ]
+    const facts = foldReportFacts(errored as never, detection())
+    expect(facts.spec).toBeNull()
+    expect(facts.timeline).toHaveLength(0)
+
+    const committed = [
+      specToolCall(specFields, 'spec-ok'),
+      sessionEvent('tool/result', { message: { source: { kind: 'tool', callId: 'spec-ok' } } }),
+    ]
+    const good = foldReportFacts(committed as never, detection())
+    expect(good.spec).toEqual(specFields)
   })
 
   it('folds Code Mode test runs into the timeline', () => {
@@ -111,23 +129,33 @@ describe('deriveReportVerdict', () => {
     expect(deriveReportVerdict(verified, null)).toBe('verified')
   })
 
-  it('verification overrides with proven or challenged', () => {
+  it('derives proven only from a verdict for every dimension', () => {
     const facts = { ...emptyReportFacts(), spec: specFields, edits: 2, timeline: [{ kind: 'green' as const, detail: 'x' }] }
     const pass = (dimension: string): VerifyCheck => ({ dimension: dimension as VerifyCheck['dimension'], verdict: 'pass', evidence: 'e', note: '' })
-    expect(deriveReportVerdict(facts, [pass('goal'), pass('scope')])).toBe('proven')
-    expect(deriveReportVerdict(facts, [pass('goal'), { ...pass('scope'), verdict: 'fail' as const }])).toBe('challenged')
+    const allPass = ['goal', 'scope', 'acceptanceCriteria', 'failureModes', 'priorities', 'nonGoals'].map(pass)
+    expect(deriveReportVerdict(facts, { checks: allPass, complete: true })).toBe('proven')
+    expect(deriveReportVerdict(facts, { checks: [pass('goal'), pass('scope')], complete: false })).toBe('unverified')
+    expect(deriveReportVerdict(facts, { checks: [pass('goal'), { ...pass('scope'), verdict: 'fail' as const }], complete: true })).toBe('challenged')
   })
 })
 
 describe('verify workflow artifacts', () => {
-  it('builds a script that fans out one checker per dimension', () => {
-    const script = buildVerifyScript()
+  it('builds the all-mode script that fans out one checker per dimension', () => {
+    const script = buildVerifyScript('all')
     expect(script).toContain("phase('doublecheck verify')")
     expect(script).toContain('args.dimensions.map')
     expect(script).toContain('args.spec[dimension]')
     expect(script).toContain('checks.filter(Boolean)')
     expect(VERIFY_META.name).toBe('doublecheck-verify')
     expect(() => assertObjectJsonSchema(VERIFY_CHECK_SCHEMA)).not.toThrow()
+  })
+
+  it('builds the single-mode script with one combined checker', () => {
+    const script = buildVerifyScript('single')
+    expect(script).toContain("phase('doublecheck verify')")
+    expect(script).toContain('verify-all')
+    expect(script).toContain('JSON.stringify(args.spec)')
+    expect(script).not.toContain('args.dimensions.map')
   })
 })
 

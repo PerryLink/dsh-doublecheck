@@ -27,9 +27,13 @@
  * @module dsh-doublecheck/guard
  */
 import type { Context } from '@deepseek-ai/cordis';
+import type { SessionEvent } from '@deepseek-ai/dsh-session';
 import type Schema from '@deepseek-ai/schemastery';
+import { type DisciplineState } from '../domain/stages.ts';
 import type { GuardIntensity } from '../events.ts';
+import { type ProseLanguage } from './prose.ts';
 export declare const name = "doublecheck-guard";
+export declare const inject: string[];
 /**
  * Guard configuration. `intensity` is shared by all three gates; `modules`
  * selects them. The `adversary` module (v0.3) dispatches a forked critic
@@ -60,6 +64,10 @@ export interface Config {
     vagueTaskMaxChars: number;
     /** Inject each gate's reminder at most once per session. */
     remindOnce: boolean;
+    /** Language of the injected reminder/deny/review prose. */
+    language: ProseLanguage;
+    /** Master switch for sessions without a `doublecheck/state` override. */
+    enableByDefault: boolean;
     /** Shell tool names that can run tests (default `bash`, `pwsh`). */
     testToolNames: string[];
     /** Regexes a shell command must match to count as a test run. */
@@ -68,10 +76,36 @@ export interface Config {
     testFilePatterns: string[];
 }
 export declare const Config: Schema<Config>;
+/** Cached per-session guard facts, folded incrementally from the append-only log. */
+export interface Snapshot {
+    /** The log snapshot this fold last consumed; an append yields a new one. */
+    events: readonly SessionEvent[];
+    /** Number of events already folded. */
+    scanned: number;
+    /** Latest direct-user task text folded so far. */
+    latestUserText: string;
+    /** `isVagueTask` applied to `latestUserText`. */
+    vague: boolean;
+    /** Seq of the latest direct-user task message, or 0 before any. */
+    lastTaskSeq: number;
+    /** The discipline fold (spec, red/green color, green gate, pending pairs). */
+    discipline: DisciplineState;
+    /** A grill reminder is already on record in the log (durable `remindOnce`). */
+    grillReminded: boolean;
+    /** A red-gate reminder is already on record in the log (durable `remindOnce`). */
+    redReminded: boolean;
+    /** A green-gate reminder is already on record in the log (durable `remindOnce`). */
+    greenReminded: boolean;
+    /** A delivery-report reminder is already on record in the log (durable `remindOnce`). */
+    reportReminded: boolean;
+    /** Seq of the latest `doublecheck-review` source record, or -1 before any. */
+    lastReviewSeq: number;
+    /** Implementation edits folded after {@link lastReviewSeq}. */
+    editsAfterReview: number;
+}
 /**
  * Install the guard listeners.
  * @param ctx - plugin context; listeners unwind with it.
  * @param config - validated {@link Config}; reserved-module misuse fails loud here.
  */
 export declare function apply(ctx: Context, config: Config): void;
-//# sourceMappingURL=index.d.ts.map

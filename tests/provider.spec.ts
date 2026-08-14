@@ -40,8 +40,13 @@ describe('BundledSkillProvider', () => {
 
   it('lists the shipped skills with bundled rank and metadata', async () => {
     const candidates = await provider.list({})
-    expect(candidates.map(candidate => candidate.name)).toEqual(['grill-requirements'])
-    const candidate = candidates[0]
+    expect(candidates.map(candidate => candidate.name)).toEqual([
+      'delivery-proof',
+      'delivery-review',
+      'grill-requirements',
+      'red-green-tdd',
+    ])
+    const candidate = candidates.find(entry => entry.name === 'grill-requirements')
     expect(candidate?.provider).toBe(PROVIDER_NAME)
     expect(candidate?.source).toBe('bundled')
     expect(candidate?.rank).toBe(BUNDLED_SKILL_RANK)
@@ -54,7 +59,7 @@ describe('BundledSkillProvider', () => {
   })
 
   it('loads a complete skill definition for a listed candidate', async () => {
-    const candidate = (await provider.list({}))[0]
+    const candidate = (await provider.list({})).find(entry => entry.name === 'grill-requirements')
     expect(candidate).toBeDefined()
     const definition = await provider.get(candidate!, {})
     expect(definition?.name).toBe('grill-requirements')

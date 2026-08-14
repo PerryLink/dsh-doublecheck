@@ -12,3 +12,5 @@ doublecheck-report.md
 
 *.out
 *.bak
+
+*.tmpdir/

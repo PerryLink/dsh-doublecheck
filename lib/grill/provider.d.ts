@@ -54,4 +54,3 @@ export declare class BundledSkillProvider implements SkillProvider {
  */
 export declare function parseSkillAsset(raw: string): ParsedSkill | undefined;
 export {};
-//# sourceMappingURL=provider.d.ts.map

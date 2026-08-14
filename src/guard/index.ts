@@ -42,6 +42,7 @@ import {
   compileDetection,
   isTestFilePath,
   mutationTargetPath,
+  parseRawArguments,
   type TestRunDetection,
 } from '../domain/evidence.ts'
 import { emptyDisciplineState, foldDisciplineRange, type DisciplineState } from '../domain/stages.ts'
@@ -49,8 +50,19 @@ import { isVagueTask } from '../domain/vagueness.ts'
 import type { GuardIntensity } from '../events.ts'
 import { runAdversaryReview, reviewInjection } from './review.ts'
 import type { AdversaryConfig } from './review.ts'
+import { PROSE, type ProseLanguage } from './prose.ts'
+import {
+  applyDoublecheckEvent,
+  emptyDoublecheckState,
+  viewDoublecheck,
+  type DoublecheckProjectionState,
+} from '../domain/projection.ts'
+import { doublecheckViewSchema, type DoublecheckView } from '../types.ts'
+import { installInvariant, PACKAGE_NAME, type InvariantRegistry } from '../invariant.ts'
+import { doublecheckHandler, effectiveDoublecheckEnabled, hostStampsIgnorable } from './command.ts'
 
 export const name = 'doublecheck-guard'
+export const inject = ['commands']
 
 /**
  * Guard configuration. `intensity` is shared by all three gates; `modules`
@@ -82,6 +94,10 @@ export interface Config {
   vagueTaskMaxChars: number
   /** Inject each gate's reminder at most once per session. */
   remindOnce: boolean
+  /** Language of the injected reminder/deny/review prose. */
+  language: ProseLanguage
+  /** Master switch for sessions without a `doublecheck/state` override. */
+  enableByDefault: boolean
   /** Shell tool names that can run tests (default `bash`, `pwsh`). */
   testToolNames: string[]
   /** Regexes a shell command must match to count as a test run. */
@@ -94,9 +110,9 @@ export const Config: Schema<Config> = z.object({
   intensity: z.union(['remind', 'warn', 'block'] as const).default('remind'),
   modules: z.object({
     grill: z.boolean().default(true),
-    tdd: z.boolean().default(false),
+    tdd: z.boolean().default(true),
     adversary: z.boolean().default(false),
-  }).default({ grill: true, tdd: false, adversary: false }),
+  }).default({ grill: true, tdd: true, adversary: false }),
   adversaryModel: z.union([z.string(), z.const(null)]).default(null),
   adversaryProvider: z.string().min(1).default('fork'),
   adversaryMaxFindings: z.number().default(5),
@@ -105,65 +121,15 @@ export const Config: Schema<Config> = z.object({
   guardTools: z.array(z.string()).default([...DEFAULT_MUTATION_TOOLS]),
   vagueTaskMaxChars: z.number().default(200),
   remindOnce: z.boolean().default(true),
+  language: z.union(['en', 'zh'] as const).default('en'),
+  enableByDefault: z.boolean().default(true),
   testToolNames: z.array(z.string()).default([...DEFAULT_TEST_TOOL_NAMES]),
   testCommandPatterns: z.array(z.string()).default([...DEFAULT_TEST_COMMAND_PATTERNS]),
   testFilePatterns: z.array(z.string()).default([...DEFAULT_TEST_FILE_PATTERNS]),
 })
 
-/** Reminder prose injected under `intensity: remind` (and after held/denied calls). */
-const REMINDER_TEXT =
-  'Double-check before you ship: this task is brief and no doublecheck spec '
-  + 'has been recorded for it yet. Pause the edit and settle the six '
-  + 'requirement dimensions first — goal, scope, acceptance criteria, failure '
-  + 'modes, priorities, non-goals. Follow the grill-requirements skill: ask '
-  + 'the user with the ask_user_question tool until consensus, record the '
-  + 'result with doublecheck_spec, and only then resume editing.'
-
-/** Denial feedback under `intensity: block`. */
-const DENY_REASON =
-  'Blocked by the dsh-doublecheck requirements guard: the task statement is '
-  + 'vague and no doublecheck_spec exists for this session. Run the '
-  + 'requirements grill first (grill-requirements skill → ask_user_question → '
-  + 'doublecheck_spec), then retry this call.'
-
-/** Approval question under `intensity: warn`. */
-const ASK_REASON =
-  'The task statement is vague and no doublecheck spec exists for this '
-  + 'session. Allow this edit before the requirements grill has run?'
-
-/** Red-gate reminder prose. */
-const TDD_REMIND_TEXT =
-  'Red/green discipline: no failing test is on record since the last passing '
-  + 'test run. Before editing implementation code, write a test that fails '
-  + 'for the missing behavior and run it to see it fail — then make the '
-  + 'change. Test files themselves are always editable.'
-
-/** Red-gate denial feedback under `intensity: block`. */
-const TDD_DENY_REASON =
-  'Blocked by the dsh-doublecheck red/green evidence gate: no failing test '
-  + 'is on record since the last passing test run. Write the failing test '
-  + 'first (test files are allowed), run it to see it fail, then edit the '
-  + 'implementation.'
-
-/** Red-gate approval question under `intensity: warn`. */
-const TDD_ASK_REASON =
-  'No failing test is on record since the last passing test run. Allow this '
-  + 'implementation edit before the red step?'
-
-/** Green-gate reminder prose under `intensity: remind`. */
-const GREEN_REMIND_TEXT =
-  'Green gate: the implementation changed, but no passing test run is on '
-  + 'record after those changes. Run the test suite and confirm it passes '
-  + 'before declaring the work done.'
-
-/** Green-gate reminder prose under `intensity: warn`/`block`. */
-const GREEN_REMIND_STRICT_TEXT =
-  'Green gate: the implementation changed, but no passing test run is on '
-  + 'record after those changes. Do not claim completion — run the test '
-  + 'suite and make it pass first.'
-
 /** Cached per-session guard facts, folded incrementally from the append-only log. */
-interface Snapshot {
+export interface Snapshot {
   /** The log snapshot this fold last consumed; an append yields a new one. */
   events: readonly SessionEvent[]
   /** Number of events already folded. */
@@ -172,8 +138,22 @@ interface Snapshot {
   latestUserText: string
   /** `isVagueTask` applied to `latestUserText`. */
   vague: boolean
+  /** Seq of the latest direct-user task message, or 0 before any. */
+  lastTaskSeq: number
   /** The discipline fold (spec, red/green color, green gate, pending pairs). */
   discipline: DisciplineState
+  /** A grill reminder is already on record in the log (durable `remindOnce`). */
+  grillReminded: boolean
+  /** A red-gate reminder is already on record in the log (durable `remindOnce`). */
+  redReminded: boolean
+  /** A green-gate reminder is already on record in the log (durable `remindOnce`). */
+  greenReminded: boolean
+  /** A delivery-report reminder is already on record in the log (durable `remindOnce`). */
+  reportReminded: boolean
+  /** Seq of the latest `doublecheck-review` source record, or -1 before any. */
+  lastReviewSeq: number
+  /** Implementation edits folded after {@link lastReviewSeq}. */
+  editsAfterReview: number
 }
 
 /**
@@ -193,11 +173,6 @@ export function apply(ctx: Context, config: Config): void {
     // missing seam then settles as an honest "unavailable" notice.
   }
 
-  if (!config.modules.grill && !config.modules.tdd && !config.modules.adversary) {
-    ctx.logger.info('dsh-doublecheck: all discipline gates disabled; the guard contributes nothing')
-    return
-  }
-
   const guardToolSet = new Set(config.guardTools)
   // Evidence folding backs the tdd gate AND the adversary trigger, so either
   // module compiles the test-run detection; only the gate behavior differs.
@@ -213,30 +188,57 @@ export function apply(ctx: Context, config: Config): void {
   const snapshots = new WeakMap<Session, Snapshot>()
   /** Reminder queued at pre-execute, attached to the same execution at post-execute. */
   const pendingReminders = new WeakMap<ToolExecution, UserMessage>()
-  /** Sessions that already received a grill reminder, for `remindOnce`. */
-  const remindedSessions = new WeakSet<Session>()
-  /** Sessions that already received a red-gate reminder, for `remindOnce`. */
-  const tddRedReminded = new WeakSet<Session>()
-  /** Sessions that already received a green-gate reminder, for `remindOnce`. */
-  const tddGreenReminded = new WeakSet<Session>()
-  /** Sessions that already ran the adversary review (once per session). */
-  const reviewedSessions = new WeakSet<Session>()
+  /** Process-local switch overrides written by `/doublecheck on|off` on hosts that cannot store the durable event. */
+  const localOverrides = new WeakMap<Session, boolean>()
 
-  /** Fold `events[start..end)` into the snapshot; each event is folded once per session. */
+  /** The effective switch for a session: the local override first, then the durable log fold. */
+  function doublecheckEnabled(session: Session): boolean {
+    return localOverrides.get(session) ?? effectiveDoublecheckEnabled(session.events, config.enableByDefault)
+  }
+
+  const prose = PROSE[config.language]
+
+  /**
+   * Fold `events[start..end)` into the snapshot; each event is folded once
+   * per session. Beyond the discipline fold, this tracks the durable
+   * once-semantics facts: reminder notices and review records ride the log as
+   * `user/message` sources, so `remindOnce` and the once-per-green review
+   * survive restarts, resumes, and forks without process memory.
+   */
   function foldEvents(snapshot: Snapshot, events: readonly SessionEvent[], start: number, end: number): void {
     foldDisciplineRange(snapshot.discipline, events, start, detection)
     for (let index = start; index < end; index += 1) {
       const event = events[index]
       if (event === undefined) continue
-      if (event.type !== 'user/message') continue
-      if ((event.data.source as { kind?: unknown }).kind !== 'user') continue
-      const parts: string[] = []
-      for (const block of event.data.content) {
-        if (block.type === 'text') parts.push(block.text)
-      }
-      if (parts.length > 0) {
-        snapshot.latestUserText = parts.join('\n')
-        snapshot.vague = isVagueTask(snapshot.latestUserText, config)
+      if (event.type === 'user/message') {
+        const source = event.data.source as { kind?: unknown; plugin?: unknown; form?: unknown; summary?: unknown }
+        if (source.kind === 'plugin' && source.plugin === 'dsh-doublecheck' && source.form === 'notice') {
+          if (source.summary === 'requirements check') snapshot.grillReminded = true
+          else if (source.summary === 'red/green check') snapshot.redReminded = true
+          else if (source.summary === 'green gate') snapshot.greenReminded = true
+          else if (source.summary === 'delivery report') snapshot.reportReminded = true
+        } else if (source.kind === 'doublecheck-review') {
+          snapshot.lastReviewSeq = event.seq
+          snapshot.editsAfterReview = 0
+        } else if (source.kind === 'user') {
+          const parts: string[] = []
+          for (const block of event.data.content) {
+            if (block.type === 'text') parts.push(block.text)
+          }
+          if (parts.length > 0) {
+            snapshot.latestUserText = parts.join('\n')
+            snapshot.vague = isVagueTask(snapshot.latestUserText, config)
+            snapshot.lastTaskSeq = event.seq
+          }
+        }
+      } else if (event.type === 'tool/call' && event.seq > snapshot.lastReviewSeq) {
+        // Implementation edits after the latest review re-arm the adversary
+        // trigger for a second review round.
+        const args = parseRawArguments(event.data.arguments)
+        const path = mutationTargetPath(event.data.name, args, detection)
+        if (path !== undefined && !isTestFilePath(path, detection)) {
+          snapshot.editsAfterReview += 1
+        }
       }
     }
     snapshot.scanned = end
@@ -249,7 +251,14 @@ export function apply(ctx: Context, config: Config): void {
       scanned: 0,
       latestUserText: '',
       vague: false,
+      lastTaskSeq: 0,
       discipline: emptyDisciplineState(),
+      grillReminded: false,
+      redReminded: false,
+      greenReminded: false,
+      reportReminded: false,
+      lastReviewSeq: -1,
+      editsAfterReview: 0,
     }
     foldEvents(snapshot, events, 0, events.length)
     snapshots.set(session, snapshot)
@@ -287,17 +296,37 @@ export function apply(ctx: Context, config: Config): void {
   }
 
   /** The grill reminder for this reaction, or undefined when already reminded. */
-  function nextGrillReminder(session: Session): UserMessage | undefined {
-    if (config.remindOnce && remindedSessions.has(session)) return undefined
-    remindedSessions.add(session)
-    return notice('requirements check', REMINDER_TEXT)
+  function nextGrillReminder(snapshot: Snapshot): UserMessage | undefined {
+    if (config.remindOnce && snapshot.grillReminded) return undefined
+    snapshot.grillReminded = true
+    return notice('requirements check', prose.grillReminder)
   }
 
   /** The red-gate reminder for this reaction, or undefined when already reminded. */
-  function nextTddRedReminder(session: Session): UserMessage | undefined {
-    if (config.remindOnce && tddRedReminded.has(session)) return undefined
-    tddRedReminded.add(session)
-    return notice('red/green check', TDD_REMIND_TEXT)
+  function nextTddRedReminder(snapshot: Snapshot): UserMessage | undefined {
+    if (config.remindOnce && snapshot.redReminded) return undefined
+    snapshot.redReminded = true
+    return notice('red/green check', prose.tddReminder)
+  }
+
+  // The session command stays available even when every module is off:
+  // `/doublecheck on` is how a disabled session re-enables the gates.
+  ctx.commands.register({
+    name: 'doublecheck',
+    description: 'inspect or switch the dsh-doublecheck discipline gates for this session',
+    input: { hint: 'status|report|on|off' },
+    handler: doublecheckHandler({
+      config,
+      snapshotOf,
+      detection,
+      stampsIgnorable: hostStampsIgnorable,
+      setLocalOverride: (session, enabled) => localOverrides.set(session, enabled),
+    }),
+  })
+
+  if (!config.modules.grill && !config.modules.tdd && !config.modules.adversary) {
+    ctx.logger.info('dsh-doublecheck: all discipline gates disabled; only the /doublecheck command remains active')
+    return
   }
 
   // The policy gate. Observe-and-decide: the grill gate owns vague,
@@ -307,11 +336,16 @@ export function apply(ctx: Context, config: Config): void {
   ctx.on('tools/pre-execute', async (exec, next): Promise<PreToolDecision> => {
     const agent = exec.agent
     if (agent === undefined || !guardToolSet.has(exec.name)) return next()
+    if (!doublecheckEnabled(agent.session)) return next()
     const snapshot = snapshotOf(agent.session)
 
     // Grill gate: first discipline stage wins while it stays unsatisfied.
-    if (config.modules.grill && !snapshot.discipline.hasSpec && snapshot.vague) {
-      const reminder = nextGrillReminder(agent.session)
+    // The gate reopens when a new direct-user task arrives after the latest
+    // spec commit (seq comparison): a committed spec covers its own task,
+    // not follow-up requests the user appended to the session.
+    const grillOpen = !snapshot.discipline.hasSpec || snapshot.discipline.specSeq < snapshot.lastTaskSeq
+    if (config.modules.grill && grillOpen && snapshot.vague) {
+      const reminder = nextGrillReminder(snapshot)
       if (reminder !== undefined) pendingReminders.set(exec, reminder)
       switch (config.intensity) {
         case 'remind': {
@@ -322,7 +356,7 @@ export function apply(ctx: Context, config: Config): void {
             intensity: config.intensity,
             gate: 'grill',
             verdict: 'reminded',
-            ...reminder !== undefined ? { reminder: REMINDER_TEXT } : {},
+            ...reminder !== undefined ? { reminder: prose.grillReminder } : {},
           })
           return next()
         }
@@ -335,7 +369,7 @@ export function apply(ctx: Context, config: Config): void {
             gate: 'grill',
             verdict: 'held',
           })
-          return { kind: 'ask', reason: ASK_REASON }
+          return { kind: 'ask', reason: prose.grillAsk }
         }
         case 'block': {
           ctx.emit('doublecheck/reminder', {
@@ -346,7 +380,7 @@ export function apply(ctx: Context, config: Config): void {
             gate: 'grill',
             verdict: 'denied',
           })
-          return { kind: 'deny', reason: DENY_REASON }
+          return { kind: 'deny', reason: prose.grillDeny }
         }
         /* v8 ignore next -- GuardIntensity is a closed union; a future member must fail compilation here. */
         default:
@@ -360,7 +394,7 @@ export function apply(ctx: Context, config: Config): void {
       const args = exec.arguments as Record<string, unknown> | undefined
       const path = mutationTargetPath(exec.name, args, detection)
       if (path !== undefined && isTestFilePath(path, detection)) return next()
-      const reminder = nextTddRedReminder(agent.session)
+      const reminder = nextTddRedReminder(snapshot)
       if (reminder !== undefined) pendingReminders.set(exec, reminder)
       switch (config.intensity) {
         case 'remind': {
@@ -371,7 +405,7 @@ export function apply(ctx: Context, config: Config): void {
             intensity: config.intensity,
             gate: 'tdd',
             verdict: 'reminded',
-            ...reminder !== undefined ? { reminder: TDD_REMIND_TEXT } : {},
+            ...reminder !== undefined ? { reminder: prose.tddReminder } : {},
           })
           return next()
         }
@@ -384,7 +418,7 @@ export function apply(ctx: Context, config: Config): void {
             gate: 'tdd',
             verdict: 'held',
           })
-          return { kind: 'ask', reason: TDD_ASK_REASON }
+          return { kind: 'ask', reason: prose.tddAsk }
         }
         case 'block': {
           ctx.emit('doublecheck/reminder', {
@@ -395,7 +429,7 @@ export function apply(ctx: Context, config: Config): void {
             gate: 'tdd',
             verdict: 'denied',
           })
-          return { kind: 'deny', reason: TDD_DENY_REASON }
+          return { kind: 'deny', reason: prose.tddDeny }
         }
         /* v8 ignore next -- GuardIntensity is a closed union; a future member must fail compilation here. */
         default:
@@ -424,23 +458,48 @@ export function apply(ctx: Context, config: Config): void {
     return { ...downstream, additionalContexts: prependContext(reminder, downstream.additionalContexts) }
   })
 
-  // Green gate and adversary review at the turn boundary. Advisory, not a
-  // veto — `agent/turn-stopping` never blocks the close, and a review that
-  // cannot run settles as an honest "unavailable" notice.
-  ctx.on('agent/turn-stopping', async ({ agent }) => {
-    if (config.modules.tdd) {
-      const snapshot = snapshotOf(agent.session)
-      if (snapshot.discipline.pendingGreen) {
-        if (!config.remindOnce || !tddGreenReminded.has(agent.session)) {
-          tddGreenReminded.add(agent.session)
-          const text = config.intensity === 'remind' ? GREEN_REMIND_TEXT : GREEN_REMIND_STRICT_TEXT
-          agent.inject(notice('green gate', text))
+  // Green gate, delivery gate, and adversary review at the turn boundary.
+  // Advisory, not a veto — `agent/turn-stopping` never blocks the close, and
+  // a review that cannot run settles as an honest "unavailable" notice. The
+  // turn's abort signal cancels the review instead of letting it run out the
+  // configured timeout.
+  ctx.on('agent/turn-stopping', async ({ agent, signal: turnSignal }) => {
+    if (!doublecheckEnabled(agent.session)) return
+    const snapshot = snapshotOf(agent.session)
+    if (config.modules.tdd && snapshot.discipline.pendingGreen) {
+      if (!config.remindOnce || !snapshot.greenReminded) {
+        snapshot.greenReminded = true
+        const text = config.intensity === 'remind' ? prose.greenReminder : prose.greenReminderStrict
+        agent.inject(notice('green gate', text))
+        ctx.emit('doublecheck/reminder', {
+          agent,
+          session: agent.session,
+          intensity: config.intensity,
+          gate: 'tdd',
+          verdict: 'green-pending',
+          reminder: text,
+        })
+      }
+    }
+
+    // Delivery gate (advisory): once the loop reaches green and no
+    // doublecheck_report is on record, expect the delivery record before
+    // completion claims. Requires test-evidence tracking (tdd or adversary),
+    // since `green` itself is only known when detection is compiled.
+    if (config.modules.tdd || config.modules.adversary) {
+      const discipline = snapshot.discipline
+      if (discipline.hasSpec && discipline.editCount > 0 && discipline.color === 'green'
+        && !discipline.pendingGreen && discipline.stage !== 'verify') {
+        if (!config.remindOnce || !snapshot.reportReminded) {
+          snapshot.reportReminded = true
+          const text = prose.reportExpected
+          agent.inject(notice('delivery report', text))
           ctx.emit('doublecheck/reminder', {
             agent,
             session: agent.session,
             intensity: config.intensity,
-            gate: 'tdd',
-            verdict: 'green-pending',
+            gate: 'delivery',
+            verdict: 'report-expected',
             reminder: text,
           })
         }
@@ -448,13 +507,14 @@ export function apply(ctx: Context, config: Config): void {
     }
 
     if (!config.modules.adversary) return
-    const snapshot = snapshotOf(agent.session)
     const discipline = snapshot.discipline
     if (!discipline.hasSpec || discipline.editCount === 0 || discipline.pendingGreen || discipline.color !== 'green') return
-    if (reviewedSessions.has(agent.session)) return
-    reviewedSessions.add(agent.session)
+    // Once-per-green, durable: a review is due only when implementation
+    // edits exist after the latest review record (first review counts every
+    // edit). Folded from the log, so resumes and forks re-derive the same.
+    if (snapshot.editsAfterReview === 0) return
 
-    const outcome = await runAdversaryReview(ctx, adversaryConfig(config), agent)
+    const outcome = await runAdversaryReview(ctx, adversaryConfig(config), agent, turnSignal)
     agent.inject(reviewInjection(outcome))
     ctx.emit('doublecheck/review', {
       session: agent.session,
@@ -464,8 +524,42 @@ export function apply(ctx: Context, config: Config): void {
       text: outcome.text,
     })
     if (outcome.verdict === 'findings' && config.intensity !== 'remind') {
-      agent.steer(notice('adversary review', config.intensity === 'block' ? REVIEW_STEER_STRICT : REVIEW_STEER))
+      agent.steer(notice('adversary review', config.intensity === 'block' ? prose.reviewSteerStrict : prose.reviewSteer))
     }
+  })
+
+  // The `doublecheck` session projection: folds the same durable discipline
+  // facts the guard reads into a plain-JSON wire value a client renders.
+  // Activates only when a projection registry is composed.
+  ctx.inject(['sessionProjections'], (projectionCtx) => {
+    const registry = projectionCtx.get('sessionProjections') as {
+      register(definition: {
+        key: 'doublecheck'
+        schema: { parse(value: unknown): DoublecheckView }
+        init(): DoublecheckProjectionState
+        apply(state: DoublecheckProjectionState, event: SessionEvent): DoublecheckProjectionState
+        view(state: DoublecheckProjectionState): DoublecheckView
+        stateVersion: number
+      }): () => void
+    } | undefined
+    if (registry === undefined) return
+    registry.register({
+      key: 'doublecheck',
+      schema: doublecheckViewSchema,
+      init: emptyDoublecheckState,
+      apply: (state, event) => applyDoublecheckEvent(state, event, detection),
+      view: viewDoublecheck,
+      stateVersion: 1,
+    })
+  })
+
+  // The invariant companion, registered from the main plugin so its checks
+  // see the live detection knobs. Activates only when an invariant registry
+  // is composed.
+  ctx.inject(['invariants'], (invariantCtx) => {
+    const registry = invariantCtx.get('invariants') as InvariantRegistry | undefined
+    if (registry === undefined) return
+    registry.register(PACKAGE_NAME, installInvariant({ detection: () => detection }))
   })
 }
 
@@ -477,20 +571,9 @@ function adversaryConfig(config: Config): AdversaryConfig {
     adversaryMaxFindings: config.adversaryMaxFindings,
     adversaryTools: config.adversaryTools,
     adversaryTimeoutMs: config.adversaryTimeoutMs,
+    language: config.language,
   }
 }
-
-/** Steering prose under `intensity: warn` after findings. */
-const REVIEW_STEER =
-  'The adversary review above found objections against this delivery. '
-  + 'Address them before finishing: fix what is real, and state plainly what '
-  + 'is false.'
-
-/** Steering prose under `intensity: block` after findings. */
-const REVIEW_STEER_STRICT =
-  'The adversary review above found objections against this delivery. Do not '
-  + 'claim completion while they stand: fix every blocker and major finding, '
-  + 'or prove it false, before you finish.'
 
 /** Prepend our reminder while preserving every downstream context's source and metadata. */
 function prependContext(ours: UserMessage, theirs: UserMessage[] | undefined): UserMessage[] {

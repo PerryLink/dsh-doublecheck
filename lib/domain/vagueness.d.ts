@@ -23,4 +23,3 @@ export interface VaguenessConfig {
  * @returns true when the task is brief and names no concrete artifact.
  */
 export declare function isVagueTask(text: string, config: VaguenessConfig): boolean;
-//# sourceMappingURL=vagueness.d.ts.map

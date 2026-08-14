@@ -76,11 +76,16 @@ describe('mutationTargetPath + isTestFilePath', () => {
 
 describe('testOutcome', () => {
   it('classifies shell result markers', () => {
-    expect(testOutcome('12 passed', false)).toBe('pass')
     expect(testOutcome('1 failed\n[exit code: 1]', false)).toBe('fail')
     expect(testOutcome('[exit code: 0]', false)).toBe('pass')
+    expect(testOutcome('12 passed\n[exit code: 0]', false)).toBe('pass')
     expect(testOutcome('[timed out after 60000ms]', false)).toBe('fail')
     expect(testOutcome('[killed by signal: SIGTERM]', false)).toBe('fail')
+  })
+
+  it('treats a marker-less finished run as a pass (fixture contract)', () => {
+    expect(testOutcome('12 passed', false)).toBe('pass')
+    expect(testOutcome('', false)).toBe('pass')
   })
 
   it('returns undefined for non-evidence results', () => {

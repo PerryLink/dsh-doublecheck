@@ -39,9 +39,13 @@ export const DISCIPLINE_STAGES: readonly DisciplineStage[] = [
 /** Name of the model-facing tool that commits a grilled requirements spec. */
 export const SPEC_TOOL_NAME = 'doublecheck_spec'
 
+/** Name of the model-facing tool that consolidates the delivery report. */
+export const REPORT_TOOL_NAME = 'doublecheck_report'
+
 /** Which stage a successful call of the named tool advances the session to. */
 const STAGE_BY_TOOL: Readonly<Record<string, DisciplineStage>> = {
   [SPEC_TOOL_NAME]: 'design',
+  [REPORT_TOOL_NAME]: 'verify',
 }
 
 /** The current red/green color of the session: the latest test-run evidence. */
@@ -57,14 +61,16 @@ export interface DisciplineState {
   stage: DisciplineStage
   /** Whether a successful `doublecheck_spec` call exists in the log. */
   hasSpec: boolean
+  /** The log sequence of the latest successful spec commit (0 = none). Guards compare it with the latest direct user task to reopen the grill on new tasks. */
+  specSeq: number
   /** The latest test-run evidence: red = failing since the last pass. */
   color: TestColor
   /** An implementation edit happened after the latest passing test run. */
   pendingGreen: boolean
   /** Total implementation edits folded so far (the green-gate reminder epoch). */
   editCount: number
-  /** Spec-tool call ids whose results have not been folded yet. */
-  pendingSpecCalls: Set<string>
+  /** Stage-tool call ids whose results have not been folded yet, mapped to the stage they advance. */
+  pendingStageCalls: Map<string, DisciplineStage>
   /** Test-run call ids whose results have not been folded yet. */
   pendingTestCalls: Set<string>
 }
@@ -74,10 +80,11 @@ export function emptyDisciplineState(): DisciplineState {
   return {
     stage: 'grill',
     hasSpec: false,
+    specSeq: 0,
     color: 'none',
     pendingGreen: false,
     editCount: 0,
-    pendingSpecCalls: new Set(),
+    pendingStageCalls: new Map(),
     pendingTestCalls: new Set(),
   }
 }
@@ -130,7 +137,7 @@ export function foldDisciplineRange(
         const args = parseRawArguments(event.data.arguments)
         const stage = STAGE_BY_TOOL[event.data.name]
         if (stage !== undefined) {
-          state.pendingSpecCalls.add(event.data.callId)
+          state.pendingStageCalls.set(event.data.callId, stage)
         }
         const command = shellCommand(event.data.name, args, detection)
         if (command !== undefined && isTestCommand(command, detection)) {
@@ -145,9 +152,16 @@ export function foldDisciplineRange(
       }
       case 'tool/result': {
         const callId = event.data.message.source.callId
-        if (event.data.error === undefined && state.pendingSpecCalls.delete(callId)) {
-          state.hasSpec = true
-          state.stage = STAGE_BY_TOOL[SPEC_TOOL_NAME]
+        const stage = state.pendingStageCalls.get(callId)
+        if (stage !== undefined) {
+          state.pendingStageCalls.delete(callId)
+          if (event.data.error === undefined) {
+            if (stage === 'design') {
+              state.hasSpec = true
+              state.specSeq = event.seq
+            }
+            state.stage = stage
+          }
         }
         if (state.pendingTestCalls.delete(callId)) {
           foldTestOutcome(state, testOutcome(joinTextBlocks(event.data.message.content), event.data.error !== undefined))
@@ -159,6 +173,14 @@ export function foldDisciplineRange(
         const command = shellCommand(event.data.name, args, detection)
         if (command !== undefined && isTestCommand(command, detection)) {
           foldTestOutcome(state, testOutcome(joinTextBlocks(event.data.content), event.data.isError))
+        }
+        // Code Mode dispatches run through the same pre-execute policy gates,
+        // so a dispatched edit is a real implementation edit and must count
+        // toward the green gate and the report exactly like a native call.
+        const path = mutationTargetPath(event.data.name, args, detection)
+        if (path !== undefined && !isTestFilePath(path, detection)) {
+          state.pendingGreen = true
+          state.editCount += 1
         }
         break
       }

@@ -20,6 +20,7 @@ import type { ContentBlock, MessageSource, UserMessage } from '@deepseek-ai/dsh-
 import type { SubagentRun } from '@deepseek-ai/dsh-subagent'
 import type { ObjectJsonSchema } from '@deepseek-ai/dsh-tools'
 import type { ReviewFinding, ReviewVerdict } from '../domain/vocabulary.ts'
+import { PROSE, type GuardProse, type ProseLanguage } from './prose.ts'
 
 /** The adversary knobs the review runner reads. */
 export interface AdversaryConfig {
@@ -28,6 +29,8 @@ export interface AdversaryConfig {
   adversaryMaxFindings: number
   adversaryTools: string[]
   adversaryTimeoutMs: number
+  /** Language of the injected review prose. */
+  language: ProseLanguage
 }
 
 /** The settled outcome of one review run, ready for injection. */
@@ -85,22 +88,20 @@ const CRITIC_TASK =
   + 'genuinely satisfies every dimension, return an empty findings list. Do '
   + 'not invent objections; the empty answer is correct when nothing is wrong.'
 
-/** Injected when the critic found nothing supportable. */
-export const CLEAN_TEXT =
-  'Adversary review: the critic found no objections the session evidence can '
-  + 'support. The delivery satisfies its spec as far as the review can tell.'
+/** Injected when the critic found nothing supportable (English contract text). */
+export const CLEAN_TEXT = PROSE.en.reviewClean
 
 /** Render structured findings as the model-facing review text. */
-export function renderFindings(findings: readonly ReviewFinding[]): string {
+export function renderFindings(findings: readonly ReviewFinding[], prose: GuardProse = PROSE.en): string {
   const lines = [
-    `Adversary review found ${findings.length} objection(s) the delivery must answer:`,
+    prose.reviewFindingsHeader(findings.length),
     '',
   ]
   for (const finding of findings) {
     lines.push(`- [${finding.severity}] ${finding.title}`)
     lines.push(`  ${finding.detail}`)
   }
-  lines.push('', 'Answer each: fix what is real, and state plainly what is false.')
+  lines.push('', prose.reviewFindingsFooter)
   return lines.join('\n')
 }
 
@@ -112,15 +113,24 @@ export function renderFindings(findings: readonly ReviewFinding[]): string {
  * @param ctx - plugin context carrying the subagents seam.
  * @param config - the adversary knobs.
  * @param agent - the reviewed agent; its session seeds the forked critic.
+ * @param turnSignal - the turn's abort signal; cancelling the turn cancels
+ * the review instead of letting it run out the timeout.
  * @returns the settled review outcome.
  */
-export async function runAdversaryReview(ctx: Context, config: AdversaryConfig, agent: Agent): Promise<ReviewOutcome> {
+export async function runAdversaryReview(
+  ctx: Context,
+  config: AdversaryConfig,
+  agent: Agent,
+  turnSignal?: AbortSignal,
+): Promise<ReviewOutcome> {
+  const prose = PROSE[config.language]
   const subagents = ctx.get('subagents')
   if (subagents === undefined) {
     ctx.logger.warn('dsh-doublecheck: adversary review skipped: the ctx.subagents seam is not mounted')
-    return { verdict: 'unavailable', findings: [], text: 'Adversary review did not run: the subagents seam is not mounted.' }
+    return { verdict: 'unavailable', findings: [], text: prose.reviewUnavailableSeam }
   }
-  const signal = AbortSignal.timeout(config.adversaryTimeoutMs)
+  const timeout = AbortSignal.timeout(config.adversaryTimeoutMs)
+  const signal = turnSignal === undefined ? timeout : AbortSignal.any([turnSignal, timeout])
   let run: SubagentRun
   try {
     run = await subagents.start(config.adversaryProvider, {
@@ -135,30 +145,45 @@ export async function runAdversaryReview(ctx: Context, config: AdversaryConfig, 
   } catch (error) {
     // Provider absence, capability rejection, or a child that could not be
     // composed: the review itself never ran, and the notice says so.
-    return { verdict: 'unavailable', findings: [], text: `Adversary review did not run: ${String(error)}` }
+    return { verdict: 'unavailable', findings: [], text: prose.reviewUnavailableFailed(String(error)) }
   }
   try {
-    const result = await run.result
-    if (result.stopReason !== 'completed') {
-      return {
-        verdict: 'unavailable',
-        findings: [],
-        text: `Adversary review did not complete (${result.stopReason}); treat the delivery as unreviewed.`,
-      }
-    }
-    // The seam validates `structured` against the requested schema before a
-    // completed run settles, so the typed reading needs no re-validation.
-    const structured = result.structured as { findings?: unknown } | undefined
-    const raw = structured?.findings
-    if (!Array.isArray(raw)) {
-      return { verdict: 'unavailable', findings: [], text: outputText(result.output, 'Adversary review returned no structured findings.') }
-    }
-    const findings = raw.slice(0, config.adversaryMaxFindings) as ReviewFinding[]
-    if (findings.length === 0) return { verdict: 'clean', findings: [], text: CLEAN_TEXT }
-    return { verdict: 'findings', findings, text: renderFindings(findings) }
+    const result = await settleResult(run, signal, prose, config.adversaryMaxFindings)
+    return result
   } finally {
     await run.dispose()
   }
+}
+
+/** Await one critic run; a rejection settles as an honest unavailable notice. */
+async function settleResult(run: SubagentRun, signal: AbortSignal, prose: GuardProse, maxFindings: number): Promise<ReviewOutcome> {
+  let result: Awaited<typeof run.result>
+  try {
+    result = await run.result
+  } catch (error) {
+    if (signal.aborted) {
+      return { verdict: 'unavailable', findings: [], text: prose.reviewUnavailableStopped('aborted') }
+    }
+    // A broken critic must not throw into the turn-stopping chain.
+    return { verdict: 'unavailable', findings: [], text: prose.reviewUnavailableFailed(String(error)) }
+  }
+  if (result.stopReason !== 'completed') {
+    return {
+      verdict: 'unavailable',
+      findings: [],
+      text: prose.reviewUnavailableStopped(result.stopReason),
+    }
+  }
+  // The seam validates `structured` against the requested schema before a
+  // completed run settles, so the typed reading needs no re-validation.
+  const structured = result.structured as { findings?: unknown } | undefined
+  const raw = structured?.findings
+  if (!Array.isArray(raw)) {
+    return { verdict: 'unavailable', findings: [], text: outputText(result.output, prose.reviewUnavailableNoFindings) }
+  }
+  const findings = raw.slice(0, maxFindings) as ReviewFinding[]
+  if (findings.length === 0) return { verdict: 'clean', findings: [], text: prose.reviewClean }
+  return { verdict: 'findings', findings, text: renderFindings(findings, prose) }
 }
 
 /** Join a result's content blocks, with a fallback line when they are empty. */

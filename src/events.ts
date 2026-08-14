@@ -14,7 +14,7 @@
  */
 
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import type { Session } from '@deepseek-ai/dsh-session'
+import type { Session, SessionEventMap } from '@deepseek-ai/dsh-session'
 import type { GrilledSpec, ReviewFinding, ReviewVerdict, ReportVerdict, VerifyCheck } from './domain/vocabulary.ts'
 
 export type { GrilledSpec, ReviewFinding, ReviewVerdict, ReportVerdict, VerifyCheck } from './domain/vocabulary.ts'
@@ -23,10 +23,32 @@ export type { GrilledSpec, ReviewFinding, ReviewVerdict, ReportVerdict, VerifyCh
 export type GuardIntensity = 'remind' | 'warn' | 'block'
 
 /** Which discipline gate produced a guard reaction. */
-export type GuardGate = 'grill' | 'tdd'
+export type GuardGate = 'grill' | 'tdd' | 'delivery'
 
 /** Policy outcome of one guard reaction. */
-export type GuardVerdict = 'reminded' | 'held' | 'denied' | 'green-pending'
+export type GuardVerdict = 'reminded' | 'held' | 'denied' | 'green-pending' | 'report-expected'
+
+declare module '@deepseek-ai/dsh-session' {
+  interface SessionEventMap {
+    /**
+     * The per-session master switch written by `/doublecheck on|off`: when
+     * false, all discipline gates (grill, tdd, adversary) defer to the human
+     * chain for this session, surviving restart and restore. The event rides
+     * the envelope's `ignorable: true` marker so hosts that do not know the
+     * type still load the log.
+     */
+    'doublecheck/state': { enabled: boolean }
+  }
+}
+
+/**
+ * `Session.append` narrowed to the `doublecheck/state` event. The options bag
+ * carries `ignorable: true`; rc.6 hosts ignore it (same event), post-rc.6
+ * hosts stamp the marker.
+ */
+export interface StateAppend {
+  (type: 'doublecheck/state', data: SessionEventMap['doublecheck/state'], options: { ignorable: true }): void
+}
 
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
@@ -108,12 +130,13 @@ declare module '@deepseek-ai/cordis' {
     /**
      * The doublecheck report tool committed a consolidated delivery report:
      * the folded session facts, the derived verdict, the optional
-     * verification checks, and the workspace copy outcome. The report the
-     * model sees is the tool's own `tool/result`; this event is observability
-     * only — listeners must not veto or reroute.
+     * verification checks with their completeness flag, and the workspace
+     * copy outcome. The report the model sees is the tool's own
+     * `tool/result`; this event is observability only — listeners must not
+     * veto or reroute.
      * @param payload.session - the reported session.
      * @param payload.verdict - the derived delivery status.
-     * @param payload.checks - the verification checks, when verification ran.
+     * @param payload.verification - the verification checks and completeness, when verification ran.
      * @param payload.path - absolute workspace path written, or null when no write happened.
      * @param payload.written - whether the markdown copy reached the workspace.
      * @mode emit
@@ -121,7 +144,7 @@ declare module '@deepseek-ai/cordis' {
     'doublecheck/report'(payload: {
       session: Session
       verdict: ReportVerdict
-      checks: VerifyCheck[] | null
+      verification: { checks: VerifyCheck[]; complete: boolean } | null
       path: string | null
       written: boolean
     }): void

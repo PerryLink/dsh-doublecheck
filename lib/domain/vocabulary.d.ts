@@ -32,7 +32,7 @@ export interface ReviewFinding {
 /** What the adversary review concluded. */
 export type ReviewVerdict = 'findings' | 'clean' | 'unavailable';
 /** The derived delivery status of a doublecheck report. */
-export type ReportVerdict = 'grill' | 'draft' | 'red' | 'green' | 'objections' | 'verified' | 'proven' | 'challenged';
+export type ReportVerdict = 'grill' | 'draft' | 'red' | 'green' | 'objections' | 'verified' | 'proven' | 'challenged' | 'unverified';
 /** One dimension checked by the verify workflow. */
 export type VerifyDimension = 'goal' | 'scope' | 'acceptanceCriteria' | 'failureModes' | 'priorities' | 'nonGoals';
 /** All verify dimensions, in spec order. */
@@ -48,4 +48,3 @@ export interface VerifyCheck {
     /** Optional note about what to fix or re-examine. */
     note: string;
 }
-//# sourceMappingURL=vocabulary.d.ts.map

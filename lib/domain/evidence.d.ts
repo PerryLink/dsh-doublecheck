@@ -98,4 +98,3 @@ export declare function joinTextBlocks(content: ReadonlyArray<{
     text?: unknown;
     content?: unknown;
 }>): string;
-//# sourceMappingURL=evidence.d.ts.map

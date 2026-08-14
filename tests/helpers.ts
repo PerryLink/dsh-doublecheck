@@ -40,9 +40,19 @@ export function userTask(text: string): SessionEvent {
   }))
 }
 
-/** A session object whose log is exactly the given events. */
+/** A session object whose log is exactly the given events; `append` records into it. */
 export function fakeSession(events: readonly SessionEvent[]): Session {
-  return { events, header: {} } as unknown as Session
+  const log: SessionEvent[] = [...events]
+  const session = {
+    events: log,
+    header: {},
+    append(type: string, data: unknown) {
+      const event = sessionEvent(type, data)
+      log.push(event)
+      return event
+    },
+  }
+  return session as unknown as Session
 }
 
 /** An agent object carrying exactly the fields the guard reads, with inject/steer capture. */
@@ -51,6 +61,10 @@ export function fakeAgent(session: Session, injections: unknown[] = [], steers: 
     session,
     inject(message: unknown) {
       injections.push(message)
+      // Real injections ride the session log as `user/message` events; the
+      // guard's durable once-semantics folds them back from the log, so the
+      // fake mirrors that instead of keeping a detached array.
+      ;(session.events as SessionEvent[]).push(sessionEvent('user/message', message))
     },
     steer(message: unknown) {
       steers.push(message)
@@ -105,5 +119,18 @@ export function codeDispatchRun(command: string, output: string, isError = false
     arguments: { command },
     isError,
     content: [{ type: 'text', text: output }],
+  })
+}
+
+/** A Code Mode sub-dispatch event for a dispatched `edit` implementation change. */
+export function codeDispatchEdit(filePath: string): SessionEvent {
+  return sessionEvent('tool/code-dispatch', {
+    rootCallId: CallId('root-2'),
+    parentCallId: CallId('parent-2'),
+    subCallId: CallId('sub-2'),
+    name: 'edit',
+    arguments: { file_path: filePath, old_string: 'a', new_string: 'b' },
+    isError: false,
+    content: [{ type: 'text', text: 'updated' }],
   })
 }

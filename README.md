@@ -39,11 +39,14 @@ grill ──▶ design ──▶ red ──▶ green ──▶ review ──▶ 
 ## Features (v0.5)
 
 - 🔥 **`grill-requirements` skill** — a bundled Agent-Skills-format skill that interrogates the task across six dimensions (**goal, scope, acceptance criteria, failure modes, priorities, non-goals**) using DSH's native `ask_user_question` UI, refuses to write code until consensus, and records the contract.
+- 🧰 **Stage skills for the whole loop** — `red-green-tdd` (write the failing test, run red, implement, run green), `delivery-review` (adversarial self-review against the spec once green), and `delivery-proof` (consolidate the evidence into the delivery report before claiming completion) join `grill-requirements`, so all six stages have model guidance, not just the first.
 - 📜 **`doublecheck_spec` tool** — commits the grilled spec to the session log and writes a markdown copy to the workspace, so the contract survives the conversation.
+- 🔄 **Task-change re-grill** — a committed spec covers its own task: a new direct-user request after the latest spec commit reopens the grill gate for that follow-up instead of silently inheriting the old contract.
 - 🛡️ **Discipline guard** — a soft gate on the tool policy pipeline. Vague task + no spec + heading for `edit`/`write` → **remind**, **hold for human approval**, or **block**, depending on `intensity`.
 - 🟥🟩 **Red/green evidence gates** (`modules.tdd`) — hard checks over the session log: an implementation edit requires a **failing test run on record** since the last passing run (writing test files is always allowed — that is how the red step happens), and a turn that ends with edits but no passing run gets a green reminder injected.
-- 👁️ **Adversary review** (`modules.adversary`) — once the delivery reaches green, a forked critic subagent (DSH's native subagent seam, default `fork` provider) audits the session against the committed spec with an adversarial stance and returns structured findings. `remind` injects the critique; `warn`/`block` additionally steer one round to make the model answer the findings. `adversaryModel` routes the critic to a separate model; the critic's tool allowlist is read-only by default. Findings ride the durable `doublecheck-review` message source.
-- 📊 **Doublecheck report + verification workflow** (`doublecheck_report`, v0.4) — consolidates the session's discipline evidence (spec, red/green timeline, review findings, edits) into a delivery report with a derived verdict (`grill → draft → red → green → objections/verified → proven/challenged`), written to the workspace. With `verify`, one parallel checker per spec dimension runs through DSH's workflow seam and their verdicts fold into the report.
+- 👁️ **Adversary review** (`modules.adversary`) — once the delivery reaches green, a forked critic subagent (DSH's native subagent seam, default `fork` provider) audits the session against the committed spec with an adversarial stance and returns structured findings. `remind` injects the critique; `warn`/`block` additionally steer one round to make the model answer the findings. `adversaryModel` routes the critic to a separate model; the critic's tool allowlist is read-only by default. Findings ride the durable `doublecheck-review` message source. The review re-arms after the critic settles: implementation edits after the latest review record trigger another round, and cancelling the turn aborts the in-flight critic.
+- 📊 **Doublecheck report + verification workflow** (`doublecheck_report`, v0.4) — consolidates the session's discipline evidence (spec, red/green timeline, review findings, edits) into a delivery report with a derived verdict (`grill → draft → red → green → objections/verified → proven/challenged/unverified`), written to the workspace. With `verify`, per-dimension checkers run through DSH's workflow seam (`verifyMode: all` fans out one parallel checker per dimension; `single` runs one combined checker) and their verdicts fold into the report — `proven` requires a verdict for every dimension.
+- 🚦 **Delivery gate** — at the turn boundary, a delivery that reached green with no `doublecheck_report` on record gets a report-expected reminder before completion claims; a successful report advances the stage fold to `verify`.
 - 🔁 **Durable state** — every model-visible artifact (spec, reminders, deny feedback, review findings, the `/doublecheck on|off` switch) lands in the session log; gate decisions derive from the log alone (`tool/call` + `tool/result`, including Code Mode sub-dispatches), so resumed and forked sessions enforce identically. `remindOnce` is durable too: a session that already received a reminder never gets it twice, even after a restart.
 - ⌨️ **`/doublecheck` session command** — `status` reports the effective switch, the configured modules, and the folded stage; `report` folds the delivery report on the spot; `on|off` writes the durable `doublecheck/state` override and injects a switch notice.
 - 📚 **`doublecheck_skills` tool** — lists and loads the package's skills through the official skill registry seam.
@@ -197,6 +200,7 @@ Misconfiguration fails loud: an invalid regex, an empty/duplicated name list, or
 | `reportFile` | `'doublecheck-report.md'` | Workspace file receiving the report markdown. |
 | `reportVerify` | `true` | Default for the tool's `verify` flag. |
 | `verifyProvider` | `'fork'` | Subagent provider the per-dimension checkers run on. |
+| `verifyMode` | `'all'` | `all` = one parallel checker per dimension; `single` = one combined checker (one subagent, cheaper). |
 | `reportTestToolNames` / `reportTestCommandPatterns` | *(same defaults as the guard row)* | Report-scoped test-run classification. |
 | `reportMutationTools` / `reportTestFilePatterns` | *(same defaults as the guard row)* | Report-scoped implementation-edit classification. |
 
@@ -243,7 +247,7 @@ No agent-loop changes. Every registration is a reversible `ctx.effect` / `ctx.on
 
 ## Roadmap
 
-The six-stage discipline loop is complete: **grill → design → red → green → review → verify** all ship in this package (v0.1 → v0.4). Future work: snapshot coverage for the review/report transcripts, and richer report formatting.
+The six-stage discipline loop is complete: **grill → design → red → green → review → verify** all ship in this package (v0.1 → v0.5). Real-transcript regression fixtures pin the durable event shapes (`tests/fixtures/`). Future work: richer report formatting, a Web-UI discipline-status badge, and cross-session spec seeding from the workspace file.
 
 ## Develop
 

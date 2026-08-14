@@ -43,8 +43,9 @@ export type ReportVerdict =
   | 'green'        // green but unreviewed (no review or the critic could not run)
   | 'objections'   // the review produced findings
   | 'verified'     // green and the review came back clean
-  | 'proven'       // green, reviewed clean, and every verification check passed
+  | 'proven'       // green, reviewed clean, and every verification dimension passed
   | 'challenged'   // verification found at least one failing check
+  | 'unverified'   // verification ran but not every spec dimension returned a verdict
 
 /** One dimension checked by the verify workflow. */
 export type VerifyDimension =

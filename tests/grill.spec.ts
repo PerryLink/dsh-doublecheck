@@ -10,7 +10,7 @@ import type { WorkflowStartRequest } from '@deepseek-ai/dsh-workflow'
 import * as grillModule from '../src/grill/index.ts'
 import { SPEC_TOOL_NAME } from '../src/domain/stages.ts'
 import type { GrilledSpec } from '../src/events.ts'
-import { fakeAgent, fakeSession, mutationCall, reviewInjectionEvent, shellCall, shellResult, specToolCall, userTask } from './helpers.ts'
+import { fakeAgent, fakeSession, mutationCall, reviewInjectionEvent, shellCall, shellResult, specToolCall, toolResult, userTask } from './helpers.ts'
 
 const signal = new AbortController().signal
 
@@ -19,7 +19,7 @@ interface SetupOptions {
   workflowChecks?: unknown[] | null
 }
 
-async function setup(options: SetupOptions = {}) {
+async function setup(options: SetupOptions = {}, configOverrides: Partial<grillModule.Config> = {}) {
   const ctx = new Context()
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(SkillRegistry)
@@ -48,7 +48,7 @@ async function setup(options: SetupOptions = {}) {
     }
     await ctx.plugin(FakeWorkflowEngine)
   }
-  await ctx.plugin(grillModule, { specFile: 'specs/contract.md' })
+  await ctx.plugin(grillModule, { specFile: 'specs/contract.md', ...configOverrides })
   return { ctx, starts }
 }
 
@@ -68,6 +68,7 @@ describe('doublecheck-grill', () => {
       reportFile: 'doublecheck-report.md',
       reportVerify: true,
       verifyProvider: 'fork',
+      verifyMode: 'all',
       reportTestToolNames: ['bash', 'pwsh'],
       reportTestCommandPatterns: [
         '(?:^|[;&|]\\s*)(?:(?:pnpm|npm|npx|yarn|bun)(?:\\s+run)?\\s+(?:test|vitest|jest|mocha)(?:\\s|$))',
@@ -100,7 +101,12 @@ describe('doublecheck-grill', () => {
     })
     expect(result.isError).toBe(false)
     const value = result.value as { skills: { name: string }[] }
-    expect(value.skills.map(skill => skill.name)).toEqual(['grill-requirements'])
+    expect(value.skills.map(skill => skill.name)).toEqual([
+      'delivery-proof',
+      'delivery-review',
+      'grill-requirements',
+      'red-green-tdd',
+    ])
     expect(result.content[0]?.type).toBe('text')
   })
 
@@ -178,6 +184,7 @@ describe('doublecheck-grill', () => {
   const reportSession = () => fakeSession([
     userTask('fix the bug in parser.ts'),
     specToolCall(fullSpec as unknown as Record<string, string>, 'spec-1'),
+    toolResult('spec-1'),
     shellCall('bash', 'pnpm test', 't-1'),
     shellResult('t-1', '[exit code: 1]'),
     mutationCall('edit', 'src/app.ts', 'e-1'),
@@ -227,13 +234,39 @@ describe('doublecheck-grill', () => {
       ],
     })
     const result = await runReport(ctx, fakeAgent(reportSession()), { verify: true })
-    const value = result.value as { verdict: string; verification: { checks: unknown[] } | null }
+    const value = result.value as { verdict: string; verification: { checks: unknown[]; complete: boolean } | null }
     expect(starts).toHaveLength(1)
     expect(starts[0]?.meta.name).toBe('doublecheck-verify')
     expect(starts[0]?.subagentProvider).toBe('fork')
+    expect(starts[0]?.maxTotalAgents).toBe(6)
     expect(starts[0]?.args).toMatchObject({ spec: fullSpec })
     expect(value.verification?.checks).toHaveLength(2)
+    // Only two of six dimensions returned: not proven.
+    expect(value.verification?.complete).toBe(false)
+    expect(value.verdict).toBe('unverified')
+  })
+
+  it('derives proven only when every spec dimension returned a passing verdict', async () => {
+    const pass = (dimension: string) => ({ dimension, verdict: 'pass', evidence: 'ok', note: '' })
+    const { ctx } = await setup({
+      workflowChecks: [
+        pass('goal'), pass('scope'), pass('acceptanceCriteria'), pass('failureModes'), pass('priorities'), pass('nonGoals'),
+      ],
+    })
+    const result = await runReport(ctx, fakeAgent(reportSession()), { verify: true })
+    const value = result.value as { verdict: string; verification: { checks: unknown[]; complete: boolean } | null }
+    expect(value.verification?.complete).toBe(true)
     expect(value.verdict).toBe('proven')
+  })
+
+  it('runs one combined checker under verifyMode single', async () => {
+    const { ctx, starts } = await setup({ workflowChecks: [] }, { verifyMode: 'single' })
+    const result = await runReport(ctx, fakeAgent(reportSession()), { verify: true })
+    const value = result.value as { verdict: string; verification: { complete: boolean } | null }
+    expect(starts[0]?.maxTotalAgents).toBe(1)
+    expect(starts[0]?.script).toContain('verify-all')
+    expect(value.verification?.complete).toBe(false)
+    expect(value.verdict).toBe('unverified')
   })
 
   it('marks the report challenged when a verification check fails', async () => {

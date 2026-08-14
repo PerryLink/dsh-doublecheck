@@ -27,6 +27,8 @@ export interface Config {
     reportVerify: boolean;
     /** Subagent provider the verify workflow's checkers run on. */
     verifyProvider: string;
+    /** Checker fan-out: one parallel checker per dimension (`all`) or one combined checker (`single`). */
+    verifyMode: 'all' | 'single';
     /** Report-scoped knobs: shell tools whose commands may be test runs. */
     reportTestToolNames: string[];
     /** Report-scoped knobs: commands that count as test runs. */
@@ -45,4 +47,3 @@ export declare function renderSpecMarkdown(spec: GrilledSpec): string;
  * @param config - validated {@link Config}.
  */
 export declare function apply(ctx: Context, config: Config): void;
-//# sourceMappingURL=index.d.ts.map

@@ -4,12 +4,13 @@ import {
   foldDisciplineRange,
   foldDisciplineStage,
   foldDisciplineState,
+  REPORT_TOOL_NAME,
   sessionHasSpec,
   SPEC_TOOL_NAME,
   successfulToolCalls,
 } from '../src/domain/stages.ts'
 import { compileDetection } from '../src/domain/evidence.ts'
-import { codeDispatchRun, mutationCall, shellCall, shellResult, toolCall, toolResult, userTask } from './helpers.ts'
+import { codeDispatchEdit, codeDispatchRun, mutationCall, shellCall, shellResult, toolCall, toolResult, userTask } from './helpers.ts'
 
 function detection() {
   return compileDetection({
@@ -51,6 +52,25 @@ describe('discipline stage fold', () => {
     expect(sessionHasSpec(events)).toBe(true)
   })
 
+  it('records the spec commit sequence for task-change detection', () => {
+    const events = [
+      toolCall(SPEC_TOOL_NAME, 'spec-1'),
+      toolResult('spec-1'),
+    ]
+    const state = foldDisciplineState(events)
+    expect(state.specSeq).toBe(events[1]?.seq)
+  })
+
+  it('advances to verify after a successful report call', () => {
+    const events = [
+      toolCall(SPEC_TOOL_NAME, 'spec-1'),
+      toolResult('spec-1'),
+      toolCall(REPORT_TOOL_NAME, 'report-1'),
+      toolResult('report-1'),
+    ]
+    expect(foldDisciplineStage(events)).toBe('verify')
+  })
+
   it('ignores unrelated tool calls and user messages', () => {
     const events = [
       userTask('hello'),
@@ -81,7 +101,7 @@ describe('red/green evidence fold', () => {
       shellCall('bash', 'pnpm test', 't-1'),
       shellResult('t-1', '1 failed\n[exit code: 1]'),
       shellCall('bash', 'pnpm test', 't-2'),
-      shellResult('t-2', '3 passed'),
+      shellResult('t-2', '3 passed\n[exit code: 0]'),
     ]
     const state = foldDisciplineState(events, detection())
     expect(state.color).toBe('green')
@@ -116,17 +136,40 @@ describe('red/green evidence fold', () => {
     const events = [codeDispatchRun('pnpm test', '[exit code: 1]')]
     const state = foldDisciplineState(events, detection())
     expect(state.color).toBe('red')
-    const green = foldDisciplineState([codeDispatchRun('pnpm test', '5 passed')], detection())
+    const green = foldDisciplineState([codeDispatchRun('pnpm test', '5 passed\n[exit code: 0]')], detection())
     expect(green.color).toBe('green')
+    // Code Mode dispatches carry no exit marker: a finished dispatch with no
+    // failure markers settled with exit 0, so it is green evidence.
+    const markerless = foldDisciplineState([codeDispatchRun('pnpm test', '5 passed')], detection())
+    expect(markerless.color).toBe('green')
+  })
+
+  it('counts Code Mode edit dispatches as implementation edits', () => {
+    const events = [
+      { ...codeDispatchRun('pnpm test', '1 failed\n[exit code: 1]') },
+      codeDispatchEdit('src/app.ts'),
+      codeDispatchRun('pnpm test', '3 passed\n[exit code: 0]'),
+    ]
+    const state = foldDisciplineState(events, detection())
+    expect(state.editCount).toBe(1)
+    expect(state.pendingGreen).toBe(false)
+    expect(state.color).toBe('green')
+
+    const stillPending = foldDisciplineState([
+      codeDispatchRun('pnpm test', '1 failed\n[exit code: 1]'),
+      codeDispatchEdit('src/app.ts'),
+    ], detection())
+    expect(stillPending.editCount).toBe(1)
+    expect(stillPending.pendingGreen).toBe(true)
   })
 
   it('arms the green gate on implementation edits and clears it on a pass', () => {
     const events = [
       shellCall('bash', 'pnpm test', 't-1'),
-      shellResult('t-1', '3 passed'),
+      shellResult('t-1', '3 passed\n[exit code: 0]'),
       mutationCall('edit', 'src/app.ts', 'e-1'),
       shellCall('bash', 'pnpm test', 't-2'),
-      shellResult('t-2', '3 passed'),
+      shellResult('t-2', '3 passed\n[exit code: 0]'),
       mutationCall('edit', 'src/app.ts', 'e-2'),
     ]
     const state = foldDisciplineState(events, detection())
@@ -148,7 +191,7 @@ describe('red/green evidence fold', () => {
     const first = [shellCall('bash', 'pnpm test', 't-1'), shellResult('t-1', '[exit code: 1]')]
     const state = foldDisciplineState(first, detection())
     expect(state.color).toBe('red')
-    const appended = [...first, shellCall('bash', 'pnpm test', 't-2'), shellResult('t-2', '4 passed')]
+    const appended = [...first, shellCall('bash', 'pnpm test', 't-2'), shellResult('t-2', '4 passed\n[exit code: 0]')]
     foldDisciplineRange(state, appended, first.length, detection())
     expect(state.color).toBe('green')
     expect(state.pendingGreen).toBe(false)

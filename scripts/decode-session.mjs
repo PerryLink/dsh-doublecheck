@@ -5,9 +5,20 @@
  * Usage: node scripts/decode-session.mjs <path-to-session.jsonl.zstd>
  */
 import { readFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import zlib from 'node:zlib'
+
 // Runs under the harness checkout's tsx so the TS source import resolves.
-import { scanZstdFrames } from 'file:///D:/deepseek-harness/packages/session/session-persistence-jsonl/src/zstd.ts'
+// Point DSH_HARNESS_ROOT at the deepseek-harness checkout.
+const harnessRoot = process.env.DSH_HARNESS_ROOT?.trim()
+if (harnessRoot === undefined || harnessRoot === '') {
+  console.error('DSH_HARNESS_ROOT must point at the deepseek-harness checkout')
+  process.exit(2)
+}
+const { scanZstdFrames } = await import(
+  pathToFileURL(resolve(harnessRoot, 'packages/session/session-persistence-jsonl/src/zstd.ts')).href
+)
 
 const file = process.argv[2]
 if (file === undefined) {

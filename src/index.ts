@@ -15,3 +15,6 @@ export * from './domain/vocabulary.ts'
 export * from './domain/report.ts'
 export { renderSpecMarkdown } from './grill/index.ts'
 export { BundledSkillProvider, parseSkillAsset, PROVIDER_NAME } from './grill/provider.ts'
+// Type-only re-export: keeps the `doublecheck` SessionProjectionMap merge
+// edge in the emitted index.d.ts, so consumers receive the projection key's type.
+export type * from './types.ts'

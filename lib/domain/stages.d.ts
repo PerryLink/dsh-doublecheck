@@ -22,6 +22,8 @@ export type DisciplineStage = 'grill' | 'design' | 'red' | 'green' | 'review' | 
 export declare const DISCIPLINE_STAGES: readonly DisciplineStage[];
 /** Name of the model-facing tool that commits a grilled requirements spec. */
 export declare const SPEC_TOOL_NAME = "doublecheck_spec";
+/** Name of the model-facing tool that consolidates the delivery report. */
+export declare const REPORT_TOOL_NAME = "doublecheck_report";
 /** The current red/green color of the session: the latest test-run evidence. */
 export type TestColor = 'none' | 'red' | 'green';
 /**
@@ -34,14 +36,16 @@ export interface DisciplineState {
     stage: DisciplineStage;
     /** Whether a successful `doublecheck_spec` call exists in the log. */
     hasSpec: boolean;
+    /** The log sequence of the latest successful spec commit (0 = none). Guards compare it with the latest direct user task to reopen the grill on new tasks. */
+    specSeq: number;
     /** The latest test-run evidence: red = failing since the last pass. */
     color: TestColor;
     /** An implementation edit happened after the latest passing test run. */
     pendingGreen: boolean;
     /** Total implementation edits folded so far (the green-gate reminder epoch). */
     editCount: number;
-    /** Spec-tool call ids whose results have not been folded yet. */
-    pendingSpecCalls: Set<string>;
+    /** Stage-tool call ids whose results have not been folded yet, mapped to the stage they advance. */
+    pendingStageCalls: Map<string, DisciplineStage>;
     /** Test-run call ids whose results have not been folded yet. */
     pendingTestCalls: Set<string>;
 }
@@ -92,4 +96,3 @@ export declare function foldDisciplineStage(events: readonly SessionEvent[], det
  * the scan stops at the first successful pair it finds.
  */
 export declare function sessionHasSpec(events: readonly SessionEvent[]): boolean;
-//# sourceMappingURL=stages.d.ts.map

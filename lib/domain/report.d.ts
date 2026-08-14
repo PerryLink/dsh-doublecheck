@@ -46,9 +46,14 @@ export interface ReportFacts {
 export interface ReportData extends ReportFacts {
     /** The derived delivery status. */
     verdict: ReportVerdict;
-    /** Verification checks, when the verify workflow ran. */
+    /**
+     * Verification checks, when the verify workflow ran. `complete` is true
+     * only when every spec dimension returned a verdict, so `proven` never
+     * rests on silently missing dimensions.
+     */
     verification: {
         checks: VerifyCheck[];
+        complete: boolean;
     } | null;
     /** Workspace markdown copy outcome. */
     path: string | null;
@@ -67,21 +72,22 @@ export declare function foldReportFacts(events: readonly SessionEvent[], detecti
  * Derive the delivery verdict from the folded facts, the optional review,
  * and the optional verification outcome.
  * @param facts - the folded session facts.
- * @param checks - verification checks when the verify workflow ran, else null.
+ * @param verification - verification outcome when the verify workflow ran, else null.
  * @returns the report verdict.
  */
-export declare function deriveReportVerdict(facts: ReportFacts, checks: VerifyCheck[] | null): ReportVerdict;
+export declare function deriveReportVerdict(facts: ReportFacts, verification: ReportData['verification']): ReportVerdict;
 /** Render the report facts as the model-facing markdown document. */
 export declare function renderReportMarkdown(data: ReportData): string;
 /** The structured output each verification child must satisfy. */
 export declare const VERIFY_CHECK_SCHEMA: ObjectJsonSchema;
+/** How the verify workflow fans its checkers out. */
+export type VerifyMode = 'all' | 'single';
 /** The verify workflow identity block. */
 export declare const VERIFY_META: WorkflowMeta;
 /**
- * Build the verify workflow script body: one parallel checker per spec
- * dimension, each an adversarial one-dimension audit of the inherited
- * session, returning the structured check schema.
+ * Build the verify workflow script body.
+ * @param mode - `all` fans out one parallel checker per spec dimension;
+ * `single` runs one checker over every dimension (cheaper, one subagent).
  * @returns the plain-JS script body for `WorkflowStartRequest.script`.
  */
-export declare function buildVerifyScript(): string;
-//# sourceMappingURL=report.d.ts.map
+export declare function buildVerifyScript(mode: VerifyMode): string;

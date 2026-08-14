@@ -1,53 +1,19 @@
 # dsh-doublecheck bundle patch: the engineering-discipline layer.
-# Both rows activate whenever their services exist. Override any row by id in
-# the profile cordis.patch.yml — a patch replaces the row's WHOLE config, so
-# restate every key.
+# Both rows activate whenever their services exist. Every tuning key has a
+# Schema default (see the Config schemas in src/grill and src/guard) — this
+# patch restates only deliberate deviations, and a patch replaces a row's
+# WHOLE config, so an override here must restate every key it needs.
 - insert:
-    # The grill module: registers the bundled grill-requirements skill and the
-    # model-facing spec/catalog/report tools. Its own switch is this row
-    # (`disabled: true` removes skill and tools together).
+    # The grill module: the bundled grill-requirements skill and the
+    # model-facing spec/catalog/report tools. Disable this row to remove
+    # the skill and tools together.
     - id: doublecheck-grill
       name: 'dsh-doublecheck/grill'
-      config:
-        specFile: 'doublecheck-spec.md'
-        reportFile: 'doublecheck-report.md'
-        reportVerify: true
-        verifyProvider: 'fork'
-        reportTestToolNames: ['bash', 'pwsh']
-        reportTestCommandPatterns:
-          - '(?:^|[;&|]\s*)(?:(?:pnpm|npm|npx|yarn|bun)(?:\s+run)?\s+(?:test|vitest|jest|mocha)(?:\s|$))'
-          - '(?:^|[;&|]\s*)(?:(?:pytest|go\s+test|cargo\s+test|make\s+test|ctest)(?:\s|$))'
-          - '(?:^|[;&|]\s*)(?:node\s+--test(?:\s|$))'
-        reportMutationTools: ['edit', 'write']
-        reportTestFilePatterns:
-          - '(^|[\\/])(tests?|__tests__|specs?)([\\/]|$)'
-          - '\\.(test|spec)\\.[A-Za-z0-9]+$'
 
     # The discipline guard: the grill gate (requirements-less edits on vague
-    # tasks), the red/green evidence gates (`modules.tdd`), and the v0.3
-    # adversary review (`modules.adversary`: a forked critic audits the
-    # delivery once it reaches green).
+    # tasks), the red/green evidence gates (modules.tdd), and the adversary
+    # review (modules.adversary: a forked critic audits the delivery once it
+    # reaches green). All gates can be switched off per session with
+    # /doublecheck on|off (durable, survives restore).
     - id: doublecheck-guard
       name: 'dsh-doublecheck/guard'
-      config:
-        intensity: remind
-        modules:
-          grill: true
-          tdd: false
-          adversary: false
-        adversaryModel: null
-        adversaryProvider: 'fork'
-        adversaryMaxFindings: 5
-        adversaryTools: ['read', 'glob', 'grep']
-        adversaryTimeoutMs: 120000
-        guardTools: ['edit', 'write']
-        vagueTaskMaxChars: 200
-        remindOnce: true
-        testToolNames: ['bash', 'pwsh']
-        testCommandPatterns:
-          - '(?:^|[;&|]\s*)(?:(?:pnpm|npm|npx|yarn|bun)(?:\s+run)?\s+(?:test|vitest|jest|mocha)(?:\s|$))'
-          - '(?:^|[;&|]\s*)(?:(?:pytest|go\s+test|cargo\s+test|make\s+test|ctest)(?:\s|$))'
-          - '(?:^|[;&|]\s*)(?:node\s+--test(?:\s|$))'
-        testFilePatterns:
-          - '(^|[\\/])(tests?|__tests__|specs?)([\\/]|$)'
-          - '\\.(test|spec)\\.[A-Za-z0-9]+$'

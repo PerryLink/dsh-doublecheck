@@ -61,8 +61,12 @@ export interface ReportFacts {
 export interface ReportData extends ReportFacts {
   /** The derived delivery status. */
   verdict: ReportVerdict
-  /** Verification checks, when the verify workflow ran. */
-  verification: { checks: VerifyCheck[] } | null
+  /**
+   * Verification checks, when the verify workflow ran. `complete` is true
+   * only when every spec dimension returned a verdict, so `proven` never
+   * rests on silently missing dimensions.
+   */
+  verification: { checks: VerifyCheck[]; complete: boolean } | null
   /** Workspace markdown copy outcome. */
   path: string | null
   written: boolean
@@ -85,16 +89,15 @@ export function emptyReportFacts(): ReportFacts {
 export function foldReportFacts(events: readonly SessionEvent[], detection: TestRunDetection): ReportFacts {
   const facts = emptyReportFacts()
   const pendingTests = new Map<string, string>()
+  /** Spec calls awaiting a result: only a successful pair commits the spec. */
+  const pendingSpecs = new Map<string, GrilledSpec>()
   for (const event of events) {
     switch (event.type) {
       case 'tool/call': {
         const args = parseRawArguments(event.data.arguments)
         if (event.data.name === SPEC_TOOL_NAME) {
           const spec = readSpecFromArgs(args)
-          if (spec !== null) {
-            facts.spec = spec
-            facts.timeline.push({ kind: 'spec', detail: preview(spec.goal) })
-          }
+          if (spec !== null) pendingSpecs.set(event.data.callId, spec)
         }
         const command = shellCommand(event.data.name, args, detection)
         if (command !== undefined && isTestCommand(command, detection)) {
@@ -107,9 +110,18 @@ export function foldReportFacts(events: readonly SessionEvent[], detection: Test
         break
       }
       case 'tool/result': {
-        const command = pendingTests.get(event.data.message.source.callId)
+        const callId = event.data.message.source.callId
+        const spec = pendingSpecs.get(callId)
+        if (spec !== undefined && event.data.error === undefined) {
+          pendingSpecs.delete(callId)
+          facts.spec = spec
+          facts.timeline.push({ kind: 'spec', detail: preview(spec.goal) })
+        } else if (spec !== undefined) {
+          pendingSpecs.delete(callId)
+        }
+        const command = pendingTests.get(callId)
         if (command === undefined) break
-        pendingTests.delete(event.data.message.source.callId)
+        pendingTests.delete(callId)
         foldTestRun(facts, command, testOutcome(joinTextBlocks(event.data.message.content), event.data.error !== undefined))
         break
       }
@@ -118,6 +130,13 @@ export function foldReportFacts(events: readonly SessionEvent[], detection: Test
         const command = shellCommand(event.data.name, args, detection)
         if (command !== undefined && isTestCommand(command, detection)) {
           foldTestRun(facts, command, testOutcome(joinTextBlocks(event.data.content), event.data.isError))
+        }
+        // Code Mode dispatches run through the same pre-execute policy gates,
+        // so a dispatched edit is a real implementation edit and must count
+        // toward the report exactly like a native call.
+        const path = mutationTargetPath(event.data.name, args, detection)
+        if (path !== undefined && !isTestFilePath(path, detection)) {
+          facts.edits += 1
         }
         break
       }
@@ -138,10 +157,10 @@ export function foldReportFacts(events: readonly SessionEvent[], detection: Test
 function foldTestRun(facts: ReportFacts, command: string, outcome: ReturnType<typeof testOutcome>): void {
   if (outcome === 'fail') {
     facts.testRuns.failed += 1
-    facts.timeline.push({ kind: 'red', detail: command })
+    facts.timeline.push({ kind: 'red', detail: preview(command) })
   } else if (outcome === 'pass') {
     facts.testRuns.passed += 1
-    facts.timeline.push({ kind: 'green', detail: command })
+    facts.timeline.push({ kind: 'green', detail: preview(command) })
   }
 }
 
@@ -160,16 +179,19 @@ function readSpecFromArgs(args: Record<string, unknown> | undefined): GrilledSpe
  * Derive the delivery verdict from the folded facts, the optional review,
  * and the optional verification outcome.
  * @param facts - the folded session facts.
- * @param checks - verification checks when the verify workflow ran, else null.
+ * @param verification - verification outcome when the verify workflow ran, else null.
  * @returns the report verdict.
  */
-export function deriveReportVerdict(facts: ReportFacts, checks: VerifyCheck[] | null): ReportVerdict {
+export function deriveReportVerdict(facts: ReportFacts, verification: ReportData['verification']): ReportVerdict {
   if (facts.spec === null) return 'grill'
   if (facts.edits === 0) return 'draft'
   const lastTest = facts.timeline.findLast(entry => entry.kind === 'red' || entry.kind === 'green')
   if (lastTest?.kind === 'red') return 'red'
-  if (checks !== null) {
-    return checks.every(check => check.verdict === 'pass') ? 'proven' : 'challenged'
+  if (verification !== null) {
+    if (verification.checks.some(check => check.verdict === 'fail')) return 'challenged'
+    // A missing dimension is not a pass: `proven` requires a verdict for
+    // every spec dimension.
+    return verification.complete ? 'proven' : 'unverified'
   }
   if (facts.review === null || facts.review.verdict === 'unavailable') return 'green'
   return facts.review.verdict === 'findings' ? 'objections' : 'verified'
@@ -223,6 +245,9 @@ export function renderReportMarkdown(data: ReportData): string {
     for (const check of data.verification.checks) {
       lines.push(`- [${check.verdict}] ${check.dimension}: ${check.evidence} ${check.note.length > 0 ? `(${check.note})` : ''}`.trim())
     }
+    if (!data.verification.complete) {
+      lines.push(`- … not every spec dimension returned a verdict; the delivery is not proven.`)
+    }
   }
   lines.push('', `## Delivery`, `- implementation edits: ${data.edits}`, '')
   return lines.join('\n')
@@ -241,6 +266,9 @@ export const VERIFY_CHECK_SCHEMA: ObjectJsonSchema = {
   },
 }
 
+/** How the verify workflow fans its checkers out. */
+export type VerifyMode = 'all' | 'single'
+
 /** The verify workflow identity block. */
 export const VERIFY_META: WorkflowMeta = {
   name: 'doublecheck-verify',
@@ -249,12 +277,41 @@ export const VERIFY_META: WorkflowMeta = {
 }
 
 /**
- * Build the verify workflow script body: one parallel checker per spec
- * dimension, each an adversarial one-dimension audit of the inherited
- * session, returning the structured check schema.
+ * The single-checker structured output: one agent auditing every spec
+ * dimension and returning a check per dimension. Mirrors the parallel
+ * mode's `{ checks: [...] }` result shape so the fold is identical.
+ */
+const VERIFY_BATCH_SCHEMA: ObjectJsonSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['checks'],
+  properties: {
+    checks: { type: 'array', items: VERIFY_CHECK_SCHEMA },
+  },
+}
+
+/**
+ * Build the verify workflow script body.
+ * @param mode - `all` fans out one parallel checker per spec dimension;
+ * `single` runs one checker over every dimension (cheaper, one subagent).
  * @returns the plain-JS script body for `WorkflowStartRequest.script`.
  */
-export function buildVerifyScript(): string {
+export function buildVerifyScript(mode: VerifyMode): string {
+  if (mode === 'single') {
+    return [
+      "phase('doublecheck verify')",
+      'const checks = await agent(',
+      "  'You verify every dimension of a requirements spec against the session you inherited. "
+        + "The spec: ' + JSON.stringify(args.spec) + '. "
+        + 'Assume the delivery FAILS each dimension. Examine the inherited session for evidence: '
+        + 'the recorded spec, the red/green test runs, the edits, and any review findings. '
+        + 'Answer through the required structured output: one check per dimension; pass only when the session evidence '
+        + 'satisfies that dimension, fail otherwise, with evidence cited from the session '
+        + "and a note on what to fix.',",
+      '  { label: \'verify-all\', schema: ' + JSON.stringify(VERIFY_BATCH_SCHEMA) + ' })',
+      'return { checks: checks.checks.filter(Boolean) }',
+    ].join('\n')
+  }
   return [
     "phase('doublecheck verify')",
     'const checks = await parallel(args.dimensions.map(function (dimension) {',

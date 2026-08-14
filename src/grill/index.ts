@@ -54,6 +54,8 @@ export interface Config {
   reportVerify: boolean
   /** Subagent provider the verify workflow's checkers run on. */
   verifyProvider: string
+  /** Checker fan-out: one parallel checker per dimension (`all`) or one combined checker (`single`). */
+  verifyMode: 'all' | 'single'
   /** Report-scoped knobs: shell tools whose commands may be test runs. */
   reportTestToolNames: string[]
   /** Report-scoped knobs: commands that count as test runs. */
@@ -69,6 +71,7 @@ export const Config: Schema<Config> = z.object({
   reportFile: z.string().min(1).default('doublecheck-report.md'),
   reportVerify: z.boolean().default(true),
   verifyProvider: z.string().min(1).default('fork'),
+  verifyMode: z.union(['all', 'single'] as const).default('all'),
   reportTestToolNames: z.array(z.string()).default([...DEFAULT_TEST_TOOL_NAMES]),
   reportTestCommandPatterns: z.array(z.string()).default([...DEFAULT_TEST_COMMAND_PATTERNS]),
   reportMutationTools: z.array(z.string()).default([...DEFAULT_MUTATION_TOOLS]),
@@ -295,7 +298,7 @@ export function apply(ctx: Context, config: Config): void {
           verdict: {
             type: 'string',
             required: true,
-            enum: ['grill', 'draft', 'red', 'green', 'objections', 'verified', 'proven', 'challenged'],
+            enum: ['grill', 'draft', 'red', 'green', 'objections', 'verified', 'proven', 'challenged', 'unverified'],
           },
           spec: {
             oneOf: [
@@ -383,6 +386,7 @@ export function apply(ctx: Context, config: Config): void {
                       },
                     },
                   },
+                  complete: { type: 'boolean', required: true },
                 },
               },
               { type: 'null' },
@@ -406,13 +410,13 @@ export function apply(ctx: Context, config: Config): void {
         ? { spec: null, testRuns: { failed: 0, passed: 0 }, timeline: [], edits: 0, review: null }
         : foldReportFacts(session.events, reportDetection)
       const verify = args.verify ?? config.reportVerify
-      const checks = verify
+      const verification = verify
         ? await runVerifyWorkflow(ctx, config, facts.spec, exec)
         : null
       const report: ReportData = {
         ...facts,
-        verdict: deriveReportVerdict(facts, checks),
-        verification: checks === null ? null : { checks },
+        verdict: deriveReportVerdict(facts, verification),
+        verification,
         path: null,
         written: false,
       }
@@ -420,7 +424,7 @@ export function apply(ctx: Context, config: Config): void {
       report.path = outcome.path
       report.written = outcome.written
       if (session !== undefined) {
-        ctx.emit('doublecheck/report', { session, verdict: report.verdict, checks, path: report.path, written: report.written })
+        ctx.emit('doublecheck/report', { session, verdict: report.verdict, verification, path: report.path, written: report.written })
       }
       return report
     },
@@ -439,13 +443,15 @@ export function apply(ctx: Context, config: Config): void {
  * Run the per-dimension verification workflow through the workflow seam,
  * when one is mounted. A missing seam or a non-completed run settles as
  * `null` (no verification) — the report states it did not run.
+ * @returns the settled checks with the completeness flag, or null when
+ * verification did not run at all.
  */
 async function runVerifyWorkflow(
   ctx: Context,
   config: Config,
   spec: GrilledSpec | null,
   exec: ToolRunContext,
-): Promise<VerifyCheck[] | null> {
+): Promise<{ checks: VerifyCheck[]; complete: boolean } | null> {
   if (spec === null || exec.agent === undefined) return null
   const engine = ctx.get('workflowEngine')
   if (engine === undefined) {
@@ -455,11 +461,11 @@ async function runVerifyWorkflow(
   let run: WorkflowRun
   try {
     run = engine.start({
-      script: buildVerifyScript(),
+      script: buildVerifyScript(config.verifyMode),
       meta: VERIFY_META,
       args: { spec, dimensions: [...VERIFY_DIMENSIONS] },
       subagentProvider: config.verifyProvider,
-      maxTotalAgents: VERIFY_DIMENSIONS.length,
+      maxTotalAgents: config.verifyMode === 'single' ? 1 : VERIFY_DIMENSIONS.length,
       parent: exec.agent,
       signal: exec.signal,
     })
@@ -479,7 +485,11 @@ async function runVerifyWorkflow(
       if (!VERIFY_DIMENSIONS.includes(check.dimension)) continue
       checks.push(check)
     }
-    return checks
+    // `proven` requires a verdict for every spec dimension: completeness is
+    // judged here so a checker that silently dropped a dimension cannot
+    // upgrade the delivery.
+    const complete = VERIFY_DIMENSIONS.every(dimension => checks.some(check => check.dimension === dimension))
+    return { checks, complete }
   } finally {
     await run.dispose()
   }

@@ -17,6 +17,7 @@ import type { Agent } from '@deepseek-ai/dsh-agent';
 import type { UserMessage } from '@deepseek-ai/dsh-llm';
 import type { ObjectJsonSchema } from '@deepseek-ai/dsh-tools';
 import type { ReviewFinding, ReviewVerdict } from '../domain/vocabulary.ts';
+import { type GuardProse, type ProseLanguage } from './prose.ts';
 /** The adversary knobs the review runner reads. */
 export interface AdversaryConfig {
     adversaryProvider: string;
@@ -24,6 +25,8 @@ export interface AdversaryConfig {
     adversaryMaxFindings: number;
     adversaryTools: string[];
     adversaryTimeoutMs: number;
+    /** Language of the injected review prose. */
+    language: ProseLanguage;
 }
 /** The settled outcome of one review run, ready for injection. */
 export interface ReviewOutcome {
@@ -37,10 +40,10 @@ export interface ReviewOutcome {
  * carry a severity, a one-line title, and the supporting detail.
  */
 export declare const REVIEW_OUTPUT_SCHEMA: ObjectJsonSchema;
-/** Injected when the critic found nothing supportable. */
+/** Injected when the critic found nothing supportable (English contract text). */
 export declare const CLEAN_TEXT: string;
 /** Render structured findings as the model-facing review text. */
-export declare function renderFindings(findings: readonly ReviewFinding[]): string;
+export declare function renderFindings(findings: readonly ReviewFinding[], prose?: GuardProse): string;
 /**
  * Run one adversary review for the given agent and settle it to an
  * injectable outcome. Failures of the review mechanism itself (provider
@@ -49,9 +52,11 @@ export declare function renderFindings(findings: readonly ReviewFinding[]): stri
  * @param ctx - plugin context carrying the subagents seam.
  * @param config - the adversary knobs.
  * @param agent - the reviewed agent; its session seeds the forked critic.
+ * @param turnSignal - the turn's abort signal; cancelling the turn cancels
+ * the review instead of letting it run out the timeout.
  * @returns the settled review outcome.
  */
-export declare function runAdversaryReview(ctx: Context, config: AdversaryConfig, agent: Agent): Promise<ReviewOutcome>;
+export declare function runAdversaryReview(ctx: Context, config: AdversaryConfig, agent: Agent, turnSignal?: AbortSignal): Promise<ReviewOutcome>;
 /**
  * The injected review message: model-facing prose with the structured
  * findings riding the durable `doublecheck-review` message source, so the
@@ -60,4 +65,3 @@ export declare function runAdversaryReview(ctx: Context, config: AdversaryConfig
  * @returns the injection-ready user message.
  */
 export declare function reviewInjection(outcome: ReviewOutcome): UserMessage;
-//# sourceMappingURL=review.d.ts.map
