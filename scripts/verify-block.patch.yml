@@ -1,0 +1,13 @@
+# Acceptance overlay: force the guard to block so the headless transcript
+# shows the requirements-gate denial (whole-row config restated).
+- id: doublecheck-guard
+  config:
+    intensity: block
+    modules:
+      grill: true
+      tdd: false
+      adversary: false
+    adversaryModel: null
+    guardTools: ['edit', 'write']
+    vagueTaskMaxChars: 200
+    remindOnce: true
