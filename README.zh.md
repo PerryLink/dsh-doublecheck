@@ -38,11 +38,14 @@ grill ──▶ design ──▶ red ──▶ green ──▶ review ──▶ 
 ## v0.5 功能
 
 - 🔥 **`grill-requirements` 技能** —— 按通用 Agent Skills 格式打包的技能，围绕六个维度（**目标、边界、验收标准、失败模式、优先级、非目标**）连环追问，使用 DSH 原生 `ask_user_question` 界面；共识达成前拒绝写代码，并记录契约。
+- 🧰 **覆盖全循环的阶段技能** —— `red-green-tdd`（先写失败测试、跑红、实现、跑绿）、`delivery-review`（green 之后对照 spec 做对抗式自审）、`delivery-proof`（把证据汇总成交付报告后再宣称完成）与 `grill-requirements` 一起发货，六个阶段都有模型指引，而不再只有第一阶段。
 - 📜 **`doublecheck_spec` 工具** —— 把拷问出的 spec 写入会话日志，并在工作区落一份 markdown，让契约不随对话消失。
+- 🔄 **任务变更重新 grill** —— 已提交的 spec 只覆盖它自己的任务：spec 提交之后用户新发的直接请求会让 grill 门对该后续请求重新开启，而不是悄悄沿用旧契约。
 - 🛡️ **纪律 guard** —— 挂在工具策略管线上的软门。模糊任务 + 没有 spec + 直奔 `edit`/`write` → 按 `intensity` 分别**提醒**、**请求人工批准**或**拦截**。
 - 🟥🟩 **红/绿证据门**（`modules.tdd`）—— 会话日志硬校验：实现改动要求日志里**存在失败测试运行**（自上次通过以来；写测试文件永远放行——那正是 red 步骤）；回合结束时若有改动却没有通过测试运行，则注入 green 提醒。
-- 👁️ **对抗评审**（`modules.adversary`）—— 交付到达 green 后，经 DSH 原生 subagent 接缝（默认 `fork` provider）派生一个 critic 子代理，以对抗视角核对会话与已提交 spec，产出结构化 findings。`remind` 只注入评审意见；`warn`/`block` 额外 steer 一轮让模型正面回应 findings。`adversaryModel` 可把评审路由到独立模型；critic 工具白名单默认只读。findings 随 `doublecheck-review` 消息源持久结构化落盘。
-- 📊 **Doublecheck 报告 + 核对 workflow**（`doublecheck_report`，v0.4）—— 把会话纪律证据（spec、红/绿时间线、评审 findings、编辑数）汇总成交付报告并推导 verdict（`grill → draft → red → green → objections/verified → proven/challenged`），落盘工作区。开启 `verify` 时，经 DSH workflow 接缝为每个 spec 维度并行派一个核对员，其结论并入报告。
+- 👁️ **对抗评审**（`modules.adversary`）—— 交付到达 green 后，经 DSH 原生 subagent 接缝（默认 `fork` provider）派生一个 critic 子代理，以对抗视角核对会话与已提交 spec，产出结构化 findings。`remind` 只注入评审意见；`warn`/`block` 额外 steer 一轮让模型正面回应 findings。`adversaryModel` 可把评审路由到独立模型；critic 工具白名单默认只读。findings 随 `doublecheck-review` 消息源持久结构化落盘。评审会持久化重武装：最新评审记录之后的实现编辑会触发下一轮评审；取消回合会中止在途 critic。
+- 📊 **Doublecheck 报告 + 核对 workflow**（`doublecheck_report`，v0.4）—— 把会话纪律证据（spec、红/绿时间线、评审 findings、编辑数）汇总成交付报告并推导 verdict（`grill → draft → red → green → objections/verified → proven/challenged/unverified`），落盘工作区。开启 `verify` 时，经 DSH workflow 接缝派发逐维度核对员（`verifyMode: all` 每维度并行一个；`single` 合并为一个核对员）并并入报告——`proven` 要求每个维度都有裁决。
+- 🚦 **交付门** —— 回合结束时，已到 green 但没有 `doublecheck_report` 记录的交付会收到「报告待补」提醒；成功报告会把阶段折叠推进到 `verify`。
 - 🔁 **持久化状态** —— 所有模型可见内容（spec、提醒、拒绝反馈、评审 findings、`/doublecheck on|off` 开关）都落会话日志；门禁判定完全由日志（`tool/call` + `tool/result`，含 Code Mode 子派发）推导，恢复/派生会话同样生效。`remindOnce` 同样持久化：已收到提醒的会话重启后不会重复收到。
 - ⌨️ **`/doublecheck` 会话命令** —— `status` 报告生效开关、已配置模块与折叠阶段；`report` 当场折叠交付报告；`on|off` 写入持久 `doublecheck/state` 事件并注入切换通知。
 - 📚 **`doublecheck_skills` 工具** —— 通过官方技能注册表接缝列出与加载本包技能。
@@ -196,6 +199,7 @@ dsh plugin --profile <name> remove dsh-doublecheck
 | `reportFile` | `'doublecheck-report.md'` | 接收报告 markdown 的工作区文件。 |
 | `reportVerify` | `true` | 工具 `verify` 参数的默认值。 |
 | `verifyProvider` | `'fork'` | 逐维度核对员使用的 subagent provider。 |
+| `verifyMode` | `'all'` | `all` = 每维度并行一个核对员；`single` = 合并为一个核对员（单个子代理，更省）。 |
 | `reportTestToolNames` / `reportTestCommandPatterns` | *（与 guard 行同默认）* | 报告侧测试运行分类。 |
 | `reportMutationTools` / `reportTestFilePatterns` | *（与 guard 行同默认）* | 报告侧实现编辑分类。 |
 
@@ -241,7 +245,7 @@ dsh plugin --profile <name> remove dsh-doublecheck
 
 ## 路线图
 
-六阶段纪律环已全部完成：**grill → design → red → green → review → verify** 均随本包交付（v0.1 → v0.4）。后续工作：为评审/报告转录补齐快照覆盖，以及更丰富的报告格式。
+六阶段纪律环已全部完成：**grill → design → red → green → review → verify** 均随本包交付（v0.1 → v0.5）。真实转录回归夹具（`tests/fixtures/`）锁定持久事件形态。后续工作：更丰富的报告格式、Web UI 纪律状态徽章、以及从工作区 spec 文件播种跨会话状态。
 
 ## 开发
 
