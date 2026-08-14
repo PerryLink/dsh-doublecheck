@@ -6,8 +6,9 @@
  *
  * @module dsh-doublecheck
  */
-export type { GrilledSpec, GuardIntensity } from './events.ts';
+export type { GrilledSpec, GuardIntensity, GuardGate, GuardVerdict } from './events.ts';
 export * from './domain/stages.ts';
+export * from './domain/evidence.ts';
 export * from './domain/vagueness.ts';
 export { renderSpecMarkdown } from './grill/index.ts';
 export { BundledSkillProvider, parseSkillAsset, PROVIDER_NAME } from './grill/provider.ts';

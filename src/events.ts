@@ -32,6 +32,12 @@ export interface GrilledSpec {
 /** Guard enforcement strength. */
 export type GuardIntensity = 'remind' | 'warn' | 'block'
 
+/** Which discipline gate produced a guard reaction. */
+export type GuardGate = 'grill' | 'tdd'
+
+/** Policy outcome of one guard reaction. */
+export type GuardVerdict = 'reminded' | 'held' | 'denied' | 'green-pending'
+
 declare module '@deepseek-ai/cordis' {
   interface Events {
     /**
@@ -47,14 +53,17 @@ declare module '@deepseek-ai/cordis' {
      */
     'doublecheck/spec'(payload: { session: Session; spec: GrilledSpec; path: string | null; written: boolean }): void
     /**
-     * The discipline guard reacted to a requirements-less mutation attempt:
-     * a reminder was queued for injection (and will ride the standard context
-     * channel into the session log), or the call was held/denied at the
-     * policy gate. Observability only — listeners must not veto or reroute.
+     * The discipline guard reacted: the grill gate hit a requirements-less
+     * mutation attempt, the red gate hit an implementation edit without a
+     * failing test on record, or the green gate noticed edits without a
+     * passing test run at turn end. Reminders queued here ride the standard
+     * context channel into the session log; held/denied outcomes happened at
+     * the policy gate. Observability only — listeners must not veto or reroute.
      * @param payload.agent - the calling agent, when the call has one.
      * @param payload.session - the session the call belongs to.
-     * @param payload.toolName - the intercepted mutation tool.
+     * @param payload.toolName - the intercepted mutation tool; absent for green-gate reactions.
      * @param payload.intensity - the configured enforcement strength.
+     * @param payload.gate - the discipline gate that produced this reaction.
      * @param payload.verdict - the policy outcome produced by this reaction.
      * @param payload.reminder - the reminder prose, when one was queued.
      * @mode emit
@@ -62,9 +71,10 @@ declare module '@deepseek-ai/cordis' {
     'doublecheck/reminder'(payload: {
       agent: Agent | undefined
       session: Session
-      toolName: string
+      toolName?: string
       intensity: GuardIntensity
-      verdict: 'reminded' | 'held' | 'denied'
+      gate: GuardGate
+      verdict: GuardVerdict
       reminder?: string
     }): void
   }

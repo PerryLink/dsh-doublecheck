@@ -1,6 +1,6 @@
 {
   "name": "dsh-doublecheck",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Double-check before you ship: grill the requirements, test the implementation, prove the delivery.",
   "type": "module",
   "main": "lib/index.js",

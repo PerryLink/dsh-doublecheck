@@ -1,0 +1,187 @@
+/**
+ * Test-run evidence classification for the red/green gates.
+ *
+ * The durable session log is the only source of truth: a shell tool call
+ * (`bash` / `pwsh`, including Code Mode sub-dispatches) whose command matches
+ * the configured test patterns is a test run, and its rendered result text
+ * carries the exit facts (`[exit code: N]`, timeout, signal, sandbox-denial
+ * markers). A failing run is red evidence; a passing run is green evidence.
+ *
+ * @module dsh-doublecheck/domain/evidence
+ */
+
+/** Compiled red/green evidence detection knobs. */
+export interface TestRunDetection {
+  /** Tool names that can execute shell commands. */
+  testToolNames: readonly string[]
+  /** Regexes a command must match to count as a test run. */
+  testCommandPatterns: readonly RegExp[]
+  /** Mutation tool names (the targets the red gate watches). */
+  mutationTools: readonly string[]
+  /** Regexes identifying test-file paths, exempt from the red gate. */
+  testFilePatterns: readonly RegExp[]
+}
+
+/** A classified test-run outcome. `undefined` = no usable evidence (infra failure, sandbox denial, background ack). */
+export type TestOutcome = 'pass' | 'fail'
+
+/** The raw knobs before regex compilation; invalid patterns fail loud at compile. */
+export interface DetectionConfig {
+  testToolNames: string[]
+  testCommandPatterns: string[]
+  guardTools: string[]
+  testFilePatterns: string[]
+}
+
+/** Background bash/pwsh acknowledgements are not test outcomes. */
+const BACKGROUND_ACK = /^started background job \S+/
+
+/** The command never ran: a sandbox denial is not a failing test. */
+const SANDBOX_DENIAL = /\[sandbox: [^\]]*denied under [^\]]* mode\]/
+
+const TIMED_OUT = /\[timed out after \d+ms\]/
+const KILLED_BY_SIGNAL = /\[killed by signal: [^\]]+\]/
+const EXIT_CODE = /\[exit code: (\d+)\]/m
+
+/**
+ * Compile the detection knobs, rejecting invalid regexes at load time.
+ * @param config - the raw string knobs from the guard config.
+ * @returns the compiled detection record.
+ */
+export function compileDetection(config: DetectionConfig): TestRunDetection {
+  assertNonEmptyNames('testToolNames', config.testToolNames)
+  assertNonEmptyNames('guardTools', config.guardTools)
+  return {
+    testToolNames: [...config.testToolNames],
+    testCommandPatterns: config.testCommandPatterns.map(compilePattern),
+    mutationTools: [...config.guardTools],
+    testFilePatterns: config.testFilePatterns.map(compilePattern),
+  }
+}
+
+/** The detection record with every list empty: test-run evidence is ignored. */
+export function emptyDetection(): TestRunDetection {
+  return {
+    testToolNames: [],
+    testCommandPatterns: [],
+    mutationTools: [],
+    testFilePatterns: [],
+  }
+}
+
+/**
+ * Parse a raw tool-call `arguments` value (a JSON string from the model, or an
+ * already-normalized object from a Code Mode sub-dispatch) into a plain record.
+ * @param raw - the raw arguments value from the durable event.
+ * @returns the parsed record, or `undefined` when the string is not valid JSON.
+ */
+export function parseRawArguments(raw: string | unknown): Record<string, unknown> | undefined {
+  if (raw !== null && typeof raw === 'object' && !Array.isArray(raw)) {
+    return raw as Record<string, unknown>
+  }
+  if (typeof raw !== 'string') return undefined
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined
+    return parsed as Record<string, unknown>
+  } catch {
+    // Malformed model JSON carries no usable command or path; it is not evidence.
+    return undefined
+  }
+}
+
+/**
+ * The shell command a tool call would execute, when the tool is a configured
+ * test runner.
+ * @param name - the called tool name.
+ * @param args - the parsed arguments record.
+ * @param detection - the compiled detection knobs.
+ * @returns the command text, or `undefined` when this call is not a shell run.
+ */
+export function shellCommand(name: string, args: Record<string, unknown> | undefined, detection: TestRunDetection): string | undefined {
+  if (!detection.testToolNames.includes(name)) return undefined
+  const command = args?.['command']
+  return typeof command === 'string' && command.length > 0 ? command : undefined
+}
+
+/**
+ * Whether a shell command is a test run under the configured patterns.
+ * @param command - the command text.
+ * @param detection - the compiled detection knobs.
+ * @returns true when at least one pattern matches.
+ */
+export function isTestCommand(command: string, detection: TestRunDetection): boolean {
+  return detection.testCommandPatterns.some(pattern => pattern.test(command))
+}
+
+/**
+ * The mutation target path of a tool call, when the tool is a configured
+ * mutation tool and its arguments name a file.
+ * @param name - the called tool name.
+ * @param args - the parsed arguments record.
+ * @param detection - the compiled detection knobs.
+ * @returns the target path, or `undefined` when the call does not name one.
+ */
+export function mutationTargetPath(name: string, args: Record<string, unknown> | undefined, detection: TestRunDetection): string | undefined {
+  if (!detection.mutationTools.includes(name)) return undefined
+  const path = args?.['file_path']
+  return typeof path === 'string' && path.length > 0 ? path : undefined
+}
+
+/**
+ * Whether a mutation target is itself a test file (writing the failing test
+ * is the red step, so test files stay editable).
+ * @param path - the mutation target path.
+ * @param detection - the compiled detection knobs.
+ * @returns true when the path matches a test-file pattern.
+ */
+export function isTestFilePath(path: string, detection: TestRunDetection): boolean {
+  return detection.testFilePatterns.some(pattern => pattern.test(path))
+}
+
+/**
+ * Classify the durable result of one test run from its model-facing text.
+ * @param text - the joined text blocks of the rendered result.
+ * @param isError - whether the tool call failed at the infrastructure level.
+ * @returns red/green evidence, or `undefined` when the run proves nothing.
+ */
+export function testOutcome(text: string, isError: boolean): TestOutcome | undefined {
+  if (isError) return undefined
+  if (BACKGROUND_ACK.test(text)) return undefined
+  if (SANDBOX_DENIAL.test(text)) return undefined
+  if (TIMED_OUT.test(text) || KILLED_BY_SIGNAL.test(text)) return 'fail'
+  const exit = EXIT_CODE.exec(text)
+  if (exit !== null) return exit[1] === '0' ? 'pass' : 'fail'
+  // A finished shell run with no failure markers settled with exit code 0.
+  return 'pass'
+}
+
+/** Join the text blocks of a rendered result into one searchable string. */
+export function joinTextBlocks(content: ReadonlyArray<{ type?: unknown; text?: unknown; content?: unknown }>): string {
+  const parts: string[] = []
+  for (const block of content) {
+    if (block.type === 'text' && typeof block.text === 'string') {
+      parts.push(block.text)
+    } else if (block.type === 'tool-result' && Array.isArray(block.content)) {
+      // A durable ToolResultMessage wraps its text blocks in one tool-result block.
+      parts.push(joinTextBlocks(block.content as ReadonlyArray<{ type?: unknown; text?: unknown; content?: unknown }>))
+    }
+  }
+  return parts.join('\n')
+}
+
+function compilePattern(source: string): RegExp {
+  try {
+    return new RegExp(source)
+  } catch {
+    throw new Error(`dsh-doublecheck: invalid regex pattern "${source}" in the red/green gate configuration`)
+  }
+}
+
+function assertNonEmptyNames(field: string, names: string[]): void {
+  if (names.length === 0) throw new Error(`dsh-doublecheck: ${field} must not be empty`)
+  for (const name of names) {
+    if (name.length === 0) throw new Error(`dsh-doublecheck: ${field} must not contain empty tool names`)
+  }
+  if (new Set(names).size !== names.length) throw new Error(`dsh-doublecheck: ${field} must not contain duplicates`)
+}

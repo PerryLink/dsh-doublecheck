@@ -45,7 +45,49 @@ export function fakeSession(events: readonly SessionEvent[]): Session {
   return { events, header: {} } as unknown as Session
 }
 
-/** An agent object carrying exactly the fields the guard reads. */
-export function fakeAgent(session: Session): Agent {
-  return { session } as unknown as Agent
+/** An agent object carrying exactly the fields the guard reads, with inject capture. */
+export function fakeAgent(session: Session, injections: unknown[] = []): Agent {
+  return {
+    session,
+    inject(message: unknown) {
+      injections.push(message)
+    },
+  } as unknown as Agent
+}
+
+/** A `tool/call` event for a shell command, with the raw JSON-string arguments. */
+export function shellCall(name: string, command: string, callId = CallId(`shell-${nextSeq}`)): SessionEvent {
+  return sessionEvent('tool/call', { turn: 1, step: 1, callId, name, arguments: JSON.stringify({ command, description: 'run tests' }) })
+}
+
+/** A `tool/call` event for a mutation targeting the given file path. */
+export function mutationCall(name: 'edit' | 'write', filePath: string, callId = CallId(`mutation-${nextSeq}`)): SessionEvent {
+  return sessionEvent('tool/call', { turn: 1, step: 1, callId, name, arguments: JSON.stringify({ file_path: filePath }) })
+}
+
+/** A `tool/result` event whose rendered text is the given shell output. */
+export function shellResult(callId: string, output: string, error?: { name: string; code: string }): SessionEvent {
+  return sessionEvent('tool/result', {
+    turn: 1,
+    step: 1,
+    message: {
+      id: `shell-result-${nextSeq}`,
+      source: { kind: 'tool', callId },
+      content: [{ type: 'tool-result', toolCallId: callId, content: [{ type: 'text', text: output }], isError: error !== undefined }],
+    },
+    ...error !== undefined ? { error } : {},
+  })
+}
+
+/** A Code Mode sub-dispatch event for a settled shell test run. */
+export function codeDispatchRun(command: string, output: string, isError = false): SessionEvent {
+  return sessionEvent('tool/code-dispatch', {
+    rootCallId: CallId('root-1'),
+    parentCallId: CallId('parent-1'),
+    subCallId: CallId('sub-1'),
+    name: 'bash',
+    arguments: { command },
+    isError,
+    content: [{ type: 'text', text: output }],
+  })
 }

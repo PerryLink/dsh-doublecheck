@@ -9,7 +9,7 @@ import type { PreToolDecision, ToolExecution } from '@deepseek-ai/dsh-tools'
 import * as guardModule from '../src/guard/index.ts'
 import { SPEC_TOOL_NAME } from '../src/domain/stages.ts'
 import type { GuardIntensity } from '../src/events.ts'
-import { fakeAgent, fakeSession, toolCall, toolResult, userTask } from './helpers.ts'
+import { fakeAgent, fakeSession, mutationCall, shellCall, shellResult, toolCall, toolResult, userTask } from './helpers.ts'
 
 const signal = new AbortController().signal
 
@@ -21,6 +21,9 @@ function fullConfig(overrides: Partial<guardModule.Config> = {}): guardModule.Co
     guardTools: ['edit', 'write'],
     vagueTaskMaxChars: 200,
     remindOnce: true,
+    testToolNames: ['bash', 'pwsh'],
+    testCommandPatterns: ['(?:^|[;&|]\\s*)(?:(?:pnpm|npm|npx|yarn|bun)(?:\\s+run)?\\s+(?:test|vitest|jest|mocha)(?:\\s|$))'],
+    testFilePatterns: ['(^|[\\\\/])(tests?|__tests__|specs?)([\\\\/]|$)', '\\.(test|spec)\\.[A-Za-z0-9]+$'],
     ...overrides,
   }
 }
@@ -32,7 +35,7 @@ async function setup(config: guardModule.Config = fullConfig()) {
   const editTool = defineTool({
     name: 'edit',
     description: 'edit a file',
-    parameters: { path: { type: 'string', required: true } },
+    parameters: { file_path: { type: 'string', required: true } },
     output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] },
     async execute() { return 'edited' },
   })
@@ -42,12 +45,12 @@ async function setup(config: guardModule.Config = fullConfig()) {
 }
 
 /** Execute an `edit` call for a session whose log is `events`. */
-async function runEdit(ctx: Context, agent: Agent, callId: string) {
+async function runEdit(ctx: Context, agent: Agent, callId: string, path = 'src/app.ts') {
   return ctx.tools.execute({
     signal,
     callId: CallId(callId),
     name: 'edit',
-    arguments: { path: 'src/app.ts' },
+    arguments: { file_path: path },
     agent,
   })
 }
@@ -62,6 +65,11 @@ function vagueSession(): Session {
   return fakeSession([userTask('帮我做那个功能')])
 }
 
+/** A concrete-task session log: the grill gate passes it through. */
+function concreteSession(): Session {
+  return fakeSession([userTask('fix the bug in parser.ts')])
+}
+
 describe('doublecheck-guard', () => {
   it('validates its config schema: defaults and rejections', () => {
     // schemastery omits a null-defaulted key (adversaryModel) from the output
@@ -72,18 +80,25 @@ describe('doublecheck-guard', () => {
       guardTools: ['edit', 'write'],
       vagueTaskMaxChars: 200,
       remindOnce: true,
+      testToolNames: ['bash', 'pwsh'],
+      testCommandPatterns: [
+        '(?:^|[;&|]\\s*)(?:(?:pnpm|npm|npx|yarn|bun)(?:\\s+run)?\\s+(?:test|vitest|jest|mocha)(?:\\s|$))',
+        '(?:^|[;&|]\\s*)(?:(?:pytest|go\\s+test|cargo\\s+test|make\\s+test|ctest)(?:\\s|$))',
+        '(?:^|[;&|]\\s*)(?:node\\s+--test(?:\\s|$))',
+      ],
+      testFilePatterns: ['(^|[\\\\/])(tests?|__tests__|specs?)([\\\\/]|$)', '\\.(test|spec)\\.[A-Za-z0-9]+$'],
     })
     expect(() => guardModule.Config({ intensity: 'loud' })).toThrow()
   })
 
   it('rejects reserved module misuse at load, fail-loud', async () => {
     const cases: guardModule.Config[] = [
-      fullConfig({ modules: { grill: true, tdd: true, adversary: false } }),
       fullConfig({ modules: { grill: true, tdd: false, adversary: true } }),
       fullConfig({ adversaryModel: 'deepseek-v4-flash' }),
       fullConfig({ guardTools: [] }),
       fullConfig({ guardTools: ['edit', 'edit'] }),
       fullConfig({ vagueTaskMaxChars: 0 }),
+      fullConfig({ modules: { grill: true, tdd: true, adversary: false }, testCommandPatterns: ['(unclosed'] }),
     ]
     for (const config of cases) {
       const ctx = new Context()
@@ -104,7 +119,7 @@ describe('doublecheck-guard', () => {
     expect((contexts[0]?.source as { kind: string; plugin: string }).kind).toBe('plugin')
     expect((contexts[0]?.source as { kind: string; plugin: string }).plugin).toBe('dsh-doublecheck')
     expect(announcements).toHaveLength(1)
-    expect(announcements[0]).toMatchObject({ toolName: 'edit', intensity: 'remind', verdict: 'reminded' })
+    expect(announcements[0]).toMatchObject({ toolName: 'edit', intensity: 'remind', gate: 'grill', verdict: 'reminded' })
   })
 
   it('leaves a concrete task alone', async () => {
@@ -155,7 +170,7 @@ describe('doublecheck-guard', () => {
       signal,
       callId: CallId('edit-4'),
       name: 'edit',
-      arguments: { path: 'x.ts' },
+      arguments: { file_path: 'x.ts' },
     })
     expect(result.isError).toBe(false)
     expect(result.additionalContexts).toBeUndefined()
@@ -186,7 +201,7 @@ describe('doublecheck-guard', () => {
     const session = vagueSession()
     const decision = await gateDecision(ctx, {
       name: 'edit',
-      arguments: { path: 'x.ts' },
+      arguments: { file_path: 'x.ts' },
       agent: fakeAgent(session),
     } as unknown as ToolExecution)
     expect(decision).toEqual({ kind: 'deny', reason: expect.stringContaining('requirements guard') })
@@ -207,7 +222,7 @@ describe('doublecheck-guard', () => {
     const session = vagueSession()
     const decision = await gateDecision(ctx, {
       name: 'write',
-      arguments: { path: 'x.ts' },
+      arguments: { file_path: 'x.ts' },
       agent: fakeAgent(session),
     } as unknown as ToolExecution)
     expect(decision).toEqual({ kind: 'ask', reason: expect.stringContaining('no doublecheck spec') })
@@ -219,7 +234,7 @@ describe('doublecheck-guard', () => {
     }
   })
 
-  it('stays silent when modules.grill is off', async () => {
+  it('stays silent when both gates are off', async () => {
     const ctx = await setup(fullConfig({ modules: { grill: false, tdd: false, adversary: false } }))
     const session = vagueSession()
     const result = await runEdit(ctx, fakeAgent(session), 'edit-11')
@@ -265,6 +280,138 @@ describe('doublecheck-guard', () => {
     ctx.on('doublecheck/reminder', payload => { announcements.push(payload) })
     await runEdit(ctx, fakeAgent(session), 'edit-14')
     expect(announcements).toHaveLength(1)
-    expect(announcements[0]).toMatchObject({ toolName: 'edit', intensity: 'block' as GuardIntensity, verdict: 'denied' })
+    expect(announcements[0]).toMatchObject({ toolName: 'edit', intensity: 'block' as GuardIntensity, gate: 'grill', verdict: 'denied' })
+  })
+
+  // ── v0.2 red/green gate ──────────────────────────────────────────────────
+
+  const tdd = (overrides: Partial<guardModule.Config> = {}): guardModule.Config => fullConfig({
+    modules: { grill: true, tdd: true, adversary: false },
+    ...overrides,
+  })
+
+  it('denies implementation edits without a failing test on record when tdd is on', async () => {
+    const ctx = await setup(tdd({ intensity: 'block' }))
+    const session = concreteSession()
+    const result = await runEdit(ctx, fakeAgent(session), 'tdd-1')
+    expect(result.isError).toBe(true)
+    if (result.isError) {
+      expect(result.error.message).toContain('red/green evidence gate')
+    }
+  })
+
+  it('lets test-file edits through the red gate', async () => {
+    const ctx = await setup(tdd({ intensity: 'block' }))
+    const session = concreteSession()
+    const result = await runEdit(ctx, fakeAgent(session), 'tdd-2', 'tests/app.spec.ts')
+    expect(result.isError).toBe(false)
+    expect(result.additionalContexts).toBeUndefined()
+  })
+
+  it('lets implementation edits through once a failing test is on record', async () => {
+    const ctx = await setup(tdd({ intensity: 'block' }))
+    const session = fakeSession([
+      userTask('fix the bug in parser.ts'),
+      shellCall('bash', 'pnpm test', 't-1'),
+      shellResult('t-1', '[exit code: 1]'),
+    ])
+    const result = await runEdit(ctx, fakeAgent(session), 'tdd-3')
+    expect(result.isError).toBe(false)
+    expect(result.additionalContexts).toBeUndefined()
+  })
+
+  it('requires the red step again after a passing run', async () => {
+    const ctx = await setup(tdd({ intensity: 'block' }))
+    const session = fakeSession([
+      userTask('fix the bug in parser.ts'),
+      shellCall('bash', 'pnpm test', 't-1'),
+      shellResult('t-1', '[exit code: 1]'),
+      mutationCall('edit', 'src/app.ts', 'e-1'),
+      shellCall('bash', 'pnpm test', 't-2'),
+      shellResult('t-2', '4 passed'),
+    ])
+    const result = await runEdit(ctx, fakeAgent(session), 'tdd-4')
+    expect(result.isError).toBe(true)
+  })
+
+  it('reminds at remind intensity and announces the tdd gate', async () => {
+    const ctx = await setup(tdd())
+    const session = concreteSession()
+    const announcements: unknown[] = []
+    ctx.on('doublecheck/reminder', payload => { announcements.push(payload) })
+    const result = await runEdit(ctx, fakeAgent(session), 'tdd-5')
+    expect(result.isError).toBe(false)
+    expect(result.additionalContexts).toHaveLength(1)
+    expect(announcements[0]).toMatchObject({ gate: 'tdd', verdict: 'reminded' })
+  })
+
+  it('holds implementation edits under warn intensity', async () => {
+    const ctx = await setup(tdd({ intensity: 'warn' }))
+    const session = concreteSession()
+    const decision = await gateDecision(ctx, {
+      name: 'edit',
+      arguments: { file_path: 'src/app.ts' },
+      agent: fakeAgent(session),
+    } as unknown as ToolExecution)
+    expect(decision).toEqual({ kind: 'ask', reason: expect.stringContaining('red step') })
+  })
+
+  it('injects the green reminder at turn end when edits lack a passing run', async () => {
+    const ctx = await setup(tdd({ remindOnce: false }))
+    const injections: unknown[] = []
+    const session = fakeSession([
+      userTask('fix the bug in parser.ts'),
+      shellCall('bash', 'pnpm test', 't-1'),
+      shellResult('t-1', '[exit code: 1]'),
+      mutationCall('edit', 'src/app.ts', 'e-1'),
+    ])
+    const agent = fakeAgent(session, injections)
+    const announcements: unknown[] = []
+    ctx.on('doublecheck/reminder', payload => { announcements.push(payload) })
+    await ctx.serial('agent/turn-stopping', { agent, turn: 1, signal })
+    expect(injections).toHaveLength(1)
+    expect(announcements).toHaveLength(1)
+    expect(announcements[0]).toMatchObject({ gate: 'tdd', verdict: 'green-pending' })
+  })
+
+  it('stays silent at turn end after a passing run', async () => {
+    const ctx = await setup(tdd({ remindOnce: false }))
+    const injections: unknown[] = []
+    const session = fakeSession([
+      userTask('fix the bug in parser.ts'),
+      shellCall('bash', 'pnpm test', 't-1'),
+      shellResult('t-1', '[exit code: 1]'),
+      mutationCall('edit', 'src/app.ts', 'e-1'),
+      shellCall('bash', 'pnpm test', 't-2'),
+      shellResult('t-2', '4 passed'),
+    ])
+    const agent = fakeAgent(session, injections)
+    await ctx.serial('agent/turn-stopping', { agent, turn: 1, signal })
+    expect(injections).toHaveLength(0)
+  })
+
+  it('injects the green reminder at most once under remindOnce', async () => {
+    const ctx = await setup(tdd())
+    const injections: unknown[] = []
+    const session = fakeSession([
+      userTask('fix the bug in parser.ts'),
+      mutationCall('edit', 'src/app.ts', 'e-1'),
+    ])
+    const agent = fakeAgent(session, injections)
+    await ctx.serial('agent/turn-stopping', { agent, turn: 1, signal })
+    await ctx.serial('agent/turn-stopping', { agent, turn: 2, signal })
+    expect(injections).toHaveLength(1)
+  })
+
+  it('keeps the green gate silent when tdd is off', async () => {
+    const ctx = await setup(fullConfig())
+    const injections: unknown[] = []
+    const session = fakeSession([
+      userTask('fix the bug in parser.ts'),
+      mutationCall('edit', 'src/app.ts', 'e-1'),
+    ])
+    const agent = fakeAgent(session, injections)
+    await ctx.serial('agent/turn-stopping', { agent, turn: 1, signal })
+    expect(injections).toHaveLength(0)
   })
 })

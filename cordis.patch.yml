@@ -11,9 +11,9 @@
       config:
         specFile: 'doublecheck-spec.md'
 
-    # The discipline guard: watches for requirements-less edits on vague tasks.
-    # `modules.grill: false` disables enforcement; `tdd` and `adversary` are
-    # reserved for future versions (v0.2 / v0.3) and must stay false in v0.1.
+    # The discipline guard: the grill gate (requirements-less edits on vague
+    # tasks) and, with `modules.tdd: true`, the v0.2 red/green evidence gates.
+    # `adversary` is reserved for v0.3 and must stay false.
     - id: doublecheck-guard
       name: 'dsh-doublecheck/guard'
       config:
@@ -26,3 +26,11 @@
         guardTools: ['edit', 'write']
         vagueTaskMaxChars: 200
         remindOnce: true
+        testToolNames: ['bash', 'pwsh']
+        testCommandPatterns:
+          - '(?:^|[;&|]\s*)(?:(?:pnpm|npm|npx|yarn|bun)(?:\s+run)?\s+(?:test|vitest|jest|mocha)(?:\s|$))'
+          - '(?:^|[;&|]\s*)(?:(?:pytest|go\s+test|cargo\s+test|make\s+test|ctest)(?:\s|$))'
+          - '(?:^|[;&|]\s*)(?:node\s+--test(?:\s|$))'
+        testFilePatterns:
+          - '(^|[\\/])(tests?|__tests__|specs?)([\\/]|$)'
+          - '\\.(test|spec)\\.[A-Za-z0-9]+$'

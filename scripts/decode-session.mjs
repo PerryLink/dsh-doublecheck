@@ -25,12 +25,14 @@ for (const frame of frames) {
 }
 const events = out.split('\n').filter(line => line.length > 0).map(line => JSON.parse(line))
 
-const interesting = ['doublecheck_spec', 'edit', 'write', 'ask_user_question', 'doublecheck_skills', 'skill', 'read', 'glob', 'grep']
+const interesting = ['doublecheck_spec', 'edit', 'write', 'ask_user_question', 'doublecheck_skills', 'skill', 'read', 'glob', 'grep', 'bash', 'pwsh']
 let edits = 0
 let denies = 0
 let reminders = 0
 let asks = 0
 let specs = 0
+let reds = 0
+let greens = 0
 for (const event of events) {
   switch (event.type) {
     case 'tool/call': {
@@ -43,12 +45,20 @@ for (const event of events) {
     }
     case 'tool/result': {
       const text = JSON.stringify(event.data.message)
-      if (text.includes('dsh-doublecheck') || text.includes('requirements guard') || text.includes('doublecheck spec')) {
+      if (text.includes('dsh-doublecheck') || text.includes('requirements guard') || text.includes('doublecheck spec') || text.includes('Blocked by the')) {
         console.log(`tool/result isError=${event.data.error !== undefined} ${text.slice(0, 220)}`)
-        if (text.includes('requirements guard')) denies += 1
+        if (text.includes('requirements guard') || text.includes('red/green evidence')) denies += 1
       }
       if (text.includes('no user-questions provider') || text.includes('NO_PROVIDER')) {
         console.log(`tool/result ask-user: ${text.slice(0, 160)}`)
+      }
+      if (text.includes('[exit code: ')) {
+        const m = /\[exit code: (\d+)\]/.exec(text)
+        if (m !== null) {
+          if (m[1] === '0') greens += 1
+          else reds += 1
+          console.log(`tool/result test-run exit=${m[1]}`)
+        }
       }
       break
     }
@@ -66,4 +76,4 @@ for (const event of events) {
     }
   }
 }
-console.log(`--- totals: edits=${edits} denies=${denies} reminders=${reminders} asks=${asks} specs=${specs} events=${events.length}`)
+console.log(`--- totals: edits=${edits} denies=${denies} reminders=${reminders} asks=${asks} specs=${specs} reds=${reds} greens=${greens} events=${events.length}`)

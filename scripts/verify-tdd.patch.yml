@@ -1,0 +1,20 @@
+# v0.2 acceptance overlay: block + red/green gates on (whole-row config restated).
+- id: doublecheck-guard
+  config:
+    intensity: block
+    modules:
+      grill: true
+      tdd: true
+      adversary: false
+    adversaryModel: null
+    guardTools: ['edit', 'write']
+    vagueTaskMaxChars: 200
+    remindOnce: true
+    testToolNames: ['bash', 'pwsh']
+    testCommandPatterns:
+      - '(?:^|[;&|]\s*)(?:(?:pnpm|npm|npx|yarn|bun)(?:\s+run)?\s+(?:test|vitest|jest|mocha)(?:\s|$))'
+      - '(?:^|[;&|]\s*)(?:(?:pytest|go\s+test|cargo\s+test|make\s+test|ctest)(?:\s|$))'
+      - '(?:^|[;&|]\s*)(?:node\s+--test(?:\s|$))'
+    testFilePatterns:
+      - '(^|[\\/])(tests?|__tests__|specs?)([\\/]|$)'
+      - '\\.(test|spec)\\.[A-Za-z0-9]+$'

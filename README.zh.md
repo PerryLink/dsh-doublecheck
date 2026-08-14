@@ -29,17 +29,18 @@ grill ──▶ design ──▶ red ──▶ green ──▶ review ──▶ 
 |---|---|---|
 | **grill** | 拷问六个需求维度；未达成共识前拒绝实现。 | ✅ v0.1 |
 | **design** | 通过 `doublecheck_spec` 提交 spec。 | ✅ v0.1 |
-| **red** | 失败的测试证明缺口存在。 | 🔜 v0.2 |
-| **green** | 修复使其通过；日志证明先后顺序。 | 🔜 v0.2 |
+| **red** | 日志中存在失败测试运行；实现改动必须有它在案。 | ✅ v0.2 |
+| **green** | 改动之后有通过测试，闭环。 | ✅ v0.2 |
 | **review** | 对抗式评审员审查交付（`adversaryModel`）。 | 🔜 v0.3 |
 | **verify** | workflow 编排 + 汇总 doublecheck 报告。 | 🔜 v0.4 |
 
-## v0.1 功能
+## v0.2 功能
 
 - 🔥 **`grill-requirements` 技能** —— 按通用 Agent Skills 格式打包的技能，围绕六个维度（**目标、边界、验收标准、失败模式、优先级、非目标**）连环追问，使用 DSH 原生 `ask_user_question` 界面；共识达成前拒绝写代码，并记录契约。
 - 📜 **`doublecheck_spec` 工具** —— 把拷问出的 spec 写入会话日志，并在工作区落一份 markdown，让契约不随对话消失。
 - 🛡️ **纪律 guard** —— 挂在工具策略管线上的软门。模糊任务 + 没有 spec + 直奔 `edit`/`write` → 按 `intensity` 分别**提醒**、**请求人工批准**或**拦截**。
-- 🔁 **持久化状态** —— 所有模型可见内容（spec、提醒、拒绝反馈）都落会话日志；guard 的判定完全由日志推导，恢复/派生会话同样生效。
+- 🟥🟩 **红/绿证据门**（`modules.tdd`）—— 会话日志硬校验：实现改动要求日志里**存在失败测试运行**（自上次通过以来；写测试文件永远放行——那正是 red 步骤）；回合结束时若有改动却没有通过测试运行，则注入 green 提醒。
+- 🔁 **持久化状态** —— 所有模型可见内容（spec、提醒、拒绝反馈）都落会话日志；门禁判定完全由日志（`tool/call` + `tool/result`，含 Code Mode 子派发）推导，恢复/派生会话同样生效。
 - 📚 **`doublecheck_skills` 工具** —— 通过官方技能注册表接缝列出与加载本包技能。
 
 ## 安装
@@ -70,33 +71,45 @@ dsh plugin --profile <name> add ./dsh-doublecheck-0.1.0.tgz
     intensity: warn
     modules:
       grill: true
-      tdd: false        # v0.2 预留——v0.1 中必须为 false
-      adversary: false  # v0.3 预留——v0.1 中必须为 false
+      tdd: true         # 红/绿证据门（v0.2）
+      adversary: false  # v0.3 预留——必须为 false
     adversaryModel: null
     guardTools: ['edit', 'write']
     vagueTaskMaxChars: 200
     remindOnce: true
+    testToolNames: ['bash', 'pwsh']
+    testCommandPatterns:
+      - '(?:^|[;&|]\s*)(?:(?:pnpm|npm|npx|yarn|bun)(?:\s+run)?\s+(?:test|vitest|jest|mocha)(?:\s|$))'
+      - '(?:^|[;&|]\s*)(?:(?:pytest|go\s+test|cargo\s+test|make\s+test|ctest)(?:\s|$))'
+      - '(?:^|[;&|]\s*)(?:node\s+--test(?:\s|$))'
+    testFilePatterns:
+      - '(^|[\\/])(tests?|__tests__|specs?)([\\/]|$)'
+      - '\\.(test|spec)\\.[A-Za-z0-9]+$'
 ```
 
 ### `intensity`
 
-| 取值 | 对“模糊且无 spec 的 `edit`/`write`”的处理 |
+| 取值 | 对被门禁拦截的 `edit`/`write` 的处理 |
 |---|---|
 | `remind`（默认） | 调用照常执行；提醒随结果上下文注入下一条模型请求。 |
 | `warn` | 调用被挂起，经审批接缝请求一次性人工批准（无审批通道时拒绝）。 |
-| `block` | 调用被拒绝，反馈引导模型先完成需求拷问。 |
+| `block` | 调用被拒绝，反馈引导模型先补齐纪律步骤。 |
 
 ### 可调参数
 
 | 键 | 默认 | 含义 |
 |---|---|---|
-| `modules.grill` | `true` | 关闭则 guard 整体停用；grill 技能/工具的开关是各自行的 `disabled`。 |
-| `guardTools` | `['edit', 'write']` | guard 监视的变更类工具名。 |
+| `modules.grill` | `true` | 关闭则 grill 门整体停用；grill 技能/工具的开关是各自行的 `disabled`。 |
+| `modules.tdd` | `false` | 开启红/绿证据门（v0.2）。 |
+| `guardTools` | `['edit', 'write']` | 两道门监视的变更类工具名。 |
 | `vagueTaskMaxChars` | `200` | 超过此长度的任务一律不算模糊；简短任务提到文件名、路径或 URL 即为具体。 |
-| `remindOnce` | `true` | 每个会话最多注入一次提醒。 |
-| `adversaryModel` | `null` | v0.3 评审员预留；`null` = 主模型自评。v0.1 中设为非空会在加载期报错。 |
+| `remindOnce` | `true` | 每道门每个会话最多注入一次提醒。 |
+| `testToolNames` | `['bash', 'pwsh']` | 可运行测试的 shell 工具名。 |
+| `testCommandPatterns` | *（pnpm/npm/yarn/bun test、pytest、go/cargo/make test、node --test）* | 命令需匹配的正则才算测试运行。 |
+| `testFilePatterns` | *（测试目录、`*.test.*`/`*.spec.*`）* | 识别测试文件的正则——永远可编辑，豁免 red 门。 |
+| `adversaryModel` | `null` | v0.3 评审员预留；`null` = 主模型自评。设为非空会在加载期报错。 |
 
-配置错误响亮失败：开启预留模块或设置 `adversaryModel` 会在加载时抛错，而不是悄悄什么都不做。
+配置错误响亮失败：开启预留的 `adversary` 模块、设置 `adversaryModel` 或提供非法正则都会在加载时抛错，而不是悄悄什么都不做。
 
 ## 工作原理（所用扩展点）
 
@@ -106,8 +119,10 @@ dsh plugin --profile <name> add ./dsh-doublecheck-0.1.0.tgz
 | 目录/加载工具 | `ctx.tools.register()` —— `doublecheck_skills` |
 | spec 落盘 + 工作区文件 | `doublecheck_spec` 工具 + 可选 `ctx.fs` 写入 |
 | 需求门 | `tools/pre-execute` waterfall —— `allow` / `ask`（审批接缝）/ `deny` |
+| red 门 | `tools/pre-execute` waterfall —— 实现改动前硬校验失败测试证据 |
 | 提醒注入 | `tools/post-execute` waterfall —— `additionalContexts` → 记录为 `user/message` |
-| 持久化状态 | 会话日志折叠 `tool/call` + `tool/result`；模型可见 ⟺ 已记录 |
+| green 门 | `agent/turn-stopping` serial —— 改动后无通过测试运行时注入完成提醒 |
+| 持久化状态 | 会话日志折叠 `tool/call` + `tool/result` + `tool/code-dispatch`；模型可见 ⟺ 已记录 |
 | 包内事件 | `doublecheck/spec`、`doublecheck/reminder`（declaration merging 类型化，`@mode emit`） |
 
 不改 agent-loop。所有注册都是可逆的 `ctx.effect` / `ctx.on` / 服务 `register()`。
@@ -120,7 +135,6 @@ dsh plugin --profile <name> add ./dsh-doublecheck-0.1.0.tgz
 
 ## 路线图
 
-- **v0.2** —— 红/绿证据门：会话日志硬校验“先有失败测试、后有修复”。
 - **v0.3** —— adversary 模块：批判者子代理审查交付；`adversaryModel` 选择路由。
 - **v0.4** —— workflow 编排与汇总 doublecheck 报告。
 

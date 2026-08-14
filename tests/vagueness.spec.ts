@@ -21,6 +21,18 @@ describe('isVagueTask', () => {
     expect(isVagueTask('C:\\work\\app\\main.js is broken', config)).toBe(false)
   })
 
+  it('treats a short task with a quoted keyword as concrete', () => {
+    expect(isVagueTask('make the "snapshot" field optional', config)).toBe(false)
+    expect(isVagueTask("rename 'pending' to 'queued'", config)).toBe(false)
+    expect(isVagueTask('use `verbose` when logging', config)).toBe(false)
+    expect(isVagueTask('把“待定”状态改成“排队”', config)).toBe(false)
+    expect(isVagueTask('搜索「空值」再处理', config)).toBe(false)
+  })
+
+  it('keeps empty quotes from making a task concrete', () => {
+    expect(isVagueTask('fix the "" thing', config)).toBe(true)
+  })
+
   it('treats a long task as concrete even without artifacts', () => {
     const long = 'x'.repeat(201)
     expect(isVagueTask(long, config)).toBe(false)
