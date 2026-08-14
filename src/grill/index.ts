@@ -113,6 +113,9 @@ export function renderSpecMarkdown(spec: GrilledSpec): string {
 /** FsTarget narrowed to the fields the spec writer reports back. */
 type SpecWriteOutcome = { path: string | null; written: boolean }
 
+/** The six spec dimensions, in record order. */
+const SPEC_FIELDS = ['goal', 'scope', 'acceptanceCriteria', 'failureModes', 'priorities', 'nonGoals'] as const
+
 /**
  * Install the grill module: bundled skill provider plus its three tools.
  * @param ctx - plugin context; registrations unwind with it.
@@ -256,6 +259,14 @@ export function apply(ctx: Context, config: Config): void {
       },
     },
     async execute(args, exec) {
+      // An empty dimension is an unsettled one: the grill has not reached
+      // consensus. Reject it instead of committing a hollow contract (the
+      // parameter schema cannot express minLength, so the check lives here).
+      for (const field of SPEC_FIELDS) {
+        if (args[field].trim().length === 0) {
+          throw new Error(`doublecheck_spec: the "${field}" field must not be empty — settle all six requirement dimensions before recording the spec`)
+        }
+      }
       const spec: GrilledSpec = {
         goal: args.goal,
         scope: args.scope,

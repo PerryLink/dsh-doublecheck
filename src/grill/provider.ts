@@ -152,7 +152,11 @@ export class BundledSkillProvider implements SkillProvider {
 /**
  * Parse a bundled SKILL.md asset: YAML-frontmatter scalars plus the body.
  * Only the three fields this package ships are read; the frontmatter itself
- * stays standard Agent Skills YAML.
+ * stays standard Agent Skills YAML. Constraint: each read field must be a
+ * single-line scalar (`key: value` on one line, optionally quoted). Multi-line
+ * YAML values are not supported — such a field reads as malformed and the
+ * skill is skipped with a warning, so keep the shipped SKILL.md frontmatter
+ * one field per line.
  * @param raw - the full file text.
  * @returns the parsed skill, or `undefined` when the file has no valid frontmatter.
  */
