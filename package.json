@@ -1,6 +1,6 @@
 {
   "name": "dsh-doublecheck",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Double-check before you ship: grill the requirements, test the implementation, prove the delivery.",
   "type": "module",
   "main": "lib/index.js",
@@ -78,6 +78,7 @@
     "@deepseek-ai/dsh-subagent": "0.1.0-rc.6",
     "@deepseek-ai/dsh-system-prompt": "0.1.0-rc.6",
     "@deepseek-ai/dsh-tools": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-workflow": "0.1.0-rc.6",
     "@deepseek-ai/schemastery": "^3.18.1",
     "@eslint/js": "^9.30.0",
     "@types/node": "^22.15.0",

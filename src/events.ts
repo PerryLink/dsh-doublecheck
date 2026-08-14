@@ -1,33 +1,23 @@
 /**
  * Package-internal Cordis event vocabulary.
  *
- * Both events are process-local notifications between dsh-doublecheck's own
+ * These events are process-local notifications between dsh-doublecheck's own
  * plugin modules. Durable state never depends on them: the session log
  * (`tool/call` / `tool/result` / `user/message` events) remains the single
  * source of truth, and every model-visible payload they announce is recorded
- * there through the standard channels before the event fires.
+ * there through the standard channels before the event fires. Structured
+ * discipline facts that must survive the conversation ride the durable log as
+ * injected `user/message` sources via the {@link MessageSourceMap} extension
+ * below — never as these process-local events.
  *
  * @module dsh-doublecheck/events
  */
 
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { Session } from '@deepseek-ai/dsh-session'
+import type { GrilledSpec, ReviewFinding, ReviewVerdict, ReportVerdict, VerifyCheck } from './domain/vocabulary.ts'
 
-/** The six dimensions of a grilled requirements spec (v0.1 canonical fields). */
-export interface GrilledSpec {
-  /** What outcome the work must produce, in one verifiable sentence. */
-  goal: string
-  /** What is in scope and what is out of scope for this change. */
-  scope: string
-  /** Observable checks that prove the work is done. */
-  acceptanceCriteria: string
-  /** What can go wrong and the correct behavior in each case. */
-  failureModes: string
-  /** What to trade when goals conflict; what is optional. */
-  priorities: string
-  /** What the user explicitly does not want. */
-  nonGoals: string
-}
+export type { GrilledSpec, ReviewFinding, ReviewVerdict, ReportVerdict, VerifyCheck } from './domain/vocabulary.ts'
 
 /** Guard enforcement strength. */
 export type GuardIntensity = 'remind' | 'warn' | 'block'
@@ -38,18 +28,21 @@ export type GuardGate = 'grill' | 'tdd'
 /** Policy outcome of one guard reaction. */
 export type GuardVerdict = 'reminded' | 'held' | 'denied' | 'green-pending'
 
-/** One structured objection from the adversary review. */
-export interface ReviewFinding {
-  /** How much the finding threatens the delivery claim. */
-  severity: 'blocker' | 'major' | 'minor' | 'info'
-  /** One-line statement of the objection. */
-  title: string
-  /** The evidence in the session that supports the objection. */
-  detail: string
+declare module '@deepseek-ai/dsh-llm' {
+  interface MessageSourceMap {
+    /**
+     * The adversary review injected into the session: the durable record of
+     * one settled critique. The model-facing text is the rendered findings
+     * (or clean/unavailable notice); the structured findings and verdict live
+     * here so the doublecheck report can fold them without re-parsing prose.
+     */
+    'doublecheck-review': {
+      kind: 'doublecheck-review'
+      verdict: ReviewVerdict
+      findings: ReviewFinding[]
+    }
+  }
 }
-
-/** What the adversary review concluded. */
-export type ReviewVerdict = 'findings' | 'clean' | 'unavailable'
 
 declare module '@deepseek-ai/cordis' {
   interface Events {
@@ -95,8 +88,9 @@ declare module '@deepseek-ai/cordis' {
      * subagent compared the committed spec against the session's delivery
      * evidence and produced structured findings (or a clean/unavailable
      * verdict). The review text that reached the model rides the standard
-     * injection channel and is recorded as a `user/message` session event.
-     * Observability only — listeners must not veto or reroute.
+     * injection channel and is recorded as a `user/message` session event
+     * whose source carries the structured record. Observability only —
+     * listeners must not veto or reroute.
      * @param payload.session - the reviewed session.
      * @param payload.agent - the reviewed agent.
      * @param payload.verdict - findings, clean, or unavailable.
@@ -110,6 +104,26 @@ declare module '@deepseek-ai/cordis' {
       verdict: ReviewVerdict
       findings: ReviewFinding[]
       text?: string
+    }): void
+    /**
+     * The doublecheck report tool committed a consolidated delivery report:
+     * the folded session facts, the derived verdict, the optional
+     * verification checks, and the workspace copy outcome. The report the
+     * model sees is the tool's own `tool/result`; this event is observability
+     * only — listeners must not veto or reroute.
+     * @param payload.session - the reported session.
+     * @param payload.verdict - the derived delivery status.
+     * @param payload.checks - the verification checks, when verification ran.
+     * @param payload.path - absolute workspace path written, or null when no write happened.
+     * @param payload.written - whether the markdown copy reached the workspace.
+     * @mode emit
+     */
+    'doublecheck/report'(payload: {
+      session: Session
+      verdict: ReportVerdict
+      checks: VerifyCheck[] | null
+      path: string | null
+      written: boolean
     }): void
   }
 }

@@ -20,6 +20,14 @@ export interface TestRunDetection {
     /** Regexes identifying test-file paths, exempt from the red gate. */
     testFilePatterns: readonly RegExp[];
 }
+/** Shared defaults: shell tools that can run tests. */
+export declare const DEFAULT_TEST_TOOL_NAMES: readonly string[];
+/** Shared defaults: commands that count as test runs. */
+export declare const DEFAULT_TEST_COMMAND_PATTERNS: readonly string[];
+/** Shared defaults: mutation tools and test-file path patterns. */
+export declare const DEFAULT_MUTATION_TOOLS: readonly string[];
+/** Shared defaults: paths that identify test files. */
+export declare const DEFAULT_TEST_FILE_PATTERNS: readonly string[];
 /** A classified test-run outcome. `undefined` = no usable evidence (infra failure, sandbox denial, background ack). */
 export type TestOutcome = 'pass' | 'fail';
 /** The raw knobs before regex compilation; invalid patterns fail loud at compile. */

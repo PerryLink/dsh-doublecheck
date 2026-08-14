@@ -15,10 +15,11 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import type { ContentBlock } from '@deepseek-ai/dsh-llm'
+import { createUserMessage } from '@deepseek-ai/dsh-llm'
+import type { ContentBlock, MessageSource, UserMessage } from '@deepseek-ai/dsh-llm'
 import type { SubagentRun } from '@deepseek-ai/dsh-subagent'
 import type { ObjectJsonSchema } from '@deepseek-ai/dsh-tools'
-import type { ReviewFinding, ReviewVerdict } from '../events.ts'
+import type { ReviewFinding, ReviewVerdict } from '../domain/vocabulary.ts'
 
 /** The adversary knobs the review runner reads. */
 export interface AdversaryConfig {
@@ -168,4 +169,23 @@ function outputText(content: readonly ContentBlock[], fallback: string): string 
   }
   const text = parts.join('\n').trim()
   return text.length > 0 ? text : fallback
+}
+
+/**
+ * The injected review message: model-facing prose with the structured
+ * findings riding the durable `doublecheck-review` message source, so the
+ * doublecheck report can fold the record without re-parsing the prose.
+ * @param outcome - the settled review outcome.
+ * @returns the injection-ready user message.
+ */
+export function reviewInjection(outcome: ReviewOutcome): UserMessage {
+  const source: MessageSource = {
+    kind: 'doublecheck-review',
+    verdict: outcome.verdict,
+    findings: outcome.findings,
+  }
+  return createUserMessage({
+    content: [{ type: 'text', text: outcome.text }],
+    source,
+  })
 }

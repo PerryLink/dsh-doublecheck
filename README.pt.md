@@ -33,15 +33,16 @@ grill ──▶ design ──▶ red ──▶ green ──▶ review ──▶ 
 | **red** | Um teste que falha comprova a lacuna; edições de implementação precisam dele no registro. | ✅ v0.2 |
 | **green** | Um teste que passa após as edições fecha o ciclo. | ✅ v0.2 |
 | **review** | Um crítico adversário bifurcado audita a entrega contra o spec. | ✅ v0.3 |
-| **verify** | Orquestração de workflow + relatório doublecheck consolidado. | 🔜 v0.4 |
+| **verify** | `doublecheck_report` + um workflow de verificação por dimensão comprovam a entrega. | ✅ v0.4 |
 
-## Recursos (v0.3)
+## Recursos (v0.4)
 
 - 🔥 **Skill `grill-requirements`** — um skill empacotado no formato Agent Skills que interroga a tarefa em seis dimensões (**objetivo, escopo, critérios de aceite, modos de falha, prioridades, não-objetivos**) usando a UI nativa `ask_user_question` do DSH, recusa escrever código até o consenso e registra o contrato.
 - 📜 **Ferramenta `doublecheck_spec`** — grava o spec acordado no log da sessão e escreve uma cópia em markdown no workspace, para o contrato sobreviver à conversa.
 - 🛡️ **Guard de disciplina** — um portão suave no pipeline de políticas de ferramentas. Tarefa vaga + sem spec + rumo a `edit`/`write` → **lembrar**, **pedir aprovação humana** ou **bloquear**, conforme `intensity`.
 - 🟥🟩 **Portões de evidência red/green** (`modules.tdd`) — verificações duras sobre o log da sessão: uma edição de implementação exige um **teste que falha registrado** desde o último teste que passa (escrever arquivos de teste é sempre permitido — é assim que o passo red acontece), e um turno que termina com edições mas sem nenhum teste que passa recebe um lembrete green injetado.
-- 👁️ **Revisão adversária** (`modules.adversary`) — assim que a entrega chega ao green, um subagente crítico bifurcado (seam nativo de subagentes do DSH, provider `fork` por padrão) audita a sessão contra o spec registrado com postura adversária e devolve achados estruturados. `remind` injeta a crítica; `warn`/`block` ainda direcionam uma rodada para o modelo responder aos achados. `adversaryModel` roteia o crítico para um modelo separado; a allowlist de ferramentas do crítico é somente leitura por padrão.
+- 👁️ **Revisão adversária** (`modules.adversary`) — assim que a entrega chega ao green, um subagente crítico bifurcado (seam nativo de subagentes do DSH, provider `fork` por padrão) audita a sessão contra o spec registrado com postura adversária e devolve achados estruturados. `remind` injeta a crítica; `warn`/`block` ainda direcionam uma rodada para o modelo responder aos achados. `adversaryModel` roteia o crítico para um modelo separado; a allowlist de ferramentas do crítico é somente leitura por padrão. Os achados trafegam pela fonte de mensagens durável `doublecheck-review`.
+- 📊 **Relatório doublecheck + workflow de verificação** (`doublecheck_report`, v0.4) — consolida a evidência de disciplina da sessão (spec, cronologia red/green, achados da revisão, edições) em um relatório de entrega com um veredito derivado (`grill → draft → red → green → objections/verified → proven/challenged`), gravado no workspace. Com `verify`, um verificador paralelo por dimensão do spec roda pelo seam de workflow do DSH e os vereditos se dobram no relatório.
 - 🔁 **Estado durável** — todo artefato visível ao modelo (spec, lembretes, feedback de negação, achados da revisão) fica no log da sessão; as decisões dos portões derivam só do log (`tool/call` + `tool/result`, incluindo os sub-despachos do Code Mode), então sessões retomadas ou bifurcadas se comportam igual.
 - 📚 **Ferramenta `doublecheck_skills`** — lista e carrega os skills do pacote pelo seam oficial do registro de skills.
 
@@ -56,7 +57,7 @@ As duas linhas de plugin ativam automaticamente com o profile. Instalação por 
 
 ```sh
 pnpm pack
-dsh plugin --profile <name> add ./dsh-doublecheck-0.1.0.tgz
+dsh plugin --profile <name> add ./dsh-doublecheck-0.4.0.tgz
 ```
 
 ## Configuração
@@ -67,6 +68,18 @@ Sobrescreva qualquer linha **por id** no `cordis.patch.yml` do profile. Um patch
 - id: doublecheck-grill
   config:
     specFile: 'specs/doublecheck-spec.md'   # padrão: 'doublecheck-spec.md'
+    reportFile: 'specs/doublecheck-report.md'   # padrão: 'doublecheck-report.md'
+    reportVerify: true            # rodar o workflow de verificação por padrão
+    verifyProvider: 'fork'        # provider para os verificadores por dimensão
+    reportTestToolNames: ['bash', 'pwsh']
+    reportTestCommandPatterns:
+      - '(?:^|[;&|]\s*)(?:(?:pnpm|npm|npx|yarn|bun)(?:\s+run)?\s+(?:test|vitest|jest|mocha)(?:\s|$))'
+      - '(?:^|[;&|]\s*)(?:(?:pytest|go\s+test|cargo\s+test|make\s+test|ctest)(?:\s|$))'
+      - '(?:^|[;&|]\s*)(?:node\s+--test(?:\s|$))'
+    reportMutationTools: ['edit', 'write']
+    reportTestFilePatterns:
+      - '(^|[\\/])(tests?|__tests__|specs?)([\\/]|$)'
+      - '\\.(test|spec)\\.[A-Za-z0-9]+$'
 
 - id: doublecheck-guard
   config:
@@ -109,7 +122,7 @@ Sobrescreva qualquer linha **por id** no `cordis.patch.yml` do profile. Um patch
 | `modules.tdd` | `false` | `true` ativa os portões de evidência red/green (v0.2). |
 | `modules.adversary` | `false` | `true` ativa a revisão do crítico bifurcado no green (v0.3); usa o seam `ctx.subagents` — um seam ausente se resolve como um aviso «indisponível». |
 | `guardTools` | `['edit', 'write']` | Nomes de ferramentas de mutação que o guard vigia. |
-| `vagueTaskMaxChars` | `200` | Tarefas mais longas nunca são tratadas como vagas. Tarefas breves que citam arquivo, caminho, URL ou palavra-chave com sublinhado são concretas. |
+| `vagueTaskMaxChars` | `200` | Tarefas mais longas nunca são tratadas como vagas. Tarefas breves que citam arquivo, caminho, URL, palavra-chave com sublinhado ou palavra-chave hifenizada são concretas. |
 | `remindOnce` | `true` | Injetar o lembrete de cada portão no máximo uma vez por sessão. |
 | `testToolNames` | `['bash', 'pwsh']` | Nomes de ferramentas de shell que podem executar testes. |
 | `testCommandPatterns` | *(pnpm/npm/yarn/bun test, pytest, go/cargo/make test, node --test)* | Expressões regulares com as quais um comando deve coincidir para contar como execução de teste. |
@@ -121,6 +134,18 @@ Sobrescreva qualquer linha **por id** no `cordis.patch.yml` do profile. Um patch
 | `adversaryTimeoutMs` | `120000` | Orçamento de tempo rígido para uma execução do crítico. |
 
 Configuração errada falha em voz alta: uma regex inválida, uma lista de nomes vazia ou duplicada, ou um teto de achados fora do intervalo lança erro no carregamento, em vez de não fazer nada em silêncio. Um crítico que não consegue rodar (seam ausente, falha do provider, timeout) se resolve como um aviso honesto «indisponível» na sessão.
+
+### Controles do relatório (linha grill)
+
+| Chave | Padrão | Significado |
+|---|---|---|
+| `reportFile` | `'doublecheck-report.md'` | Arquivo do workspace que recebe o markdown do relatório. |
+| `reportVerify` | `true` | Padrão para o flag `verify` da ferramenta. |
+| `verifyProvider` | `'fork'` | Provider de subagentes onde os verificadores por dimensão rodam. |
+| `reportTestToolNames` / `reportTestCommandPatterns` | *(same defaults as the guard row)* | Classificação de execuções de teste com escopo de relatório. |
+| `reportMutationTools` / `reportTestFilePatterns` | *(same defaults as the guard row)* | Classificação de edições de implementação com escopo de relatório. |
+
+Os controles de classificação do relatório são independentes dos do guard: a aplicação do portão e a dobra do relatório podem ser ajustados separadamente sem que um mude silenciosamente o outro. A verificação degrada honestamente: um seam `workflowEngine` ausente ou uma execução rejeitada deixa `verification: null` e o markdown diz isso.
 
 ## Como funciona (pontos de extensão)
 
@@ -134,8 +159,10 @@ Configuração errada falha em voz alta: uma regex inválida, uma lista de nomes
 | Injeção de lembrete | waterfall `tools/post-execute` — `additionalContexts` → registrado como `user/message` |
 | Portão green | `agent/turn-stopping` serial — injeta um lembrete de conclusão quando as edições carecem de um teste que passa |
 | Revisão adversária | `ctx.subagents.start()` — forked critic with structured findings schema, injected at green; `warn`/`block` steer one round |
-| Estado durável | dobra do log da sessão sobre `tool/call` + `tool/result` + `tool/code-dispatch`; visível ao modelo ⟺ registrado |
-| Eventos internos | `doublecheck/spec`, `doublecheck/reminder`, `doublecheck/review` (tipados via declaration merging, `@mode emit`) |
+| Relatório de entrega | `doublecheck_report` tool — session-log fold + workspace markdown |
+| Workflow de verificação | `ctx.workflowEngine.start()` — one parallel checker per spec dimension, structured checks |
+| Estado durável | session log fold over `tool/call` + `tool/result` + `tool/code-dispatch` + injected structured sources; model-visible ⟺ logged |
+| Eventos internos | `doublecheck/spec`, `doublecheck/reminder`, `doublecheck/review`, `doublecheck/report` (typed via declaration merging, `@mode emit`) |
 
 Sem mudanças no agent-loop. Todo registro é um `ctx.effect` / `ctx.on` / `register()` de serviço reversível.
 
@@ -145,10 +172,11 @@ Sem mudanças no agent-loop. Todo registro é um `ctx.effect` / `ctx.on` / `regi
 - `ask_user_question` continua sendo a forma nativa do DSH de perguntar ao usuário; o skill só coreografa (e em headless sem provider degrada para perguntas em prosa).
 - Os lembretes chegam como contexto `{kind:'plugin'}`, então as UIs de transcrição os exibem como metadados de injeção.
 - A crítica do adversário chega da mesma forma depois que o crítico se estabelece, com achados marcados por severidade; sob `warn`/`block` o ciclo é direcionado uma rodada para que o modelo os responda.
+- `doublecheck_report` devolve o relatório consolidado como resultado de ferramenta (spec, cronologia de testes, revisão, verificação, veredito), então «comprovar a entrega» está a uma chamada de distância.
 
 ## Roadmap
 
-- **v0.4** — orquestração de workflow e relatório doublecheck consolidado.
+O ciclo de disciplina de seis etapas está completo: **grill → design → red → green → review → verify** — todas embarcam neste pacote (v0.1 → v0.4). Trabalho futuro: cobertura de snapshot para as transcrições de revisão/relatório e formatação de relatório mais rica.
 
 ## Desenvolvimento
 

@@ -22,6 +22,25 @@ export interface TestRunDetection {
   testFilePatterns: readonly RegExp[]
 }
 
+/** Shared defaults: shell tools that can run tests. */
+export const DEFAULT_TEST_TOOL_NAMES: readonly string[] = ['bash', 'pwsh']
+
+/** Shared defaults: commands that count as test runs. */
+export const DEFAULT_TEST_COMMAND_PATTERNS: readonly string[] = [
+  '(?:^|[;&|]\\s*)(?:(?:pnpm|npm|npx|yarn|bun)(?:\\s+run)?\\s+(?:test|vitest|jest|mocha)(?:\\s|$))',
+  '(?:^|[;&|]\\s*)(?:(?:pytest|go\\s+test|cargo\\s+test|make\\s+test|ctest)(?:\\s|$))',
+  '(?:^|[;&|]\\s*)(?:node\\s+--test(?:\\s|$))',
+]
+
+/** Shared defaults: mutation tools and test-file path patterns. */
+export const DEFAULT_MUTATION_TOOLS: readonly string[] = ['edit', 'write']
+
+/** Shared defaults: paths that identify test files. */
+export const DEFAULT_TEST_FILE_PATTERNS: readonly string[] = [
+  '(^|[\\\\/])(tests?|__tests__|specs?)([\\\\/]|$)',
+  '\\.(test|spec)\\.[A-Za-z0-9]+$',
+]
+
 /** A classified test-run outcome. `undefined` = no usable evidence (infra failure, sandbox denial, background ack). */
 export type TestOutcome = 'pass' | 'fail'
 

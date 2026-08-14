@@ -33,15 +33,16 @@ grill ──▶ design ──▶ red ──▶ green ──▶ review ──▶ 
 | **red** | A failing test run proves the gap; implementation edits need it on record. | ✅ v0.2 |
 | **green** | A passing test run after the edits closes the loop. | ✅ v0.2 |
 | **review** | A forked adversary critic audits the delivery against the spec. | ✅ v0.3 |
-| **verify** | Workflow orchestration + consolidated doublecheck report. | 🔜 v0.4 |
+| **verify** | `doublecheck_report` + a per-dimension verification workflow prove the delivery. | ✅ v0.4 |
 
-## Features (v0.3)
+## Features (v0.4)
 
 - 🔥 **`grill-requirements` skill** — a bundled Agent-Skills-format skill that interrogates the task across six dimensions (**goal, scope, acceptance criteria, failure modes, priorities, non-goals**) using DSH's native `ask_user_question` UI, refuses to write code until consensus, and records the contract.
 - 📜 **`doublecheck_spec` tool** — commits the grilled spec to the session log and writes a markdown copy to the workspace, so the contract survives the conversation.
 - 🛡️ **Discipline guard** — a soft gate on the tool policy pipeline. Vague task + no spec + heading for `edit`/`write` → **remind**, **hold for human approval**, or **block**, depending on `intensity`.
 - 🟥🟩 **Red/green evidence gates** (`modules.tdd`) — hard checks over the session log: an implementation edit requires a **failing test run on record** since the last passing run (writing test files is always allowed — that is how the red step happens), and a turn that ends with edits but no passing run gets a green reminder injected.
-- 👁️ **Adversary review** (`modules.adversary`) — once the delivery reaches green, a forked critic subagent (DSH's native subagent seam, default `fork` provider) audits the session against the committed spec with an adversarial stance and returns structured findings. `remind` injects the critique; `warn`/`block` additionally steer one round to make the model answer the findings. `adversaryModel` routes the critic to a separate model; the critic's tool allowlist is read-only by default.
+- 👁️ **Adversary review** (`modules.adversary`) — once the delivery reaches green, a forked critic subagent (DSH's native subagent seam, default `fork` provider) audits the session against the committed spec with an adversarial stance and returns structured findings. `remind` injects the critique; `warn`/`block` additionally steer one round to make the model answer the findings. `adversaryModel` routes the critic to a separate model; the critic's tool allowlist is read-only by default. Findings ride the durable `doublecheck-review` message source.
+- 📊 **Doublecheck report + verification workflow** (`doublecheck_report`, v0.4) — consolidates the session's discipline evidence (spec, red/green timeline, review findings, edits) into a delivery report with a derived verdict (`grill → draft → red → green → objections/verified → proven/challenged`), written to the workspace. With `verify`, one parallel checker per spec dimension runs through DSH's workflow seam and their verdicts fold into the report.
 - 🔁 **Durable state** — every model-visible artifact (spec, reminders, deny feedback, review findings) lands in the session log; gate decisions derive from the log alone (`tool/call` + `tool/result`, including Code Mode sub-dispatches), so resumed and forked sessions enforce identically.
 - 📚 **`doublecheck_skills` tool** — lists and loads the package's skills through the official skill registry seam.
 
@@ -56,7 +57,7 @@ Both plugin rows activate automatically with the profile. Tarball installs work 
 
 ```sh
 pnpm pack
-dsh plugin --profile <name> add ./dsh-doublecheck-0.1.0.tgz
+dsh plugin --profile <name> add ./dsh-doublecheck-0.4.0.tgz
 ```
 
 ## Configure
@@ -67,6 +68,18 @@ Override any row **by id** in the profile's `cordis.patch.yml`. A patch replaces
 - id: doublecheck-grill
   config:
     specFile: 'specs/doublecheck-spec.md'   # default: 'doublecheck-spec.md'
+    reportFile: 'specs/doublecheck-report.md'   # default: 'doublecheck-report.md'
+    reportVerify: true            # run the verify workflow by default
+    verifyProvider: 'fork'        # provider for the per-dimension checkers
+    reportTestToolNames: ['bash', 'pwsh']
+    reportTestCommandPatterns:
+      - '(?:^|[;&|]\s*)(?:(?:pnpm|npm|npx|yarn|bun)(?:\s+run)?\s+(?:test|vitest|jest|mocha)(?:\s|$))'
+      - '(?:^|[;&|]\s*)(?:(?:pytest|go\s+test|cargo\s+test|make\s+test|ctest)(?:\s|$))'
+      - '(?:^|[;&|]\s*)(?:node\s+--test(?:\s|$))'
+    reportMutationTools: ['edit', 'write']
+    reportTestFilePatterns:
+      - '(^|[\\/])(tests?|__tests__|specs?)([\\/]|$)'
+      - '\\.(test|spec)\\.[A-Za-z0-9]+$'
 
 - id: doublecheck-guard
   config:
@@ -109,7 +122,7 @@ Override any row **by id** in the profile's `cordis.patch.yml`. A patch replaces
 | `modules.tdd` | `false` | On enables the red/green evidence gates (v0.2). |
 | `modules.adversary` | `false` | On enables the forked critic review at green (v0.3); uses the `ctx.subagents` seam — a missing seam settles as an "unavailable" notice. |
 | `guardTools` | `['edit', 'write']` | Mutation tool names both gates watch. |
-| `vagueTaskMaxChars` | `200` | Longer tasks are never treated as vague. Brief tasks naming a file, path, URL, or an underscore keyword are concrete. |
+| `vagueTaskMaxChars` | `200` | Longer tasks are never treated as vague. Brief tasks naming a file, path, URL, an underscore keyword, or a hyphenated keyword are concrete. |
 | `remindOnce` | `true` | Inject each gate's reminder at most once per session. |
 | `testToolNames` | `['bash', 'pwsh']` | Shell tool names that can run tests. |
 | `testCommandPatterns` | *(pnpm/npm/yarn/bun test, pytest, go/cargo/make test, node --test)* | Regexes a command must match to count as a test run. |
@@ -121,6 +134,18 @@ Override any row **by id** in the profile's `cordis.patch.yml`. A patch replaces
 | `adversaryTimeoutMs` | `120000` | Hard time budget for one critic run. |
 
 Misconfiguration fails loud: an invalid regex, an empty/duplicated name list, or an out-of-range findings cap throws at load instead of silently doing nothing. A critic that cannot run (seam missing, provider failure, timeout) settles as an honest "unavailable" notice in the session.
+
+### Report knobs (grill row)
+
+| Key | Default | Meaning |
+|---|---|---|
+| `reportFile` | `'doublecheck-report.md'` | Workspace file receiving the report markdown. |
+| `reportVerify` | `true` | Default for the tool's `verify` flag. |
+| `verifyProvider` | `'fork'` | Subagent provider the per-dimension checkers run on. |
+| `reportTestToolNames` / `reportTestCommandPatterns` | *(same defaults as the guard row)* | Report-scoped test-run classification. |
+| `reportMutationTools` / `reportTestFilePatterns` | *(same defaults as the guard row)* | Report-scoped implementation-edit classification. |
+
+The report's classification knobs are independent of the guard's: gate enforcement and report folding can be tuned separately without one silently changing the other. Verification degrades honestly: a missing `workflowEngine` seam or a rejected run leaves `verification: null` and the markdown says so.
 
 ## How it works (extension points)
 
@@ -134,8 +159,10 @@ Misconfiguration fails loud: an invalid regex, an empty/duplicated name list, or
 | Reminder injection | `tools/post-execute` waterfall — `additionalContexts` → logged as `user/message` |
 | Green gate | `agent/turn-stopping` serial — injects a completion reminder when edits lack a passing run |
 | Adversary review | `ctx.subagents.start()` — forked critic with structured findings schema, injected at green; `warn`/`block` steer one round |
-| Durable state | session log fold over `tool/call` + `tool/result` + `tool/code-dispatch`; model-visible ⟺ logged |
-| Internal events | `doublecheck/spec`, `doublecheck/reminder`, `doublecheck/review` (typed via declaration merging, `@mode emit`) |
+| Delivery report | `doublecheck_report` tool — session-log fold + workspace markdown |
+| Verification workflow | `ctx.workflowEngine.start()` — one parallel checker per spec dimension, structured checks |
+| Durable state | session log fold over `tool/call` + `tool/result` + `tool/code-dispatch` + injected structured sources; model-visible ⟺ logged |
+| Internal events | `doublecheck/spec`, `doublecheck/reminder`, `doublecheck/review`, `doublecheck/report` (typed via declaration merging, `@mode emit`) |
 
 No agent-loop changes. Every registration is a reversible `ctx.effect` / `ctx.on` / service `register()`.
 
@@ -145,10 +172,11 @@ No agent-loop changes. Every registration is a reversible `ctx.effect` / `ctx.on
 - `ask_user_question` stays the native DSH way to interrogate the user; the skill only choreographs it (and degrades to prose questions in headless runs with no provider).
 - Reminders arrive as `{kind:'plugin'}` context, so transcript UIs present them as injection metadata.
 - The adversary critique arrives the same way after the critic settles, with severity-tagged findings; under `warn`/`block` the loop is steered one round so the model answers them.
+- `doublecheck_report` returns the consolidated report as a tool result (spec, test timeline, review, verification, verdict), so "prove the delivery" is one call away.
 
 ## Roadmap
 
-- **v0.4** — workflow orchestration and a consolidated doublecheck report.
+The six-stage discipline loop is complete: **grill → design → red → green → review → verify** all ship in this package (v0.1 → v0.4). Future work: snapshot coverage for the review/report transcripts, and richer report formatting.
 
 ## Develop
 

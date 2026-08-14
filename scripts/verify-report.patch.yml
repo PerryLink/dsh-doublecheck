@@ -1,0 +1,24 @@
+# v0.4 acceptance overlay: remind + grill/tdd on, adversary off (whole-row config restated).
+- id: doublecheck-guard
+  config:
+    intensity: remind
+    modules:
+      grill: true
+      tdd: true
+      adversary: false
+    adversaryModel: null
+    adversaryProvider: 'fork'
+    adversaryMaxFindings: 5
+    adversaryTools: ['read', 'glob', 'grep']
+    adversaryTimeoutMs: 120000
+    guardTools: ['edit', 'write']
+    vagueTaskMaxChars: 200
+    remindOnce: true
+    testToolNames: ['bash', 'pwsh']
+    testCommandPatterns:
+      - '(?:^|[;&|]\s*)(?:(?:pnpm|npm|npx|yarn|bun)(?:\s+run)?\s+(?:test|vitest|jest|mocha)(?:\s|$))'
+      - '(?:^|[;&|]\s*)(?:(?:pytest|go\s+test|cargo\s+test|make\s+test|ctest)(?:\s|$))'
+      - '(?:^|[;&|]\s*)(?:node\s+--test(?:\s|$))'
+    testFilePatterns:
+      - '(^|[\\/])(tests?|__tests__|specs?)([\\/]|$)'
+      - '\\.(test|spec)\\.[A-Za-z0-9]+$'

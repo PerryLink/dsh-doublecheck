@@ -4,12 +4,24 @@
 # restate every key.
 - insert:
     # The grill module: registers the bundled grill-requirements skill and the
-    # model-facing spec/catalog tools. Its own switch is this row (`disabled:
-    # true` removes skill and tools together).
+    # model-facing spec/catalog/report tools. Its own switch is this row
+    # (`disabled: true` removes skill and tools together).
     - id: doublecheck-grill
       name: 'dsh-doublecheck/grill'
       config:
         specFile: 'doublecheck-spec.md'
+        reportFile: 'doublecheck-report.md'
+        reportVerify: true
+        verifyProvider: 'fork'
+        reportTestToolNames: ['bash', 'pwsh']
+        reportTestCommandPatterns:
+          - '(?:^|[;&|]\s*)(?:(?:pnpm|npm|npx|yarn|bun)(?:\s+run)?\s+(?:test|vitest|jest|mocha)(?:\s|$))'
+          - '(?:^|[;&|]\s*)(?:(?:pytest|go\s+test|cargo\s+test|make\s+test|ctest)(?:\s|$))'
+          - '(?:^|[;&|]\s*)(?:node\s+--test(?:\s|$))'
+        reportMutationTools: ['edit', 'write']
+        reportTestFilePatterns:
+          - '(^|[\\/])(tests?|__tests__|specs?)([\\/]|$)'
+          - '\\.(test|spec)\\.[A-Za-z0-9]+$'
 
     # The discipline guard: the grill gate (requirements-less edits on vague
     # tasks), the red/green evidence gates (`modules.tdd`), and the v0.3

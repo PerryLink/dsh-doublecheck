@@ -34,11 +34,20 @@ import type { Session, SessionEvent, UserMessage } from '@deepseek-ai/dsh-sessio
 import type { PostToolDecision, PreToolDecision, ToolExecution } from '@deepseek-ai/dsh-tools'
 import z from '@deepseek-ai/schemastery'
 import type Schema from '@deepseek-ai/schemastery'
-import { compileDetection, isTestFilePath, mutationTargetPath, type TestRunDetection } from '../domain/evidence.ts'
+import {
+  DEFAULT_MUTATION_TOOLS,
+  DEFAULT_TEST_COMMAND_PATTERNS,
+  DEFAULT_TEST_FILE_PATTERNS,
+  DEFAULT_TEST_TOOL_NAMES,
+  compileDetection,
+  isTestFilePath,
+  mutationTargetPath,
+  type TestRunDetection,
+} from '../domain/evidence.ts'
 import { emptyDisciplineState, foldDisciplineRange, type DisciplineState } from '../domain/stages.ts'
 import { isVagueTask } from '../domain/vagueness.ts'
 import type { GuardIntensity } from '../events.ts'
-import { runAdversaryReview } from './review.ts'
+import { runAdversaryReview, reviewInjection } from './review.ts'
 import type { AdversaryConfig } from './review.ts'
 
 export const name = 'doublecheck-guard'
@@ -93,19 +102,12 @@ export const Config: Schema<Config> = z.object({
   adversaryMaxFindings: z.number().default(5),
   adversaryTools: z.array(z.string()).default(['read', 'glob', 'grep']),
   adversaryTimeoutMs: z.number().default(120000),
-  guardTools: z.array(z.string()).default(['edit', 'write']),
+  guardTools: z.array(z.string()).default([...DEFAULT_MUTATION_TOOLS]),
   vagueTaskMaxChars: z.number().default(200),
   remindOnce: z.boolean().default(true),
-  testToolNames: z.array(z.string()).default(['bash', 'pwsh']),
-  testCommandPatterns: z.array(z.string()).default([
-    '(?:^|[;&|]\\s*)(?:(?:pnpm|npm|npx|yarn|bun)(?:\\s+run)?\\s+(?:test|vitest|jest|mocha)(?:\\s|$))',
-    '(?:^|[;&|]\\s*)(?:(?:pytest|go\\s+test|cargo\\s+test|make\\s+test|ctest)(?:\\s|$))',
-    '(?:^|[;&|]\\s*)(?:node\\s+--test(?:\\s|$))',
-  ]),
-  testFilePatterns: z.array(z.string()).default([
-    '(^|[\\\\/])(tests?|__tests__|specs?)([\\\\/]|$)',
-    '\\.(test|spec)\\.[A-Za-z0-9]+$',
-  ]),
+  testToolNames: z.array(z.string()).default([...DEFAULT_TEST_TOOL_NAMES]),
+  testCommandPatterns: z.array(z.string()).default([...DEFAULT_TEST_COMMAND_PATTERNS]),
+  testFilePatterns: z.array(z.string()).default([...DEFAULT_TEST_FILE_PATTERNS]),
 })
 
 /** Reminder prose injected under `intensity: remind` (and after held/denied calls). */
@@ -453,7 +455,7 @@ export function apply(ctx: Context, config: Config): void {
     reviewedSessions.add(agent.session)
 
     const outcome = await runAdversaryReview(ctx, adversaryConfig(config), agent)
-    agent.inject(notice('adversary review', outcome.text))
+    agent.inject(reviewInjection(outcome))
     ctx.emit('doublecheck/review', {
       session: agent.session,
       agent,

@@ -63,6 +63,19 @@ export function shellCall(name: string, command: string, callId = CallId(`shell-
   return sessionEvent('tool/call', { turn: 1, step: 1, callId, name, arguments: JSON.stringify({ command, description: 'run tests' }) })
 }
 
+/** A `tool/call` event for a `doublecheck_spec` with the six spec fields as arguments. */
+export function specToolCall(fields: Record<string, string>, callId = CallId(`spec-call-${nextSeq}`)): SessionEvent {
+  return sessionEvent('tool/call', { turn: 1, step: 1, callId, name: 'doublecheck_spec', arguments: JSON.stringify(fields) })
+}
+
+/** A `user/message` event carrying the durable structured review source. */
+export function reviewInjectionEvent(verdict: 'findings' | 'clean' | 'unavailable', findings: unknown[] = []): SessionEvent {
+  return sessionEvent('user/message', createUserMessage({
+    content: [{ type: 'text', text: `review: ${verdict}` }],
+    source: { kind: 'doublecheck-review', verdict, findings },
+  }))
+}
+
 /** A `tool/call` event for a mutation targeting the given file path. */
 export function mutationCall(name: 'edit' | 'write', filePath: string, callId = CallId(`mutation-${nextSeq}`)): SessionEvent {
   return sessionEvent('tool/call', { turn: 1, step: 1, callId, name, arguments: JSON.stringify({ file_path: filePath }) })

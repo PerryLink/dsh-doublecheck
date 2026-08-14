@@ -36,6 +36,26 @@ describe('isVagueTask', () => {
     expect(isVagueTask('fix the foo__bar bug', config)).toBe(false)
   })
 
+  it('treats a brief task with a hyphenated keyword as concrete', () => {
+    expect(isVagueTask('fix the retry-limit bug', config)).toBe(false)
+    expect(isVagueTask('把 foo-bar 改掉', config)).toBe(false)
+    expect(isVagueTask('rename user-name to display-name', config)).toBe(false)
+    expect(isVagueTask('fix the foo--bar bug', config)).toBe(false)
+  })
+
+  it('keeps a bare or edge hyphen from making a task concrete', () => {
+    expect(isVagueTask('fix the - thing', config)).toBe(true)
+    expect(isVagueTask('improve the thing-', config)).toBe(true)
+    expect(isVagueTask('improve the -foo thing', config)).toBe(true)
+    expect(isVagueTask('fix the --- thing', config)).toBe(true)
+  })
+
+  it('treats prose compounds, dates, and ranges as concrete (documented trade-off)', () => {
+    expect(isVagueTask('use the well-known approach', config)).toBe(false)
+    expect(isVagueTask('handle the 2024-01-01 report', config)).toBe(false)
+    expect(isVagueTask('sort 3-5 items', config)).toBe(false)
+  })
+
   it('keeps a bare underscore from making a task concrete', () => {
     expect(isVagueTask('fix the _ thing', config)).toBe(true)
     expect(isVagueTask('improve the thing_', config)).toBe(true)

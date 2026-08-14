@@ -504,6 +504,7 @@ describe('doublecheck-guard', () => {
     expect(starts).toHaveLength(1)
     expect(starts[0]?.name).toBe('fork')
     expect(injections).toHaveLength(1)
+    expect((injections[0] as { source: { kind: string } }).source.kind).toBe('doublecheck-review')
     expect(reviews).toHaveLength(1)
     expect(reviews[0]).toMatchObject({ verdict: 'findings', findings: [blockerFinding] })
   })

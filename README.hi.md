@@ -33,15 +33,16 @@ grill ──▶ design ──▶ red ──▶ green ──▶ review ──▶ 
 | **red** | असफल परीक्षण अंतर साबित करता है; कार्यान्वयन संपादनों को यह लॉग में दर्ज चाहिए। | ✅ v0.2 |
 | **green** | संपादनों के बाद पास होने वाला परीक्षण चक्र पूरा करता है। | ✅ v0.2 |
 | **review** | एक फ़ॉर्क किया गया विरोधी-आलोचक spec के विरुद्ध डिलीवरी का ऑडिट करता है। | ✅ v0.3 |
-| **verify** | वर्कफ़्लो ऑर्केस्ट्रेशन + समेकित doublecheck रिपोर्ट। | 🔜 v0.4 |
+| **verify** | `doublecheck_report` + प्रति-आयाम सत्यापन वर्कफ़्लो डिलीवरी साबित करते हैं। | ✅ v0.4 |
 
-## विशेषताएँ (v0.3)
+## विशेषताएँ (v0.4)
 
 - 🔥 **`grill-requirements` स्किल** — Agent Skills प्रारूप में पैक की गई स्किल, जो DSH की मूल `ask_user_question` UI से कार्य की छह आयामों (**लक्ष्य, दायरा, स्वीकृति-मानदंड, विफलता-स्थितियाँ, प्राथमिकताएँ, निषेध**) पर पड़ताल करती है, सहमति तक कोड लिखने से इनकार करती है और अनुबंध दर्ज करती है।
 - 📜 **`doublecheck_spec` टूल** — सहमत spec को सेशन लॉग में दर्ज करता है और वर्कस्पेस में markdown प्रति लिखता है, ताकि अनुबंध बातचीत के बाद भी बचा रहे।
 - 🛡️ **अनुशासन गार्ड** — टूल पॉलिसी पाइपलाइन पर एक नरम द्वार। अस्पष्ट कार्य + spec नहीं + `edit`/`write` की ओर बढ़ना → `intensity` के अनुसार **याद दिलाना**, **मानव अनुमोदन माँगना** या **रोकना**।
 - 🟥🟩 **Red/green प्रमाण-द्वार** (`modules.tdd`) — सेशन लॉग पर कड़ी जाँचें: कार्यान्वयन संपादन के लिए पिछले पास होने वाले परीक्षण के बाद से एक **असफल परीक्षण लॉग में दर्ज** होना चाहिए (परीक्षण फ़ाइलें लिखना हमेशा अनुमत है — red चरण ऐसे ही घटता है), और जो टर्न संपादनों के साथ पर बिना किसी पास होने वाले परीक्षण के समाप्त होता है, उसमें green अनुस्मारक इंजेक्ट होता है।
-- 👁️ **विरोधी-समीक्षा** (`modules.adversary`) — जब डिलीवरी green पर पहुँच जाती है, तब एक फ़ॉर्क किया गया आलोचक उप-एजेंट (DSH का मूल उप-एजेंट सीम, डिफ़ॉल्ट `fork` provider) प्रतिकूल रुख़ के साथ दर्ज spec के विरुद्ध सेशन का ऑडिट करता है और संरचित निष्कर्ष लौटाता है। `remind` आलोचना इंजेक्ट करता है; `warn`/`block` इसके अलावा एक राउंड चलाकर मॉडल से निष्कर्षों का उत्तर दिलवाते हैं। `adversaryModel` आलोचक को अलग मॉडल पर भेजता है; आलोचक की टूल allowlist डिफ़ॉल्ट रूप से read-only है।
+- 👁️ **विरोधी-समीक्षा** (`modules.adversary`) — जब डिलीवरी green पर पहुँच जाती है, तब एक फ़ॉर्क किया गया आलोचक उप-एजेंट (DSH का मूल उप-एजेंट सीम, डिफ़ॉल्ट `fork` provider) प्रतिकूल रुख़ के साथ दर्ज spec के विरुद्ध सेशन का ऑडिट करता है और संरचित निष्कर्ष लौटाता है। `remind` आलोचना इंजेक्ट करता है; `warn`/`block` इसके अलावा एक राउंड चलाकर मॉडल से निष्कर्षों का उत्तर दिलवाते हैं। `adversaryModel` आलोचक को अलग मॉडल पर भेजता है; आलोचक की टूल allowlist डिफ़ॉल्ट रूप से read-only है। निष्कर्ष टिकाऊ `doublecheck-review` संदेश-स्रोत पर सवार होते हैं।
+- 📊 **Doublecheck रिपोर्ट + सत्यापन वर्कफ़्लो** (`doublecheck_report`, v0.4) — सेशन के अनुशासन-प्रमाण (spec, red/green समयरेखा, समीक्षा-निष्कर्ष, संपादन) को एक डिलीवरी रिपोर्ट में समेकित करता है, जिसमें व्युत्पन्न निर्णय होता है (`grill → draft → red → green → objections/verified → proven/challenged`), वर्कस्पेस में लिखी जाती है। `verify` के साथ, प्रति spec-आयाम एक समानांतर जाँचकर्ता DSH के वर्कफ़्लो सीम से चलता है और उनके निर्णय रिपोर्ट में समाहित होते हैं।
 - 🔁 **टिकाऊ स्थिति** — मॉडल को दिखने वाली हर चीज़ (spec, अनुस्मारक, अस्वीकृति-फ़ीडबैक, समीक्षा-निष्कर्ष) सेशन लॉग में दर्ज होती है; द्वारों के निर्णय केवल लॉग से निकलते हैं (`tool/call` + `tool/result`, Code Mode उप-प्रेषण सहित), इसलिए पुनः आरंभ या फ़ॉर्क की गई सेशन भी वैसा ही व्यवहार करती हैं।
 - 📚 **`doublecheck_skills` टूल** — आधिकारिक स्किल-रजिस्ट्री सीम से पैकेज की स्किल्स सूचीबद्ध व लोड करता है।
 
@@ -56,7 +57,7 @@ dsh --profile <name> --dump-config   # "# == dsh-doublecheck" परत दि�
 
 ```sh
 pnpm pack
-dsh plugin --profile <name> add ./dsh-doublecheck-0.1.0.tgz
+dsh plugin --profile <name> add ./dsh-doublecheck-0.4.0.tgz
 ```
 
 ## कॉन्फ़िगरेशन
@@ -67,6 +68,18 @@ profile के `cordis.patch.yml` में किसी भी पंक्त�
 - id: doublecheck-grill
   config:
     specFile: 'specs/doublecheck-spec.md'   # डिफ़ॉल्ट: 'doublecheck-spec.md'
+    reportFile: 'specs/doublecheck-report.md'   # डिफ़ॉल्ट: 'doublecheck-report.md'
+    reportVerify: true            # डिफ़ॉल्ट रूप से सत्यापन वर्कफ़्लो चलाएँ
+    verifyProvider: 'fork'        # प्रति-आयाम जाँचकर्ताओं के लिए provider
+    reportTestToolNames: ['bash', 'pwsh']
+    reportTestCommandPatterns:
+      - '(?:^|[;&|]\s*)(?:(?:pnpm|npm|npx|yarn|bun)(?:\s+run)?\s+(?:test|vitest|jest|mocha)(?:\s|$))'
+      - '(?:^|[;&|]\s*)(?:(?:pytest|go\s+test|cargo\s+test|make\s+test|ctest)(?:\s|$))'
+      - '(?:^|[;&|]\s*)(?:node\s+--test(?:\s|$))'
+    reportMutationTools: ['edit', 'write']
+    reportTestFilePatterns:
+      - '(^|[\\/])(tests?|__tests__|specs?)([\\/]|$)'
+      - '\\.(test|spec)\\.[A-Za-z0-9]+$'
 
 - id: doublecheck-guard
   config:
@@ -109,7 +122,7 @@ profile के `cordis.patch.yml` में किसी भी पंक्त�
 | `modules.tdd` | `false` | `true` पर red/green प्रमाण-द्वार चालू (v0.2)। |
 | `modules.adversary` | `false` | `true` पर green (v0.3) पर फ़ॉर्क किए आलोचक की समीक्षा चालू होती है; `ctx.subagents` सीम का उपयोग करती है — सीम अनुपस्थित होने पर «अनुपलब्ध» सूचना दर्ज होती है। |
 | `guardTools` | `['edit', 'write']` | वे परिवर्तन-टूल नाम जिन पर गार्ड नज़र रखता है। |
-| `vagueTaskMaxChars` | `200` | इससे लंबे कार्य कभी अस्पष्ट नहीं माने जाते। फ़ाइल, पथ, URL या अंडरस्कोर कीवर्ड बताने वाले छोटे कार्य ठोस होते हैं। |
+| `vagueTaskMaxChars` | `200` | इससे लंबे कार्य कभी अस्पष्ट नहीं माने जाते। फ़ाइल, पथ, URL, अंडरस्कोर कीवर्ड या हाइफ़न युक्त कीवर्ड बताने वाले छोटे कार्य ठोस होते हैं। |
 | `remindOnce` | `true` | प्रत्येक द्वार का अनुस्मारक प्रति सेशन अधिकतम एक बार इंजेक्ट करें। |
 | `testToolNames` | `['bash', 'pwsh']` | वे शेल टूल नाम जो परीक्षण चला सकते हैं। |
 | `testCommandPatterns` | *(pnpm/npm/yarn/bun test, pytest, go/cargo/make test, node --test)* | वे regex जिनसे मेल खाने पर कमांड परीक्षण-रन माना जाता है। |
@@ -121,6 +134,18 @@ profile के `cordis.patch.yml` में किसी भी पंक्त�
 | `adversaryTimeoutMs` | `120000` | एक आलोचक रन के लिए कठोर समय-बजट। |
 
 गलत कॉन्फ़िगरेशन ज़ोर से विफल होती है: अमान्य regex, खाली या दोहराई गई नाम-सूची, या सीमा से बाहर निष्कर्ष-सीमा लोड के समय एरर फेंकती है, चुपचाप कुछ न करने के बजाय। जो आलोचक नहीं चल सकता (सीम अनुपस्थित, provider विफलता, timeout) वह सेशन में एक ईमानदार «अनुपलब्ध» सूचना के रूप में दर्ज होता है।
+
+### रिपोर्ट नियंत्रण (grill पंक्ति)
+
+| कुंजी | डिफ़ॉल्ट | अर्थ |
+|---|---|---|
+| `reportFile` | `'doublecheck-report.md'` | वह वर्कस्पेस फ़ाइल जो रिपोर्ट markdown प्राप्त करती है। |
+| `reportVerify` | `true` | टूल के `verify` फ़्लैग का डिफ़ॉल्ट। |
+| `verifyProvider` | `'fork'` | वह उप-एजेंट provider जिस पर प्रति-आयाम जाँचकर्ता चलते हैं। |
+| `reportTestToolNames` / `reportTestCommandPatterns` | *(same defaults as the guard row)* | रिपोर्ट-स्कोप परीक्षण-रन वर्गीकरण। |
+| `reportMutationTools` / `reportTestFilePatterns` | *(same defaults as the guard row)* | रिपोर्ट-स्कोप कार्यान्वयन-संपादन वर्गीकरण। |
+
+रिपोर्ट के वर्गीकरण नियंत्रण गार्ड से स्वतंत्र हैं: द्वार-प्रवर्तन और रिपोर्ट-फ़ोल्ड को अलग-अलग ट्यून किया जा सकता है, बिना एक के चुपचाप दूसरे को बदले। सत्यापन ईमानदारी से घटता है: `workflowEngine` सीम अनुपस्थित या रन अस्वीकृत होने पर `verification: null` रह जाता है और markdown यह बताता है।
 
 ## कार्य-प्रणाली (एक्सटेंशन पॉइंट)
 
@@ -134,8 +159,10 @@ profile के `cordis.patch.yml` में किसी भी पंक्त�
 | अनुस्मारक इंजेक्शन | `tools/post-execute` वॉटरफ़ॉल — `additionalContexts` → `user/message` के रूप में दर्ज |
 | green द्वार | `agent/turn-stopping` serial — जब संपादनों में पास होने वाला परीक्षण न हो तो समापन अनुस्मारक इंजेक्ट करता है |
 | विरोधी-समीक्षा | `ctx.subagents.start()` — forked critic with structured findings schema, injected at green; `warn`/`block` steer one round |
-| टिकाऊ स्थिति | `tool/call` + `tool/result` + `tool/code-dispatch` पर सेशन लॉग-फ़ोल्ड; मॉडल-दृश्य ⟺ दर्ज |
-| आंतरिक इवेंट | `doublecheck/spec`, `doublecheck/reminder`, `doublecheck/review` (declaration merging से टाइप, `@mode emit`) |
+| डिलीवरी रिपोर्ट | `doublecheck_report` tool — session-log fold + workspace markdown |
+| सत्यापन वर्कफ़्लो | `ctx.workflowEngine.start()` — one parallel checker per spec dimension, structured checks |
+| टिकाऊ स्थिति | session log fold over `tool/call` + `tool/result` + `tool/code-dispatch` + injected structured sources; model-visible ⟺ logged |
+| आंतरिक इवेंट | `doublecheck/spec`, `doublecheck/reminder`, `doublecheck/review`, `doublecheck/report` (typed via declaration merging, `@mode emit`) |
 
 agent-loop में कोई बदलाव नहीं। हर पंजीकरण प्रतिवर्ती `ctx.effect` / `ctx.on` / सेवा `register()` है।
 
@@ -145,10 +172,11 @@ agent-loop में कोई बदलाव नहीं। हर पंज�
 - `ask_user_question` उपयोगकर्ता से पूछने का DSH का मूल तरीका बना रहता है; स्किल केवल उसका निर्देशन करती है (और provider-रहित headless में गद्य-प्रश्नों पर उतर आती है)।
 - अनुस्मारक `{kind:'plugin'}` संदर्भ के रूप में आते हैं, इसलिए ट्रांसक्रिप्ट UI उन्हें इंजेक्शन मेटाडेटा के रूप में दिखाते हैं।
 - आलोचक के स्थिर होने के बाद विरोधी-आलोचना उसी तरह आती है, गंभीरता-टैग वाले निष्कर्षों के साथ; `warn`/`block` के तहत चक्र एक राउंड चलाया जाता है ताकि मॉडल उनका उत्तर दे।
+- `doublecheck_report` समेकित रिपोर्ट को टूल परिणाम के रूप में लौटाता है (spec, परीक्षण समयरेखा, समीक्षा, सत्यापन, निर्णय), इसलिए «डिलीवरी साबित करना» एक कॉल की दूरी पर है।
 
 ## रोडमैप
 
-- **v0.4** — वर्कफ़्लो ऑर्केस्ट्रेशन और समेकित doublecheck रिपोर्ट।
+छह-चरणीय अनुशासन-चक्र पूर्ण है: **grill → design → red → green → review → verify** — सभी इस पैकेज में शिप होते हैं (v0.1 → v0.4)। भावी कार्य: review/रिपोर्ट ट्रांसक्रिप्ट के लिए snapshot कवरेज और समृद्ध रिपोर्ट फ़ॉर्मेटिंग।
 
 ## विकास
 

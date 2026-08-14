@@ -14,8 +14,9 @@
  */
 import type { Context } from '@deepseek-ai/cordis';
 import type { Agent } from '@deepseek-ai/dsh-agent';
+import type { UserMessage } from '@deepseek-ai/dsh-llm';
 import type { ObjectJsonSchema } from '@deepseek-ai/dsh-tools';
-import type { ReviewFinding, ReviewVerdict } from '../events.ts';
+import type { ReviewFinding, ReviewVerdict } from '../domain/vocabulary.ts';
 /** The adversary knobs the review runner reads. */
 export interface AdversaryConfig {
     adversaryProvider: string;
@@ -51,4 +52,12 @@ export declare function renderFindings(findings: readonly ReviewFinding[]): stri
  * @returns the settled review outcome.
  */
 export declare function runAdversaryReview(ctx: Context, config: AdversaryConfig, agent: Agent): Promise<ReviewOutcome>;
+/**
+ * The injected review message: model-facing prose with the structured
+ * findings riding the durable `doublecheck-review` message source, so the
+ * doublecheck report can fold the record without re-parsing the prose.
+ * @param outcome - the settled review outcome.
+ * @returns the injection-ready user message.
+ */
+export declare function reviewInjection(outcome: ReviewOutcome): UserMessage;
 //# sourceMappingURL=review.d.ts.map

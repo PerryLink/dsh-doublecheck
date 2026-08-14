@@ -4,10 +4,10 @@
  * A task is "vague" when it is brief and names no concrete artifact. Brief is
  * a deployment knob (`vagueTaskMaxChars`); artifact detection is a fixed
  * structural test: a file extension token, a drive-letter prefix, a
- * path-separator token, a quoted keyword, or an underscore keyword. A task
- * that names an artifact (or a URL) is concrete enough to edit without a
- * grill even when it is short; a long task is assumed to carry its own
- * requirements.
+ * path-separator token, a quoted keyword, an underscore keyword, or a
+ * hyphenated keyword. A task that names an artifact (or a URL) is concrete
+ * enough to edit without a grill even when it is short; a long task is
+ * assumed to carry its own requirements.
  *
  * @module dsh-doublecheck/domain/vagueness
  */
@@ -38,6 +38,17 @@ const QUOTED_HINT = /["'`“”「」『』][^"'`“”「」『』]*\S[^"'`“�
 const UNDERSCORE_KEYWORD = /[A-Za-z0-9][A-Za-z0-9_]*_[A-Za-z0-9_]*[A-Za-z0-9]/
 
 /**
+ * An identifier-style keyword containing a hyphen, such as `retry-limit`,
+ * `user-name`, or a CLI flag like `--verbose=false`'s `verbose`. Mirrors
+ * `UNDERSCORE_KEYWORD`: it requires an alphanumeric character at each end so
+ * a bare separator (`-`), a pure hyphen run (`---`), a leading `-foo`, or a
+ * trailing `thing-` does not count. Ordinary hyphenated compounds
+ * (e.g. `well-known`), dates, and numeric ranges also match; that is the
+ * accepted cost of recognizing config keys and option names.
+ */
+const HYPHENATED_KEYWORD = /[A-Za-z0-9][A-Za-z0-9-]*-[A-Za-z0-9-]*[A-Za-z0-9]/
+
+/**
  * Decide whether a user task statement needs a requirements grill.
  * @param text - the task text as given by the user.
  * @param config - the vagueness tuning.
@@ -47,5 +58,10 @@ export function isVagueTask(text: string, config: VaguenessConfig): boolean {
   const normalized = text.trim()
   if (normalized.length === 0) return false
   if (normalized.length > config.vagueTaskMaxChars) return false
-  return !(ARTIFACT_HINT.test(normalized) || QUOTED_HINT.test(normalized) || UNDERSCORE_KEYWORD.test(normalized))
+  return !(
+    ARTIFACT_HINT.test(normalized) ||
+    QUOTED_HINT.test(normalized) ||
+    UNDERSCORE_KEYWORD.test(normalized) ||
+    HYPHENATED_KEYWORD.test(normalized)
+  )
 }

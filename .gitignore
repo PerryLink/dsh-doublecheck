@@ -7,3 +7,5 @@ coverage/
 pnpm-workspace.yaml
 
 doublecheck-spec.md
+
+doublecheck-report.md
