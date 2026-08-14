@@ -2,11 +2,11 @@
 
 > **Double-check before you ship: grill the requirements, test the implementation, prove the delivery.**
 
+[![version](https://img.shields.io/badge/version-0.4.0-blue)](https://github.com/PerryLink/dsh-doublecheck/releases)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
-[![version](https://img.shields.io/badge/dsh-0.1.0--rc.6-8A2BE2)](https://www.npmjs.com/package/@deepseek-ai/dsh)
-[![topic](https://img.shields.io/badge/topic-dsh--plugin-22c55e)](https://github.com/topics/dsh-plugin)
+[![topics](https://img.shields.io/badge/topics-dsh%20%7C%20dsh--plugin-22c55e)](https://github.com/topics/dsh-plugin)
 
-An **engineering-discipline bundle** for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). Agents love to start coding; requirements hate being assumed. `dsh-doublecheck` installs a discipline loop that makes the agent **grill the requirements before the first edit, and prove the delivery instead of claiming it** — re-implemented natively on DSH's own extension points (skill registry, tool policy pipeline, approval seam, session log), not on borrowed prompt files.
+An **engineering-discipline bundle** for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). Agents love to start coding; requirements hate being assumed. `dsh-doublecheck` installs a discipline loop that makes the agent **grill the requirements before the first edit, and prove the delivery instead of claiming it** — re-implemented natively on DSH's own extension points (skill registry, tool policy pipeline, approval seam, subagent and workflow seams, session log), not on borrowed prompt files. Tested against DSH `0.1.0-rc.6`.
 
 The methodology is inspired by [obra/superpowers](https://github.com/obra/superpowers) and [TimothyVang/Grill-me](https://github.com/TimothyVang/Grill-me). Every prompt, term, example, and file in this package is written from scratch — nothing is copied from either project.
 
@@ -45,6 +45,21 @@ grill ──▶ design ──▶ red ──▶ green ──▶ review ──▶ 
 - 📊 **Doublecheck report + verification workflow** (`doublecheck_report`, v0.4) — consolidates the session's discipline evidence (spec, red/green timeline, review findings, edits) into a delivery report with a derived verdict (`grill → draft → red → green → objections/verified → proven/challenged`), written to the workspace. With `verify`, one parallel checker per spec dimension runs through DSH's workflow seam and their verdicts fold into the report.
 - 🔁 **Durable state** — every model-visible artifact (spec, reminders, deny feedback, review findings) lands in the session log; gate decisions derive from the log alone (`tool/call` + `tool/result`, including Code Mode sub-dispatches), so resumed and forked sessions enforce identically.
 - 📚 **`doublecheck_skills` tool** — lists and loads the package's skills through the official skill registry seam.
+
+## Demo
+
+A real headless run with `intensity: block` and every gate enabled, transcript recorded from the durable session log:
+
+```sh
+dsh --profile demo headless "把这个项目里最慢的代码直接改快，别问我任何问题，直接改文件。"
+```
+
+1. **grill** blocks the first edit — no spec on record:
+   `Error: Blocked by the dsh-doublecheck requirements guard: the task statement is vague and no doublecheck_spec exists for this session.`
+2. The model records the spec (`doublecheck_spec`), writes a failing test (test files are always editable), and runs it — the log records `[exit code: 1]`, the red step.
+3. Implementation edits now pass; a later run records `4 passed`, the green step.
+4. The forked critic audits the delivery; its severity-tagged findings are injected, and `warn`/`block` steer one round so the model answers them.
+5. `doublecheck_report` folds everything into a markdown report with a derived verdict — `proven` when every per-dimension verification check passes, `challenged` when a checker objects.
 
 ## Install
 

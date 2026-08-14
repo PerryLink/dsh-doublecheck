@@ -2,11 +2,11 @@
 
 > **Verifica dos veces antes de publicar: interroga los requisitos, prueba la implementación, demuestra la entrega.**
 
+[![version](https://img.shields.io/badge/version-0.4.0-blue)](https://github.com/PerryLink/dsh-doublecheck/releases)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
-[![version](https://img.shields.io/badge/dsh-0.1.0--rc.6-8A2BE2)](https://www.npmjs.com/package/@deepseek-ai/dsh)
-[![topic](https://img.shields.io/badge/topic-dsh--plugin-22c55e)](https://github.com/topics/dsh-plugin)
+[![topics](https://img.shields.io/badge/topics-dsh%20%7C%20dsh--plugin-22c55e)](https://github.com/topics/dsh-plugin)
 
-Un **bundle de disciplina de ingeniería** para [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). A los agentes les encanta empezar a programar; los requisitos odian que se los dé por sentados. `dsh-doublecheck` instala un bucle de disciplina que obliga al agente a **interrogar los requisitos antes de la primera edición y a demostrar la entrega en lugar de afirmarla** — reimplementado de forma nativa sobre los puntos de extensión propios de DSH (registro de skills, pipeline de políticas de herramientas, seam de aprobación, registro de sesión), no sobre archivos de prompt prestados.
+Un **bundle de disciplina de ingeniería** para [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). A los agentes les encanta empezar a programar; los requisitos odian que se los dé por sentados. `dsh-doublecheck` instala un bucle de disciplina que obliga al agente a **interrogar los requisitos antes de la primera edición y a demostrar la entrega en lugar de afirmarla** — reimplementado de forma nativa sobre los puntos de extensión propios de DSH (registro de skills, pipeline de políticas de herramientas, seam de aprobación, seams de subagente y workflow, registro de sesión), no sobre archivos de prompt prestados. Probado contra DSH `0.1.0-rc.6`.
 
 La metodología está inspirada en [obra/superpowers](https://github.com/obra/superpowers) y [TimothyVang/Grill-me](https://github.com/TimothyVang/Grill-me). Todos los prompts, términos, ejemplos y archivos de este paquete están escritos desde cero: nada se copia de ninguno de los dos proyectos.
 
@@ -45,6 +45,21 @@ grill ──▶ design ──▶ red ──▶ green ──▶ review ──▶ 
 - 📊 **Informe doublecheck + workflow de verificación** (`doublecheck_report`, v0.4) — consolida la evidencia de disciplina de la sesión (spec, cronología red/green, hallazgos de revisión, ediciones) en un informe de entrega con un veredicto derivado (`grill → draft → red → green → objections/verified → proven/challenged`), escrito en el workspace. Con `verify`, un verificador paralelo por dimensión del spec corre a través del seam de workflow de DSH y sus veredictos se pliegan en el informe.
 - 🔁 **Estado duradero** — todo artefacto visible para el modelo (spec, recordatorios, feedback de denegación, hallazgos de revisión) queda en el registro de sesión; las decisiones de las puertas se derivan solo del registro (`tool/call` + `tool/result`, incluidos los sub-despachos de Code Mode), así que las sesiones reanudadas o bifurcadas se comportan igual.
 - 📚 **Herramienta `doublecheck_skills`** — lista y carga los skills del paquete a través del seam oficial del registro de skills.
+
+## Demo
+
+Una ejecución headless real con `intensity: block` y todas las puertas habilitadas, transcripción registrada desde el registro de sesión duradero:
+
+```sh
+dsh --profile demo headless "把这个项目里最慢的代码直接改快，别问我任何问题，直接改文件。"
+```
+
+1. **grill** bloquea la primera edición — no hay spec registrado:
+   `Error: Blocked by the dsh-doublecheck requirements guard: the task statement is vague and no doublecheck_spec exists for this session.`
+2. El modelo registra el spec (`doublecheck_spec`), escribe una prueba que falla (los archivos de prueba siempre son editables) y la ejecuta — el registro anota `[exit code: 1]`, el paso red.
+3. Las ediciones de implementación ahora pasan; una ejecución posterior anota `4 passed`, el paso green.
+4. El crítico bifurcado audita la entrega; sus hallazgos etiquetados por severidad se inyectan, y `warn`/`block` dirigen una ronda para que el modelo les responda.
+5. `doublecheck_report` pliega todo en un informe markdown con un veredicto derivado — `proven` cuando todas las comprobaciones de verificación por dimensión pasan, `challenged` cuando un verificador objeta.
 
 ## Instalación
 

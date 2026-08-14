@@ -2,11 +2,11 @@
 
 > **发布前先双重检查：追问需求、验证实现、证明交付。**
 
+[![version](https://img.shields.io/badge/version-0.4.0-blue)](https://github.com/PerryLink/dsh-doublecheck/releases)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
-[![version](https://img.shields.io/badge/dsh-0.1.0--rc.6-8A2BE2)](https://www.npmjs.com/package/@deepseek-ai/dsh)
-[![topic](https://img.shields.io/badge/topic-dsh--plugin-22c55e)](https://github.com/topics/dsh-plugin)
+[![topics](https://img.shields.io/badge/topics-dsh%20%7C%20dsh--plugin-22c55e)](https://github.com/topics/dsh-plugin)
 
-面向 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的**工程纪律 bundle**。智能体总是急着写代码，而需求最怕被想当然。`dsh-doublecheck` 装上一套纪律循环，逼模型**在动手改第一行代码前把需求拷问清楚，并且用证据证明交付而不是嘴上宣称**——全部基于 DSH 自带扩展点（技能注册表、工具策略管线、审批接缝、会话日志）原生重实现，不借用任何上游提示词文件。
+面向 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的**工程纪律 bundle**。智能体总是急着写代码，而需求最怕被想当然。`dsh-doublecheck` 装上一套纪律循环，逼模型**在动手改第一行代码前把需求拷问清楚，并且用证据证明交付而不是嘴上宣称**——全部基于 DSH 自带扩展点（技能注册表、工具策略管线、审批接缝、subagent 与 workflow 接缝、会话日志）原生重实现，不借用任何上游提示词文件。已在 DSH `0.1.0-rc.6` 上实测。
 
 方法论受 [obra/superpowers](https://github.com/obra/superpowers) 与 [TimothyVang/Grill-me](https://github.com/TimothyVang/Grill-me) 启发。本包内所有提示词、术语、示例与文件均为原创——未复制两项目的任何内容。
 
@@ -44,6 +44,21 @@ grill ──▶ design ──▶ red ──▶ green ──▶ review ──▶ 
 - 📊 **Doublecheck 报告 + 核对 workflow**（`doublecheck_report`，v0.4）—— 把会话纪律证据（spec、红/绿时间线、评审 findings、编辑数）汇总成交付报告并推导 verdict（`grill → draft → red → green → objections/verified → proven/challenged`），落盘工作区。开启 `verify` 时，经 DSH workflow 接缝为每个 spec 维度并行派一个核对员，其结论并入报告。
 - 🔁 **持久化状态** —— 所有模型可见内容（spec、提醒、拒绝反馈、评审 findings）都落会话日志；门禁判定完全由日志（`tool/call` + `tool/result`，含 Code Mode 子派发）推导，恢复/派生会话同样生效。
 - 📚 **`doublecheck_skills` 工具** —— 通过官方技能注册表接缝列出与加载本包技能。
+
+## 演示
+
+`intensity: block`、全部门开启的一次真实 headless 运行，转录取自持久会话日志：
+
+```sh
+dsh --profile demo headless "把这个项目里最慢的代码直接改快，别问我任何问题，直接改文件。"
+```
+
+1. **grill** 拦住第一次编辑——没有 spec 在案：
+   `Error: Blocked by the dsh-doublecheck requirements guard: the task statement is vague and no doublecheck_spec exists for this session.`
+2. 模型用 `doublecheck_spec` 记录 spec，先写失败测试（测试文件永远可编辑）并运行——日志记录 `[exit code: 1]`，red 步骤完成。
+3. 实现编辑随之放行；随后一次运行记录 `4 passed`，green 步骤完成。
+4. 派生 critic 审计交付，带严重级标记的 findings 被注入；`warn`/`block` 下还会 steer 一轮让模型正面回应。
+5. `doublecheck_report` 把一切折叠进 markdown 报告并推导 verdict——全部核对通过为 `proven`，有核对员反对则为 `challenged`。
 
 ## 安装
 
