@@ -12,9 +12,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The packageManager field in package.json pins the exact pnpm version.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11
 
       - uses: actions/setup-node@v4
         with:
@@ -28,7 +27,8 @@ jobs:
       - name: Build
         run: pnpm run build
 
-      # prepublishOnly (tsc + lint + typecheck + tests) runs automatically.
+      # npm publish runs prepublishOnly (tsc + full test suite) automatically.
+      # Requires the NPM_TOKEN repository secret.
       - name: Publish
         run: npm publish --access public
         env:
