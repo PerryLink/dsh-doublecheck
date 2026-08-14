@@ -33,6 +33,14 @@ describe('parseSkillAsset', () => {
     const parsed = parseSkillAsset('---\nname: demo-skill\ndescription: "A quoted description"\n---\nbody')
     expect(parsed?.description).toBe('A quoted description')
   })
+
+  it('parses CRLF frontmatter (Windows checkouts)', () => {
+    const parsed = parseSkillAsset('---\r\nname: demo-skill\r\ndescription: "A quoted description"\r\nwhenToUse: when testing\r\n---\r\nbody')
+    expect(parsed?.name).toBe('demo-skill')
+    expect(parsed?.description).toBe('A quoted description')
+    expect(parsed?.whenToUse).toBe('when testing')
+    expect(parsed?.content).toBe('body')
+  })
 })
 
 describe('BundledSkillProvider', () => {

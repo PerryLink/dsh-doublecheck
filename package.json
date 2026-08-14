@@ -53,6 +53,15 @@
   ],
   "author": "dsh-doublecheck contributors",
   "license": "Apache-2.0",
+  "packageManager": "pnpm@11.7.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PerryLink/dsh-doublecheck.git"
+  },
+  "homepage": "https://github.com/PerryLink/dsh-doublecheck#readme",
+  "bugs": {
+    "url": "https://github.com/PerryLink/dsh-doublecheck/issues"
+  },
   "engines": {
     "node": "^22.19.0 || >=24.0.0"
   },

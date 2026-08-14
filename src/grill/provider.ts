@@ -194,7 +194,10 @@ function findClosingFence(raw: string, start: number): { start: number; bodyStar
 
 /** Read one `key: value` scalar line, stripping one layer of matching quotes. */
 function scalarField(frontmatter: string, key: string): string | undefined {
-  for (const line of frontmatter.split('\n')) {
+  for (const rawLine of frontmatter.split('\n')) {
+    // Frontmatter assets may arrive with CRLF endings (Windows checkouts);
+    // a trailing \r would break the `$` anchor of the scalar matcher.
+    const line = rawLine.replace(/\r$/, '')
     const match = /^([A-Za-z][\w-]*):\s*(.*)$/.exec(line)
     if (match === null || match[1] !== key) continue
     const value = match[2].trim()
