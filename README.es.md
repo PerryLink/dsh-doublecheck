@@ -30,17 +30,18 @@ grill ──▶ design ──▶ red ──▶ green ──▶ review ──▶ 
 |---|---|---|
 | **grill** | Interrogar las seis dimensiones de requisitos; negarse a implementar hasta el consenso. | ✅ v0.1 |
 | **design** | Spec registrado con `doublecheck_spec`. | ✅ v0.1 |
-| **red** | Una prueba que falla demuestra el hueco. | 🔜 v0.2 |
-| **green** | La corrección la hace pasar; el registro prueba el orden. | 🔜 v0.2 |
+| **red** | Una prueba que falla demuestra el hueco; las ediciones de implementación necesitan tenerla registrada. | ✅ v0.2 |
+| **green** | Una prueba que pasa tras las ediciones cierra el bucle. | ✅ v0.2 |
 | **review** | Un crítico adversario revisa la entrega (`adversaryModel`). | 🔜 v0.3 |
 | **verify** | Orquestación de workflow + informe doublecheck consolidado. | 🔜 v0.4 |
 
-## Funciones (v0.1)
+## Funciones (v0.2)
 
 - 🔥 **Skill `grill-requirements`** — un skill empaquetado en formato Agent Skills que interroga la tarea en seis dimensiones (**objetivo, alcance, criterios de aceptación, modos de fallo, prioridades, no-objetivos**) con la UI nativa `ask_user_question` de DSH, se niega a escribir código hasta el consenso y registra el contrato.
 - 📜 **Herramienta `doublecheck_spec`** — guarda el spec acordado en el registro de sesión y escribe una copia en markdown en el workspace, para que el contrato sobreviva a la conversación.
 - 🛡️ **Guard de disciplina** — una puerta blanda en el pipeline de políticas de herramientas. Tarea vaga + sin spec + rumbo a `edit`/`write` → **recordar**, **pedir aprobación humana** o **bloquear**, según `intensity`.
-- 🔁 **Estado duradero** — todo artefacto visible para el modelo (spec, recordatorios, feedback de denegación) queda en el registro de sesión; las decisiones del guard se derivan solo del registro, así que las sesiones reanudadas o bifurcadas se comportan igual.
+- 🟥🟩 **Puertas de evidencia red/green** (`modules.tdd`) — comprobaciones duras sobre el registro de sesión: una edición de implementación requiere una **prueba que falla registrada** desde la última prueba que pasa (escribir archivos de prueba siempre está permitido — así ocurre el paso red), y un turno que termina con ediciones pero sin ninguna prueba que pasa recibe un recordatorio green inyectado.
+- 🔁 **Estado duradero** — todo artefacto visible para el modelo (spec, recordatorios, feedback de denegación) queda en el registro de sesión; las decisiones de las puertas se derivan solo del registro (`tool/call` + `tool/result`, incluidos los sub-despachos de Code Mode), así que las sesiones reanudadas o bifurcadas se comportan igual.
 - 📚 **Herramienta `doublecheck_skills`** — lista y carga los skills del paquete a través del seam oficial del registro de skills.
 
 ## Instalación
@@ -71,31 +72,43 @@ Sobrescribe cualquier fila **por id** en el `cordis.patch.yml` del profile. Un p
     intensity: warn
     modules:
       grill: true
-      tdd: false        # reservado para v0.2 — debe ser false en v0.1
-      adversary: false  # reservado para v0.3 — debe ser false en v0.1
+      tdd: true         # puertas de evidencia red/green (v0.2)
+      adversary: false  # reservado para v0.3 — debe ser false
     adversaryModel: null
     guardTools: ['edit', 'write']
     vagueTaskMaxChars: 200
     remindOnce: true
+    testToolNames: ['bash', 'pwsh']
+    testCommandPatterns:
+      - '(?:^|[;&|]\s*)(?:(?:pnpm|npm|npx|yarn|bun)(?:\s+run)?\s+(?:test|vitest|jest|mocha)(?:\s|$))'
+      - '(?:^|[;&|]\s*)(?:(?:pytest|go\s+test|cargo\s+test|make\s+test|ctest)(?:\s|$))'
+      - '(?:^|[;&|]\s*)(?:node\s+--test(?:\s|$))'
+    testFilePatterns:
+      - '(^|[\\/])(tests?|__tests__|specs?)([\\/]|$)'
+      - '\\.(test|spec)\\.[A-Za-z0-9]+$'
 ```
 
 ### `intensity`
 
-| Valor | Comportamiento ante un `edit`/`write` vago y sin spec |
+| Valor | Comportamiento ante un `edit`/`write` sujeto a la puerta |
 |---|---|
 | `remind` (por defecto) | La llamada sigue; un recordatorio viaja en el contexto del resultado hacia la siguiente petición del modelo. |
 | `warn` | La llamada queda retenida a la espera de aprobación humana única vía el seam de aprobación (deniega si no hay canal). |
-| `block` | La llamada se deniega con feedback que dirige al modelo a interrogar primero. |
+| `block` | La llamada se deniega con feedback que dirige al modelo a corregir primero la disciplina. |
 
 ### Ajustes
 
 | Clave | Por defecto | Significado |
 |---|---|---|
-| `modules.grill` | `true` | En `false` desactiva el guard. El interruptor de los skills/herramientas grill es el flag `disabled` de su fila. |
+| `modules.grill` | `true` | En `false` desactiva la puerta grill. El interruptor de los skills/herramientas grill es el flag `disabled` de su fila. |
+| `modules.tdd` | `false` | En `true` activa las puertas de evidencia red/green (v0.2). |
 | `guardTools` | `['edit', 'write']` | Nombres de herramientas de mutación que vigila el guard. |
 | `vagueTaskMaxChars` | `200` | Las tareas más largas nunca se consideran vagas. Las tareas breves que nombran un archivo, ruta o URL son concretas. |
-| `remindOnce` | `true` | Inyectar el recordatorio como máximo una vez por sesión. |
-| `adversaryModel` | `null` | Reservado para el crítico de v0.3; `null` = el modelo principal se autorrevisa. Un valor no nulo falla al cargar en v0.1. |
+| `remindOnce` | `true` | Inyectar el recordatorio de cada puerta como máximo una vez por sesión. |
+| `testToolNames` | `['bash', 'pwsh']` | Nombres de herramientas de shell que pueden ejecutar pruebas. |
+| `testCommandPatterns` | *(pnpm/npm/yarn/bun test, pytest, go/cargo/make test, node --test)* | Expresiones regulares con las que debe coincidir un comando para contar como ejecución de prueba. |
+| `testFilePatterns` | *(directorios de prueba, `*.test.*` / `*.spec.*`)* | Expresiones regulares que identifican archivos de prueba — siempre editables, exentos de la puerta red. |
+| `adversaryModel` | `null` | Reservado para el crítico de v0.3; `null` = el modelo principal se autorrevisa. Un valor no nulo falla al cargar. |
 
 La mala configuración falla en voz alta: activar un módulo reservado o fijar `adversaryModel` lanza un error al cargar, en lugar de no hacer nada en silencio.
 
@@ -107,8 +120,10 @@ La mala configuración falla en voz alta: activar un módulo reservado o fijar `
 | Herramienta de catálogo/carga | `ctx.tools.register()` — `doublecheck_skills` |
 | Spec + archivo en workspace | herramienta `doublecheck_spec` + escritura opcional vía `ctx.fs` |
 | Puerta de requisitos | waterfall `tools/pre-execute` — `allow` / `ask` (seam de aprobación) / `deny` |
+| Puerta red | waterfall `tools/pre-execute` — comprobación dura de la evidencia de prueba fallida antes de las ediciones de implementación |
 | Inyección de recordatorio | waterfall `tools/post-execute` — `additionalContexts` → registrado como `user/message` |
-| Estado duradero | plegado del registro sobre `tool/call` + `tool/result`; visible para el modelo ⟺ registrado |
+| Puerta green | `agent/turn-stopping` serial — inyecta un recordatorio de finalización cuando las ediciones carecen de una prueba que pasa |
+| Estado duradero | plegado del registro de sesión sobre `tool/call` + `tool/result` + `tool/code-dispatch`; visible para el modelo ⟺ registrado |
 | Eventos internos | `doublecheck/spec`, `doublecheck/reminder` (tipados por declaration merging, `@mode emit`) |
 
 Sin cambios en el agent-loop. Cada registro es un `ctx.effect` / `ctx.on` / `register()` de servicio reversible.
@@ -121,7 +136,6 @@ Sin cambios en el agent-loop. Cada registro es un `ctx.effect` / `ctx.on` / `reg
 
 ## Hoja de ruta
 
-- **v0.2** — puertas de evidencia red/green: verificación en el registro de que una prueba que falla precedió a la corrección.
 - **v0.3** — módulo adversary: un subagente crítico revisa la entrega; `adversaryModel` elige la ruta.
 - **v0.4** — orquestación de workflow e informe doublecheck consolidado.
 
