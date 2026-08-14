@@ -5,3 +5,5 @@ coverage/
 .dsh/
 
 pnpm-workspace.yaml
+
+doublecheck-spec.md
