@@ -29,6 +29,24 @@ describe('isVagueTask', () => {
     expect(isVagueTask('搜索「空值」再处理', config)).toBe(false)
   })
 
+  it('treats a brief task with an underscore keyword as concrete', () => {
+    expect(isVagueTask('fix the retry_limit bug', config)).toBe(false)
+    expect(isVagueTask('把 foo_bar 改掉', config)).toBe(false)
+    expect(isVagueTask('rename user_name to display_name', config)).toBe(false)
+    expect(isVagueTask('fix the foo__bar bug', config)).toBe(false)
+  })
+
+  it('keeps a bare underscore from making a task concrete', () => {
+    expect(isVagueTask('fix the _ thing', config)).toBe(true)
+    expect(isVagueTask('improve the thing_', config)).toBe(true)
+  })
+
+  it('keeps underscore-only runs from making a task concrete', () => {
+    expect(isVagueTask('fix the ___ thing', config)).toBe(true)
+    expect(isVagueTask('improve the a__', config)).toBe(true)
+    expect(isVagueTask('rename __1 to foo', config)).toBe(true)
+  })
+
   it('keeps empty quotes from making a task concrete', () => {
     expect(isVagueTask('fix the "" thing', config)).toBe(true)
   })

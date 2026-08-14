@@ -32,6 +32,17 @@ export type GuardIntensity = 'remind' | 'warn' | 'block';
 export type GuardGate = 'grill' | 'tdd';
 /** Policy outcome of one guard reaction. */
 export type GuardVerdict = 'reminded' | 'held' | 'denied' | 'green-pending';
+/** One structured objection from the adversary review. */
+export interface ReviewFinding {
+    /** How much the finding threatens the delivery claim. */
+    severity: 'blocker' | 'major' | 'minor' | 'info';
+    /** One-line statement of the objection. */
+    title: string;
+    /** The evidence in the session that supports the objection. */
+    detail: string;
+}
+/** What the adversary review concluded. */
+export type ReviewVerdict = 'findings' | 'clean' | 'unavailable';
 declare module '@deepseek-ai/cordis' {
     interface Events {
         /**
@@ -75,6 +86,27 @@ declare module '@deepseek-ai/cordis' {
             gate: GuardGate;
             verdict: GuardVerdict;
             reminder?: string;
+        }): void;
+        /**
+         * The adversary module settled one delivery review: a forked critic
+         * subagent compared the committed spec against the session's delivery
+         * evidence and produced structured findings (or a clean/unavailable
+         * verdict). The review text that reached the model rides the standard
+         * injection channel and is recorded as a `user/message` session event.
+         * Observability only — listeners must not veto or reroute.
+         * @param payload.session - the reviewed session.
+         * @param payload.agent - the reviewed agent.
+         * @param payload.verdict - findings, clean, or unavailable.
+         * @param payload.findings - the structured objections, when the critic produced any.
+         * @param payload.text - the model-facing review prose, when one was injected.
+         * @mode emit
+         */
+        'doublecheck/review'(payload: {
+            session: Session;
+            agent: Agent;
+            verdict: ReviewVerdict;
+            findings: ReviewFinding[];
+            text?: string;
         }): void;
     }
 }

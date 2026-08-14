@@ -12,8 +12,9 @@
         specFile: 'doublecheck-spec.md'
 
     # The discipline guard: the grill gate (requirements-less edits on vague
-    # tasks) and, with `modules.tdd: true`, the v0.2 red/green evidence gates.
-    # `adversary` is reserved for v0.3 and must stay false.
+    # tasks), the red/green evidence gates (`modules.tdd`), and the v0.3
+    # adversary review (`modules.adversary`: a forked critic audits the
+    # delivery once it reaches green).
     - id: doublecheck-guard
       name: 'dsh-doublecheck/guard'
       config:
@@ -23,6 +24,10 @@
           tdd: false
           adversary: false
         adversaryModel: null
+        adversaryProvider: 'fork'
+        adversaryMaxFindings: 5
+        adversaryTools: ['read', 'glob', 'grep']
+        adversaryTimeoutMs: 120000
         guardTools: ['edit', 'write']
         vagueTaskMaxChars: 200
         remindOnce: true

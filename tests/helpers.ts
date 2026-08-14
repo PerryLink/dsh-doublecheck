@@ -45,12 +45,15 @@ export function fakeSession(events: readonly SessionEvent[]): Session {
   return { events, header: {} } as unknown as Session
 }
 
-/** An agent object carrying exactly the fields the guard reads, with inject capture. */
-export function fakeAgent(session: Session, injections: unknown[] = []): Agent {
+/** An agent object carrying exactly the fields the guard reads, with inject/steer capture. */
+export function fakeAgent(session: Session, injections: unknown[] = [], steers: unknown[] = []): Agent {
   return {
     session,
     inject(message: unknown) {
       injections.push(message)
+    },
+    steer(message: unknown) {
+      steers.push(message)
     },
   } as unknown as Agent
 }

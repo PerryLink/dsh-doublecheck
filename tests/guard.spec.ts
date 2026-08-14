@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
+import { Context, Service } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { CallId } from '@deepseek-ai/dsh-llm'
 import type { Session } from '@deepseek-ai/dsh-session'
+import { SessionId } from '@deepseek-ai/dsh-session'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import { defineTool, ToolRuntime } from '@deepseek-ai/dsh-tools'
 import type { PreToolDecision, ToolExecution } from '@deepseek-ai/dsh-tools'
 import * as guardModule from '../src/guard/index.ts'
 import { SPEC_TOOL_NAME } from '../src/domain/stages.ts'
-import type { GuardIntensity } from '../src/events.ts'
+import type { GuardIntensity, ReviewFinding } from '../src/events.ts'
 import { fakeAgent, fakeSession, mutationCall, shellCall, shellResult, toolCall, toolResult, userTask } from './helpers.ts'
 
 const signal = new AbortController().signal
@@ -18,6 +19,10 @@ function fullConfig(overrides: Partial<guardModule.Config> = {}): guardModule.Co
     intensity: 'remind',
     modules: { grill: true, tdd: false, adversary: false },
     adversaryModel: null,
+    adversaryProvider: 'fork',
+    adversaryMaxFindings: 5,
+    adversaryTools: ['read', 'glob', 'grep'],
+    adversaryTimeoutMs: 120000,
     guardTools: ['edit', 'write'],
     vagueTaskMaxChars: 200,
     remindOnce: true,
@@ -28,7 +33,19 @@ function fullConfig(overrides: Partial<guardModule.Config> = {}): guardModule.Co
   }
 }
 
-async function setup(config: guardModule.Config = fullConfig()) {
+interface ReviewStub {
+  findings?: ReviewFinding[]
+  stopReason?: string
+}
+
+interface SetupOptions {
+  /** Skip mounting the fake subagents seam (for fail-loud tests). */
+  noSubagents?: boolean
+  /** The settled outcome the fake critic returns. */
+  review?: ReviewStub
+}
+
+async function setup(config: guardModule.Config = fullConfig(), options: SetupOptions = {}) {
   const ctx = new Context()
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
@@ -40,8 +57,45 @@ async function setup(config: guardModule.Config = fullConfig()) {
     async execute() { return 'edited' },
   })
   ctx.tools.register(editTool)
+  const starts: { name: string; request: unknown }[] = []
+  if (!options.noSubagents) {
+    class FakeSubagents extends Service {
+      constructor(childCtx: Context) {
+        super(childCtx, 'subagents')
+      }
+
+      async start(name: string, request: unknown) {
+        starts.push({ name, request })
+        return {
+          id: SessionId('child-1'),
+          localAgent: undefined,
+          result: Promise.resolve({
+            output: [{ type: 'text', text: 'critique text' }],
+            structured: { findings: options.review?.findings ?? [] },
+            stopReason: options.review?.stopReason ?? 'completed',
+          }),
+          async dispose() {},
+        }
+      }
+    }
+    await ctx.plugin(FakeSubagents)
+  }
   await ctx.plugin(guardModule, config)
-  return ctx
+  return { ctx, starts }
+}
+
+/** A session log that has completed the full discipline loop to green. */
+function greenDeliverySession(): unknown[] {
+  return [
+    userTask('fix the bug in parser.ts'),
+    toolCall(SPEC_TOOL_NAME, 'spec-1'),
+    toolResult('spec-1'),
+    shellCall('bash', 'pnpm test', 't-1'),
+    shellResult('t-1', '[exit code: 1]'),
+    mutationCall('edit', 'src/app.ts', 'e-1'),
+    shellCall('bash', 'pnpm test', 't-2'),
+    shellResult('t-2', '4 passed'),
+  ]
 }
 
 /** Execute an `edit` call for a session whose log is `events`. */
@@ -77,6 +131,10 @@ describe('doublecheck-guard', () => {
     expect(guardModule.Config({})).toEqual({
       intensity: 'remind',
       modules: { grill: true, tdd: false, adversary: false },
+      adversaryProvider: 'fork',
+      adversaryMaxFindings: 5,
+      adversaryTools: ['read', 'glob', 'grep'],
+      adversaryTimeoutMs: 120000,
       guardTools: ['edit', 'write'],
       vagueTaskMaxChars: 200,
       remindOnce: true,
@@ -91,23 +149,29 @@ describe('doublecheck-guard', () => {
     expect(() => guardModule.Config({ intensity: 'loud' })).toThrow()
   })
 
-  it('rejects reserved module misuse at load, fail-loud', async () => {
+  it('rejects invalid configuration at load, fail-loud', async () => {
     const cases: guardModule.Config[] = [
-      fullConfig({ modules: { grill: true, tdd: false, adversary: true } }),
-      fullConfig({ adversaryModel: 'deepseek-v4-flash' }),
       fullConfig({ guardTools: [] }),
       fullConfig({ guardTools: ['edit', 'edit'] }),
       fullConfig({ vagueTaskMaxChars: 0 }),
       fullConfig({ modules: { grill: true, tdd: true, adversary: false }, testCommandPatterns: ['(unclosed'] }),
+      fullConfig({ modules: { grill: true, tdd: false, adversary: true }, testCommandPatterns: ['(unclosed'] }),
+      fullConfig({ modules: { grill: true, tdd: false, adversary: true }, adversaryMaxFindings: 0 }),
+      fullConfig({ modules: { grill: true, tdd: false, adversary: true }, adversaryMaxFindings: 21 }),
+      fullConfig({ modules: { grill: true, tdd: false, adversary: true }, adversaryTimeoutMs: 0 }),
+      fullConfig({ modules: { grill: true, tdd: false, adversary: true }, adversaryTools: [] }),
+      fullConfig({ modules: { grill: true, tdd: false, adversary: true }, adversaryTools: ['read', 'read'] }),
     ]
     for (const config of cases) {
       const ctx = new Context()
+      await ctx.plugin(SystemPrompt)
+      await ctx.plugin(ToolRuntime)
       await expect(ctx.plugin(guardModule, config)).rejects.toThrow(/dsh-doublecheck/)
     }
   })
 
   it('reminds on a vague pre-spec edit and logs the reminder through the context channel', async () => {
-    const ctx = await setup()
+    const { ctx } = await setup()
     const session = vagueSession()
     const announcements: unknown[] = []
     ctx.on('doublecheck/reminder', payload => { announcements.push(payload) })
@@ -123,7 +187,7 @@ describe('doublecheck-guard', () => {
   })
 
   it('leaves a concrete task alone', async () => {
-    const ctx = await setup()
+    const { ctx } = await setup()
     const session = fakeSession([userTask('fix the bug in parser.ts')])
     const result = await runEdit(ctx, fakeAgent(session), 'edit-2')
     expect(result.isError).toBe(false)
@@ -131,7 +195,7 @@ describe('doublecheck-guard', () => {
   })
 
   it('leaves a session with a committed spec alone', async () => {
-    const ctx = await setup()
+    const { ctx } = await setup()
     const session = fakeSession([
       userTask('帮我做那个功能'),
       toolCall(SPEC_TOOL_NAME, 'spec-1'),
@@ -143,7 +207,7 @@ describe('doublecheck-guard', () => {
   })
 
   it('leaves non-guard tools alone even on a vague pre-spec session', async () => {
-    const ctx = await setup()
+    const { ctx } = await setup()
     const session = vagueSession()
     const readTool = defineTool({
       name: 'read',
@@ -165,7 +229,7 @@ describe('doublecheck-guard', () => {
   })
 
   it('leaves agent-less direct calls alone', async () => {
-    const ctx = await setup()
+    const { ctx } = await setup()
     const result = await ctx.tools.execute({
       signal,
       callId: CallId('edit-4'),
@@ -177,7 +241,7 @@ describe('doublecheck-guard', () => {
   })
 
   it('reminds at most once per session under remindOnce', async () => {
-    const ctx = await setup()
+    const { ctx } = await setup()
     const session = vagueSession()
     const agent = fakeAgent(session)
     const first = await runEdit(ctx, agent, 'edit-5')
@@ -187,7 +251,7 @@ describe('doublecheck-guard', () => {
   })
 
   it('reminds again after the first reminder when remindOnce is off', async () => {
-    const ctx = await setup(fullConfig({ remindOnce: false }))
+    const { ctx } = await setup(fullConfig({ remindOnce: false }))
     const session = vagueSession()
     const agent = fakeAgent(session)
     const first = await runEdit(ctx, agent, 'edit-7')
@@ -197,7 +261,7 @@ describe('doublecheck-guard', () => {
   })
 
   it('denies the edit at the policy gate under intensity block', async () => {
-    const ctx = await setup(fullConfig({ intensity: 'block' }))
+    const { ctx } = await setup(fullConfig({ intensity: 'block' }))
     const session = vagueSession()
     const decision = await gateDecision(ctx, {
       name: 'edit',
@@ -208,7 +272,7 @@ describe('doublecheck-guard', () => {
   })
 
   it('materializes the block as an error result through the registry', async () => {
-    const ctx = await setup(fullConfig({ intensity: 'block' }))
+    const { ctx } = await setup(fullConfig({ intensity: 'block' }))
     const session = vagueSession()
     const result = await runEdit(ctx, fakeAgent(session), 'edit-9')
     expect(result.isError).toBe(true)
@@ -218,7 +282,7 @@ describe('doublecheck-guard', () => {
   })
 
   it('holds the edit for approval under intensity warn, and denies when no approval channel exists', async () => {
-    const ctx = await setup(fullConfig({ intensity: 'warn' }))
+    const { ctx } = await setup(fullConfig({ intensity: 'warn' }))
     const session = vagueSession()
     const decision = await gateDecision(ctx, {
       name: 'write',
@@ -235,7 +299,7 @@ describe('doublecheck-guard', () => {
   })
 
   it('stays silent when both gates are off', async () => {
-    const ctx = await setup(fullConfig({ modules: { grill: false, tdd: false, adversary: false } }))
+    const { ctx } = await setup(fullConfig({ modules: { grill: false, tdd: false, adversary: false } }))
     const session = vagueSession()
     const result = await runEdit(ctx, fakeAgent(session), 'edit-11')
     expect(result.isError).toBe(false)
@@ -243,7 +307,7 @@ describe('doublecheck-guard', () => {
   })
 
   it('recomputes its snapshot when the session log grows', async () => {
-    const ctx = await setup()
+    const { ctx } = await setup()
     const events = [userTask('帮我做那个功能')]
     const session = fakeSession(events)
     const agent = fakeAgent(session)
@@ -256,7 +320,7 @@ describe('doublecheck-guard', () => {
   })
 
   it('pairs a spec call and its result folded in separate snapshot batches', async () => {
-    const ctx = await setup(fullConfig({ remindOnce: false }))
+    const { ctx } = await setup(fullConfig({ remindOnce: false }))
     const events = [userTask('帮我做那个功能')]
     const session = fakeSession(events)
     const agent = fakeAgent(session)
@@ -274,7 +338,7 @@ describe('doublecheck-guard', () => {
   })
 
   it('emits one reminder event per reaction with the intensity verdict', async () => {
-    const ctx = await setup(fullConfig({ intensity: 'block' }))
+    const { ctx } = await setup(fullConfig({ intensity: 'block' }))
     const session = vagueSession()
     const announcements: unknown[] = []
     ctx.on('doublecheck/reminder', payload => { announcements.push(payload) })
@@ -291,7 +355,7 @@ describe('doublecheck-guard', () => {
   })
 
   it('denies implementation edits without a failing test on record when tdd is on', async () => {
-    const ctx = await setup(tdd({ intensity: 'block' }))
+    const { ctx } = await setup(tdd({ intensity: 'block' }))
     const session = concreteSession()
     const result = await runEdit(ctx, fakeAgent(session), 'tdd-1')
     expect(result.isError).toBe(true)
@@ -301,7 +365,7 @@ describe('doublecheck-guard', () => {
   })
 
   it('lets test-file edits through the red gate', async () => {
-    const ctx = await setup(tdd({ intensity: 'block' }))
+    const { ctx } = await setup(tdd({ intensity: 'block' }))
     const session = concreteSession()
     const result = await runEdit(ctx, fakeAgent(session), 'tdd-2', 'tests/app.spec.ts')
     expect(result.isError).toBe(false)
@@ -309,7 +373,7 @@ describe('doublecheck-guard', () => {
   })
 
   it('lets implementation edits through once a failing test is on record', async () => {
-    const ctx = await setup(tdd({ intensity: 'block' }))
+    const { ctx } = await setup(tdd({ intensity: 'block' }))
     const session = fakeSession([
       userTask('fix the bug in parser.ts'),
       shellCall('bash', 'pnpm test', 't-1'),
@@ -321,7 +385,7 @@ describe('doublecheck-guard', () => {
   })
 
   it('requires the red step again after a passing run', async () => {
-    const ctx = await setup(tdd({ intensity: 'block' }))
+    const { ctx } = await setup(tdd({ intensity: 'block' }))
     const session = fakeSession([
       userTask('fix the bug in parser.ts'),
       shellCall('bash', 'pnpm test', 't-1'),
@@ -335,7 +399,7 @@ describe('doublecheck-guard', () => {
   })
 
   it('reminds at remind intensity and announces the tdd gate', async () => {
-    const ctx = await setup(tdd())
+    const { ctx } = await setup(tdd())
     const session = concreteSession()
     const announcements: unknown[] = []
     ctx.on('doublecheck/reminder', payload => { announcements.push(payload) })
@@ -346,7 +410,7 @@ describe('doublecheck-guard', () => {
   })
 
   it('holds implementation edits under warn intensity', async () => {
-    const ctx = await setup(tdd({ intensity: 'warn' }))
+    const { ctx } = await setup(tdd({ intensity: 'warn' }))
     const session = concreteSession()
     const decision = await gateDecision(ctx, {
       name: 'edit',
@@ -357,7 +421,7 @@ describe('doublecheck-guard', () => {
   })
 
   it('injects the green reminder at turn end when edits lack a passing run', async () => {
-    const ctx = await setup(tdd({ remindOnce: false }))
+    const { ctx } = await setup(tdd({ remindOnce: false }))
     const injections: unknown[] = []
     const session = fakeSession([
       userTask('fix the bug in parser.ts'),
@@ -375,7 +439,7 @@ describe('doublecheck-guard', () => {
   })
 
   it('stays silent at turn end after a passing run', async () => {
-    const ctx = await setup(tdd({ remindOnce: false }))
+    const { ctx } = await setup(tdd({ remindOnce: false }))
     const injections: unknown[] = []
     const session = fakeSession([
       userTask('fix the bug in parser.ts'),
@@ -391,7 +455,7 @@ describe('doublecheck-guard', () => {
   })
 
   it('injects the green reminder at most once under remindOnce', async () => {
-    const ctx = await setup(tdd())
+    const { ctx } = await setup(tdd())
     const injections: unknown[] = []
     const session = fakeSession([
       userTask('fix the bug in parser.ts'),
@@ -404,7 +468,7 @@ describe('doublecheck-guard', () => {
   })
 
   it('keeps the green gate silent when tdd is off', async () => {
-    const ctx = await setup(fullConfig())
+    const { ctx } = await setup(fullConfig())
     const injections: unknown[] = []
     const session = fakeSession([
       userTask('fix the bug in parser.ts'),
@@ -413,5 +477,145 @@ describe('doublecheck-guard', () => {
     const agent = fakeAgent(session, injections)
     await ctx.serial('agent/turn-stopping', { agent, turn: 1, signal })
     expect(injections).toHaveLength(0)
+  })
+
+  // ── v0.3 adversary review ────────────────────────────────────────────────
+
+  const adversary = (overrides: Partial<guardModule.Config> = {}): guardModule.Config => fullConfig({
+    modules: { grill: true, tdd: false, adversary: true },
+    ...overrides,
+  })
+
+  const blockerFinding: ReviewFinding = {
+    severity: 'blocker',
+    title: 'acceptance criteria unverified',
+    detail: 'The session never runs the acceptance command named in the spec.',
+  }
+
+  it('runs the critic when the delivery reaches green and injects its findings', async () => {
+    const { ctx, starts } = await setup(adversary(), { review: { findings: [blockerFinding] } })
+    const injections: unknown[] = []
+    const reviews: unknown[] = []
+    const session = fakeSession(greenDeliverySession() as never)
+    const agent = fakeAgent(session, injections)
+    ctx.on('doublecheck/review', payload => { reviews.push(payload) })
+    await ctx.serial('agent/turn-stopping', { agent, turn: 1, signal })
+
+    expect(starts).toHaveLength(1)
+    expect(starts[0]?.name).toBe('fork')
+    expect(injections).toHaveLength(1)
+    expect(reviews).toHaveLength(1)
+    expect(reviews[0]).toMatchObject({ verdict: 'findings', findings: [blockerFinding] })
+  })
+
+  it('forwards adversaryModel to the critic run and allows only the configured tools', async () => {
+    const { ctx, starts } = await setup(adversary({ adversaryModel: 'deepseek-v4-pro' }), { review: { findings: [] } })
+    const session = fakeSession(greenDeliverySession() as never)
+    const agent = fakeAgent(session)
+    await ctx.serial('agent/turn-stopping', { agent, turn: 1, signal })
+
+    const request = starts[0]?.request as { agentOptions?: { model?: string }; toolFilter?: { allow?: string[] } }
+    expect(request.agentOptions).toEqual({ model: 'deepseek-v4-pro' })
+    expect(request.toolFilter).toEqual({ allow: ['read', 'glob', 'grep'] })
+  })
+
+  it('steers once under warn intensity when findings exist', async () => {
+    const { ctx, starts } = await setup(adversary({ intensity: 'warn' }), { review: { findings: [blockerFinding] } })
+    const injections: unknown[] = []
+    const steers: unknown[] = []
+    const session = fakeSession(greenDeliverySession() as never)
+    const agent = fakeAgent(session, injections, steers)
+    await ctx.serial('agent/turn-stopping', { agent, turn: 1, signal })
+
+    expect(starts).toHaveLength(1)
+    expect(injections).toHaveLength(1)
+    expect(steers).toHaveLength(1)
+  })
+
+  it('steers once under block intensity when findings exist', async () => {
+    const { ctx } = await setup(adversary({ intensity: 'block' }), { review: { findings: [blockerFinding] } })
+    const steers: unknown[] = []
+    const session = fakeSession(greenDeliverySession() as never)
+    const agent = fakeAgent(session, [], steers)
+    await ctx.serial('agent/turn-stopping', { agent, turn: 1, signal })
+
+    expect(steers).toHaveLength(1)
+  })
+
+  it('injects a clean verdict without steering', async () => {
+    const { ctx } = await setup(adversary({ intensity: 'block' }), { review: { findings: [] } })
+    const injections: unknown[] = []
+    const steers: unknown[] = []
+    const reviews: unknown[] = []
+    const session = fakeSession(greenDeliverySession() as never)
+    const agent = fakeAgent(session, injections, steers)
+    ctx.on('doublecheck/review', payload => { reviews.push(payload) })
+    await ctx.serial('agent/turn-stopping', { agent, turn: 1, signal })
+
+    expect(injections).toHaveLength(1)
+    expect(steers).toHaveLength(0)
+    expect(reviews[0]).toMatchObject({ verdict: 'clean', findings: [] })
+  })
+
+  it('injects an honest notice when the critic cannot complete', async () => {
+    const { ctx } = await setup(adversary(), { review: { stopReason: 'aborted' } })
+    const injections: unknown[] = []
+    const reviews: unknown[] = []
+    const session = fakeSession(greenDeliverySession() as never)
+    const agent = fakeAgent(session, injections)
+    ctx.on('doublecheck/review', payload => { reviews.push(payload) })
+    await ctx.serial('agent/turn-stopping', { agent, turn: 1, signal })
+
+    expect(injections).toHaveLength(1)
+    expect(reviews[0]).toMatchObject({ verdict: 'unavailable', findings: [] })
+  })
+
+  it('skips the review when the delivery has not reached green', async () => {
+    const { ctx, starts } = await setup(adversary())
+    const injections: unknown[] = []
+    const session = fakeSession([
+      userTask('fix the bug in parser.ts'),
+      toolCall(SPEC_TOOL_NAME, 'spec-1'),
+      toolResult('spec-1'),
+      mutationCall('edit', 'src/app.ts', 'e-1'),
+    ])
+    const agent = fakeAgent(session, injections)
+    await ctx.serial('agent/turn-stopping', { agent, turn: 1, signal })
+
+    expect(starts).toHaveLength(0)
+    expect(injections).toHaveLength(0)
+  })
+
+  it('reviews at most once per session', async () => {
+    const { ctx, starts } = await setup(adversary(), { review: { findings: [blockerFinding] } })
+    const session = fakeSession(greenDeliverySession() as never)
+    const agent = fakeAgent(session)
+    await ctx.serial('agent/turn-stopping', { agent, turn: 1, signal })
+    await ctx.serial('agent/turn-stopping', { agent, turn: 2, signal })
+
+    expect(starts).toHaveLength(1)
+  })
+
+  it('settles as unavailable when the subagents seam is missing', async () => {
+    const { ctx, starts } = await setup(adversary(), { noSubagents: true })
+    const injections: unknown[] = []
+    const reviews: unknown[] = []
+    const session = fakeSession(greenDeliverySession() as never)
+    const agent = fakeAgent(session, injections)
+    ctx.on('doublecheck/review', payload => { reviews.push(payload) })
+    await ctx.serial('agent/turn-stopping', { agent, turn: 1, signal })
+
+    expect(starts).toHaveLength(0)
+    expect(injections).toHaveLength(1)
+    expect(reviews[0]).toMatchObject({ verdict: 'unavailable', findings: [] })
+  })
+
+  it('keeps the review silent when adversary is off', async () => {
+    const { ctx, starts } = await setup(fullConfig())
+    const session = fakeSession(greenDeliverySession() as never)
+    const agent = fakeAgent(session)
+    await ctx.serial('agent/turn-stopping', { agent, turn: 1, signal })
+
+    expect(starts).toHaveLength(0)
   })
 })

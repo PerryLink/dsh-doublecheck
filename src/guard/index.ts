@@ -38,25 +38,35 @@ import { compileDetection, isTestFilePath, mutationTargetPath, type TestRunDetec
 import { emptyDisciplineState, foldDisciplineRange, type DisciplineState } from '../domain/stages.ts'
 import { isVagueTask } from '../domain/vagueness.ts'
 import type { GuardIntensity } from '../events.ts'
+import { runAdversaryReview } from './review.ts'
+import type { AdversaryConfig } from './review.ts'
 
 export const name = 'doublecheck-guard'
 
 /**
- * Guard configuration. `intensity` is shared by both gates; `modules` selects
- * them. The `adversary` boundary (v0.3) exists so configs written now survive
- * that version, and enabling it in this build fails loud.
+ * Guard configuration. `intensity` is shared by all three gates; `modules`
+ * selects them. The `adversary` module (v0.3) dispatches a forked critic
+ * subagent at the turn boundary once the delivery reaches green.
  */
 export interface Config {
-  /** Enforcement strength of the grill and red/green gates. */
+  /** Enforcement strength of the grill, red/green, and review gates. */
   intensity: GuardIntensity
-  /** Discipline module switches; `adversary` is reserved for v0.3. */
+  /** Discipline module switches. */
   modules: {
     grill: boolean
     tdd: boolean
     adversary: boolean
   }
-  /** Model route for the future adversary critic; null means the main model self-reviews. Reserved for v0.3. */
+  /** Model route for the adversary critic; null means the main model self-reviews. */
   adversaryModel: string | null
+  /** Subagent provider name the critic runs on (default `fork`). */
+  adversaryProvider: string
+  /** Maximum structured findings injected into the session. */
+  adversaryMaxFindings: number
+  /** Tools the critic may call (read-only by default; never mutation tools). */
+  adversaryTools: string[]
+  /** Hard time budget for one critic run before it settles as unavailable. */
+  adversaryTimeoutMs: number
   /** Mutation tool names both gates watch (default `edit`, `write`). */
   guardTools: string[]
   /** Task text longer than this many characters is never treated as vague. */
@@ -79,6 +89,10 @@ export const Config: Schema<Config> = z.object({
     adversary: z.boolean().default(false),
   }).default({ grill: true, tdd: false, adversary: false }),
   adversaryModel: z.union([z.string(), z.const(null)]).default(null),
+  adversaryProvider: z.string().min(1).default('fork'),
+  adversaryMaxFindings: z.number().default(5),
+  adversaryTools: z.array(z.string()).default(['read', 'glob', 'grep']),
+  adversaryTimeoutMs: z.number().default(120000),
   guardTools: z.array(z.string()).default(['edit', 'write']),
   vagueTaskMaxChars: z.number().default(200),
   remindOnce: z.boolean().default(true),
@@ -166,22 +180,26 @@ interface Snapshot {
  * @param config - validated {@link Config}; reserved-module misuse fails loud here.
  */
 export function apply(ctx: Context, config: Config): void {
-  if (config.modules.adversary) {
-    throw new Error('dsh-doublecheck: modules.adversary is reserved for v0.3 and cannot be enabled in this version')
-  }
-  if ((config.adversaryModel ?? null) !== null) {
-    throw new Error('dsh-doublecheck: adversaryModel requires the adversary module, which is reserved for v0.3')
-  }
   assertPositiveInteger('vagueTaskMaxChars', config.vagueTaskMaxChars)
   assertGuardTools(config.guardTools)
+  if (config.modules.adversary) {
+    assertBoundedInteger('adversaryMaxFindings', config.adversaryMaxFindings, 20)
+    assertPositiveInteger('adversaryTimeoutMs', config.adversaryTimeoutMs)
+    assertNonEmptyNames('adversaryTools', config.adversaryTools)
+    // The subagents seam itself is checked at review time, not here: row load
+    // order means the provider may simply not have activated yet, and a
+    // missing seam then settles as an honest "unavailable" notice.
+  }
 
-  if (!config.modules.grill && !config.modules.tdd) {
-    ctx.logger.info('dsh-doublecheck: both discipline gates disabled (modules.grill = false, modules.tdd = false); the guard contributes nothing')
+  if (!config.modules.grill && !config.modules.tdd && !config.modules.adversary) {
+    ctx.logger.info('dsh-doublecheck: all discipline gates disabled; the guard contributes nothing')
     return
   }
 
   const guardToolSet = new Set(config.guardTools)
-  const detection: TestRunDetection = config.modules.tdd
+  // Evidence folding backs the tdd gate AND the adversary trigger, so either
+  // module compiles the test-run detection; only the gate behavior differs.
+  const detection: TestRunDetection = config.modules.tdd || config.modules.adversary
     ? compileDetection({
       testToolNames: config.testToolNames,
       testCommandPatterns: config.testCommandPatterns,
@@ -199,6 +217,8 @@ export function apply(ctx: Context, config: Config): void {
   const tddRedReminded = new WeakSet<Session>()
   /** Sessions that already received a green-gate reminder, for `remindOnce`. */
   const tddGreenReminded = new WeakSet<Session>()
+  /** Sessions that already ran the adversary review (once per session). */
+  const reviewedSessions = new WeakSet<Session>()
 
   /** Fold `events[start..end)` into the snapshot; each event is folded once per session. */
   function foldEvents(snapshot: Snapshot, events: readonly SessionEvent[], start: number, end: number): void {
@@ -402,27 +422,73 @@ export function apply(ctx: Context, config: Config): void {
     return { ...downstream, additionalContexts: prependContext(reminder, downstream.additionalContexts) }
   })
 
-  // Green gate at the turn boundary: edits without a passing test run on
-  // record inject a completion reminder into the next request. Advisory, not
-  // a veto — `agent/turn-stopping` never blocks the close.
-  ctx.on('agent/turn-stopping', ({ agent }) => {
-    if (!config.modules.tdd) return
+  // Green gate and adversary review at the turn boundary. Advisory, not a
+  // veto — `agent/turn-stopping` never blocks the close, and a review that
+  // cannot run settles as an honest "unavailable" notice.
+  ctx.on('agent/turn-stopping', async ({ agent }) => {
+    if (config.modules.tdd) {
+      const snapshot = snapshotOf(agent.session)
+      if (snapshot.discipline.pendingGreen) {
+        if (!config.remindOnce || !tddGreenReminded.has(agent.session)) {
+          tddGreenReminded.add(agent.session)
+          const text = config.intensity === 'remind' ? GREEN_REMIND_TEXT : GREEN_REMIND_STRICT_TEXT
+          agent.inject(notice('green gate', text))
+          ctx.emit('doublecheck/reminder', {
+            agent,
+            session: agent.session,
+            intensity: config.intensity,
+            gate: 'tdd',
+            verdict: 'green-pending',
+            reminder: text,
+          })
+        }
+      }
+    }
+
+    if (!config.modules.adversary) return
     const snapshot = snapshotOf(agent.session)
-    if (!snapshot.discipline.pendingGreen) return
-    if (config.remindOnce && tddGreenReminded.has(agent.session)) return
-    tddGreenReminded.add(agent.session)
-    const text = config.intensity === 'remind' ? GREEN_REMIND_TEXT : GREEN_REMIND_STRICT_TEXT
-    agent.inject(notice('green gate', text))
-    ctx.emit('doublecheck/reminder', {
-      agent,
+    const discipline = snapshot.discipline
+    if (!discipline.hasSpec || discipline.editCount === 0 || discipline.pendingGreen || discipline.color !== 'green') return
+    if (reviewedSessions.has(agent.session)) return
+    reviewedSessions.add(agent.session)
+
+    const outcome = await runAdversaryReview(ctx, adversaryConfig(config), agent)
+    agent.inject(notice('adversary review', outcome.text))
+    ctx.emit('doublecheck/review', {
       session: agent.session,
-      intensity: config.intensity,
-      gate: 'tdd',
-      verdict: 'green-pending',
-      reminder: text,
+      agent,
+      verdict: outcome.verdict,
+      findings: outcome.findings,
+      text: outcome.text,
     })
+    if (outcome.verdict === 'findings' && config.intensity !== 'remind') {
+      agent.steer(notice('adversary review', config.intensity === 'block' ? REVIEW_STEER_STRICT : REVIEW_STEER))
+    }
   })
 }
+
+/** The adversary knobs in the shape the review runner reads. */
+function adversaryConfig(config: Config): AdversaryConfig {
+  return {
+    adversaryProvider: config.adversaryProvider,
+    adversaryModel: config.adversaryModel ?? null,
+    adversaryMaxFindings: config.adversaryMaxFindings,
+    adversaryTools: config.adversaryTools,
+    adversaryTimeoutMs: config.adversaryTimeoutMs,
+  }
+}
+
+/** Steering prose under `intensity: warn` after findings. */
+const REVIEW_STEER =
+  'The adversary review above found objections against this delivery. '
+  + 'Address them before finishing: fix what is real, and state plainly what '
+  + 'is false.'
+
+/** Steering prose under `intensity: block` after findings. */
+const REVIEW_STEER_STRICT =
+  'The adversary review above found objections against this delivery. Do not '
+  + 'claim completion while they stand: fix every blocker and major finding, '
+  + 'or prove it false, before you finish.'
 
 /** Prepend our reminder while preserving every downstream context's source and metadata. */
 function prependContext(ours: UserMessage, theirs: UserMessage[] | undefined): UserMessage[] {
@@ -433,6 +499,23 @@ function assertPositiveInteger(field: string, value: number): void {
   if (!Number.isInteger(value) || value < 1) {
     throw new Error(`dsh-doublecheck: ${field} must be an integer >= 1`)
   }
+}
+
+/** Validate a bounded positive integer knob fail-loud. */
+function assertBoundedInteger(field: string, value: number, maximum: number): void {
+  assertPositiveInteger(field, value)
+  if (value > maximum) {
+    throw new Error(`dsh-doublecheck: ${field} must be <= ${maximum}`)
+  }
+}
+
+/** Validate a name list fail-loud: non-empty, non-empty names, no duplicates. */
+function assertNonEmptyNames(field: string, names: string[]): void {
+  if (names.length === 0) throw new Error(`dsh-doublecheck: ${field} must not be empty`)
+  for (const name of names) {
+    if (name.length === 0) throw new Error(`dsh-doublecheck: ${field} must not contain empty names`)
+  }
+  if (new Set(names).size !== names.length) throw new Error(`dsh-doublecheck: ${field} must not contain duplicates`)
 }
 
 /** Validate the guard-tool list fail-loud: non-empty, non-empty names, no duplicates. */

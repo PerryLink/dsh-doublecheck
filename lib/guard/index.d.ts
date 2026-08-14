@@ -31,21 +31,29 @@ import type Schema from '@deepseek-ai/schemastery';
 import type { GuardIntensity } from '../events.ts';
 export declare const name = "doublecheck-guard";
 /**
- * Guard configuration. `intensity` is shared by both gates; `modules` selects
- * them. The `adversary` boundary (v0.3) exists so configs written now survive
- * that version, and enabling it in this build fails loud.
+ * Guard configuration. `intensity` is shared by all three gates; `modules`
+ * selects them. The `adversary` module (v0.3) dispatches a forked critic
+ * subagent at the turn boundary once the delivery reaches green.
  */
 export interface Config {
-    /** Enforcement strength of the grill and red/green gates. */
+    /** Enforcement strength of the grill, red/green, and review gates. */
     intensity: GuardIntensity;
-    /** Discipline module switches; `adversary` is reserved for v0.3. */
+    /** Discipline module switches. */
     modules: {
         grill: boolean;
         tdd: boolean;
         adversary: boolean;
     };
-    /** Model route for the future adversary critic; null means the main model self-reviews. Reserved for v0.3. */
+    /** Model route for the adversary critic; null means the main model self-reviews. */
     adversaryModel: string | null;
+    /** Subagent provider name the critic runs on (default `fork`). */
+    adversaryProvider: string;
+    /** Maximum structured findings injected into the session. */
+    adversaryMaxFindings: number;
+    /** Tools the critic may call (read-only by default; never mutation tools). */
+    adversaryTools: string[];
+    /** Hard time budget for one critic run before it settles as unavailable. */
+    adversaryTimeoutMs: number;
     /** Mutation tool names both gates watch (default `edit`, `write`). */
     guardTools: string[];
     /** Task text longer than this many characters is never treated as vague. */

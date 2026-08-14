@@ -32,16 +32,17 @@ grill ──▶ design ──▶ red ──▶ green ──▶ review ──▶ 
 | **design** | Spec committed via `doublecheck_spec`. | ✅ v0.1 |
 | **red** | A failing test run proves the gap; implementation edits need it on record. | ✅ v0.2 |
 | **green** | A passing test run after the edits closes the loop. | ✅ v0.2 |
-| **review** | Adversary critic reviews the delivery (`adversaryModel`). | 🔜 v0.3 |
+| **review** | A forked adversary critic audits the delivery against the spec. | ✅ v0.3 |
 | **verify** | Workflow orchestration + consolidated doublecheck report. | 🔜 v0.4 |
 
-## Features (v0.2)
+## Features (v0.3)
 
 - 🔥 **`grill-requirements` skill** — a bundled Agent-Skills-format skill that interrogates the task across six dimensions (**goal, scope, acceptance criteria, failure modes, priorities, non-goals**) using DSH's native `ask_user_question` UI, refuses to write code until consensus, and records the contract.
 - 📜 **`doublecheck_spec` tool** — commits the grilled spec to the session log and writes a markdown copy to the workspace, so the contract survives the conversation.
 - 🛡️ **Discipline guard** — a soft gate on the tool policy pipeline. Vague task + no spec + heading for `edit`/`write` → **remind**, **hold for human approval**, or **block**, depending on `intensity`.
 - 🟥🟩 **Red/green evidence gates** (`modules.tdd`) — hard checks over the session log: an implementation edit requires a **failing test run on record** since the last passing run (writing test files is always allowed — that is how the red step happens), and a turn that ends with edits but no passing run gets a green reminder injected.
-- 🔁 **Durable state** — every model-visible artifact (spec, reminders, deny feedback) lands in the session log; gate decisions derive from the log alone (`tool/call` + `tool/result`, including Code Mode sub-dispatches), so resumed and forked sessions enforce identically.
+- 👁️ **Adversary review** (`modules.adversary`) — once the delivery reaches green, a forked critic subagent (DSH's native subagent seam, default `fork` provider) audits the session against the committed spec with an adversarial stance and returns structured findings. `remind` injects the critique; `warn`/`block` additionally steer one round to make the model answer the findings. `adversaryModel` routes the critic to a separate model; the critic's tool allowlist is read-only by default.
+- 🔁 **Durable state** — every model-visible artifact (spec, reminders, deny feedback, review findings) lands in the session log; gate decisions derive from the log alone (`tool/call` + `tool/result`, including Code Mode sub-dispatches), so resumed and forked sessions enforce identically.
 - 📚 **`doublecheck_skills` tool** — lists and loads the package's skills through the official skill registry seam.
 
 ## Install
@@ -73,8 +74,12 @@ Override any row **by id** in the profile's `cordis.patch.yml`. A patch replaces
     modules:
       grill: true
       tdd: true         # red/green evidence gates (v0.2)
-      adversary: false  # reserved for v0.3 — must stay false
-    adversaryModel: null
+      adversary: true   # forked critic review (v0.3)
+    adversaryModel: null            # or e.g. 'deepseek-v4-pro' for a separate critic model
+    adversaryProvider: 'fork'       # subagent provider the critic runs on
+    adversaryMaxFindings: 5         # findings cap injected into the session
+    adversaryTools: ['read', 'glob', 'grep']   # critic tool allowlist (read-only)
+    adversaryTimeoutMs: 120000      # hard budget for one critic run
     guardTools: ['edit', 'write']
     vagueTaskMaxChars: 200
     remindOnce: true
@@ -102,15 +107,20 @@ Override any row **by id** in the profile's `cordis.patch.yml`. A patch replaces
 |---|---|---|
 | `modules.grill` | `true` | Off disables the grill gate. The grill skill/tools switch is their row's `disabled` flag. |
 | `modules.tdd` | `false` | On enables the red/green evidence gates (v0.2). |
+| `modules.adversary` | `false` | On enables the forked critic review at green (v0.3); uses the `ctx.subagents` seam — a missing seam settles as an "unavailable" notice. |
 | `guardTools` | `['edit', 'write']` | Mutation tool names both gates watch. |
-| `vagueTaskMaxChars` | `200` | Longer tasks are never treated as vague. Brief tasks naming a file, path, or URL are concrete. |
+| `vagueTaskMaxChars` | `200` | Longer tasks are never treated as vague. Brief tasks naming a file, path, URL, or an underscore keyword are concrete. |
 | `remindOnce` | `true` | Inject each gate's reminder at most once per session. |
 | `testToolNames` | `['bash', 'pwsh']` | Shell tool names that can run tests. |
 | `testCommandPatterns` | *(pnpm/npm/yarn/bun test, pytest, go/cargo/make test, node --test)* | Regexes a command must match to count as a test run. |
 | `testFilePatterns` | *(test dirs, `*.test.*` / `*.spec.*`)* | Regexes identifying test files — always editable, exempt from the red gate. |
-| `adversaryModel` | `null` | Reserved for the v0.3 critic; `null` = main model self-reviews. Non-null fails to load. |
+| `adversaryModel` | `null` | Critic model route; `null` = main model self-reviews. |
+| `adversaryProvider` | `'fork'` | Subagent provider name the critic runs on. |
+| `adversaryMaxFindings` | `5` | Findings cap (1–20) injected into the session. |
+| `adversaryTools` | `['read', 'glob', 'grep']` | Critic tool allowlist; keep it read-only. |
+| `adversaryTimeoutMs` | `120000` | Hard time budget for one critic run. |
 
-Misconfiguration fails loud: enabling the reserved `adversary` module, setting `adversaryModel`, or supplying an invalid regex throws at load instead of silently doing nothing.
+Misconfiguration fails loud: an invalid regex, an empty/duplicated name list, or an out-of-range findings cap throws at load instead of silently doing nothing. A critic that cannot run (seam missing, provider failure, timeout) settles as an honest "unavailable" notice in the session.
 
 ## How it works (extension points)
 
@@ -123,8 +133,9 @@ Misconfiguration fails loud: enabling the reserved `adversary` module, setting `
 | Red gate | `tools/pre-execute` waterfall — hard check of failing-test evidence before implementation edits |
 | Reminder injection | `tools/post-execute` waterfall — `additionalContexts` → logged as `user/message` |
 | Green gate | `agent/turn-stopping` serial — injects a completion reminder when edits lack a passing run |
+| Adversary review | `ctx.subagents.start()` — forked critic with structured findings schema, injected at green; `warn`/`block` steer one round |
 | Durable state | session log fold over `tool/call` + `tool/result` + `tool/code-dispatch`; model-visible ⟺ logged |
-| Internal events | `doublecheck/spec`, `doublecheck/reminder` (typed via declaration merging, `@mode emit`) |
+| Internal events | `doublecheck/spec`, `doublecheck/reminder`, `doublecheck/review` (typed via declaration merging, `@mode emit`) |
 
 No agent-loop changes. Every registration is a reversible `ctx.effect` / `ctx.on` / service `register()`.
 
@@ -133,10 +144,10 @@ No agent-loop changes. Every registration is a reversible `ctx.effect` / `ctx.on
 - The `grill-requirements` skill joins the session skill catalog and loads through the built-in `skill` tool (or `doublecheck_skills`).
 - `ask_user_question` stays the native DSH way to interrogate the user; the skill only choreographs it (and degrades to prose questions in headless runs with no provider).
 - Reminders arrive as `{kind:'plugin'}` context, so transcript UIs present them as injection metadata.
+- The adversary critique arrives the same way after the critic settles, with severity-tagged findings; under `warn`/`block` the loop is steered one round so the model answers them.
 
 ## Roadmap
 
-- **v0.3** — adversary module: a critic sub-agent reviews the delivery; `adversaryModel` selects the route.
 - **v0.4** — workflow orchestration and a consolidated doublecheck report.
 
 ## Develop

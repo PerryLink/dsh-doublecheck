@@ -32,16 +32,17 @@ grill ──▶ design ──▶ red ──▶ green ──▶ review ──▶ 
 | **design** | Spec registrado con `doublecheck_spec`. | ✅ v0.1 |
 | **red** | Una prueba que falla demuestra el hueco; las ediciones de implementación necesitan tenerla registrada. | ✅ v0.2 |
 | **green** | Una prueba que pasa tras las ediciones cierra el bucle. | ✅ v0.2 |
-| **review** | Un crítico adversario revisa la entrega (`adversaryModel`). | 🔜 v0.3 |
+| **review** | Un crítico adversario bifurcado audita la entrega contra el spec. | ✅ v0.3 |
 | **verify** | Orquestación de workflow + informe doublecheck consolidado. | 🔜 v0.4 |
 
-## Funciones (v0.2)
+## Funciones (v0.3)
 
 - 🔥 **Skill `grill-requirements`** — un skill empaquetado en formato Agent Skills que interroga la tarea en seis dimensiones (**objetivo, alcance, criterios de aceptación, modos de fallo, prioridades, no-objetivos**) con la UI nativa `ask_user_question` de DSH, se niega a escribir código hasta el consenso y registra el contrato.
 - 📜 **Herramienta `doublecheck_spec`** — guarda el spec acordado en el registro de sesión y escribe una copia en markdown en el workspace, para que el contrato sobreviva a la conversación.
 - 🛡️ **Guard de disciplina** — una puerta blanda en el pipeline de políticas de herramientas. Tarea vaga + sin spec + rumbo a `edit`/`write` → **recordar**, **pedir aprobación humana** o **bloquear**, según `intensity`.
 - 🟥🟩 **Puertas de evidencia red/green** (`modules.tdd`) — comprobaciones duras sobre el registro de sesión: una edición de implementación requiere una **prueba que falla registrada** desde la última prueba que pasa (escribir archivos de prueba siempre está permitido — así ocurre el paso red), y un turno que termina con ediciones pero sin ninguna prueba que pasa recibe un recordatorio green inyectado.
-- 🔁 **Estado duradero** — todo artefacto visible para el modelo (spec, recordatorios, feedback de denegación) queda en el registro de sesión; las decisiones de las puertas se derivan solo del registro (`tool/call` + `tool/result`, incluidos los sub-despachos de Code Mode), así que las sesiones reanudadas o bifurcadas se comportan igual.
+- 👁️ **Revisión adversaria** (`modules.adversary`) — una vez que la entrega alcanza green, un subagente crítico bifurcado (seam nativo de subagentes de DSH, provider `fork` por defecto) audita la sesión contra el spec registrado con una postura adversaria y devuelve hallazgos estructurados. `remind` inyecta la crítica; `warn`/`block` además dirigen una ronda para que el modelo responda a los hallazgos. `adversaryModel` enruta al crítico hacia un modelo separado; la allowlist de herramientas del crítico es de solo lectura por defecto.
+- 🔁 **Estado duradero** — todo artefacto visible para el modelo (spec, recordatorios, feedback de denegación, hallazgos de revisión) queda en el registro de sesión; las decisiones de las puertas se derivan solo del registro (`tool/call` + `tool/result`, incluidos los sub-despachos de Code Mode), así que las sesiones reanudadas o bifurcadas se comportan igual.
 - 📚 **Herramienta `doublecheck_skills`** — lista y carga los skills del paquete a través del seam oficial del registro de skills.
 
 ## Instalación
@@ -73,8 +74,12 @@ Sobrescribe cualquier fila **por id** en el `cordis.patch.yml` del profile. Un p
     modules:
       grill: true
       tdd: true         # puertas de evidencia red/green (v0.2)
-      adversary: false  # reservado para v0.3 — debe ser false
+      adversary: true   # revisión del crítico bifurcado (v0.3)
     adversaryModel: null
+    adversaryProvider: 'fork'       # provider de subagentes en el que corre el crítico
+    adversaryMaxFindings: 5         # tope de hallazgos inyectados en la sesión
+    adversaryTools: ['read', 'glob', 'grep']   # allowlist de herramientas del crítico (solo lectura)
+    adversaryTimeoutMs: 120000      # presupuesto duro para una ejecución del crítico
     guardTools: ['edit', 'write']
     vagueTaskMaxChars: 200
     remindOnce: true
@@ -102,15 +107,20 @@ Sobrescribe cualquier fila **por id** en el `cordis.patch.yml` del profile. Un p
 |---|---|---|
 | `modules.grill` | `true` | En `false` desactiva la puerta grill. El interruptor de los skills/herramientas grill es el flag `disabled` de su fila. |
 | `modules.tdd` | `false` | En `true` activa las puertas de evidencia red/green (v0.2). |
+| `modules.adversary` | `false` | En `true` activa la revisión del crítico bifurcado en green (v0.3); usa el seam `ctx.subagents` — un seam ausente se resuelve como un aviso «no disponible». |
 | `guardTools` | `['edit', 'write']` | Nombres de herramientas de mutación que vigila el guard. |
-| `vagueTaskMaxChars` | `200` | Las tareas más largas nunca se consideran vagas. Las tareas breves que nombran un archivo, ruta o URL son concretas. |
+| `vagueTaskMaxChars` | `200` | Las tareas más largas nunca se consideran vagas. Las tareas breves que nombran un archivo, ruta, URL o una palabra clave con guion bajo son concretas. |
 | `remindOnce` | `true` | Inyectar el recordatorio de cada puerta como máximo una vez por sesión. |
 | `testToolNames` | `['bash', 'pwsh']` | Nombres de herramientas de shell que pueden ejecutar pruebas. |
 | `testCommandPatterns` | *(pnpm/npm/yarn/bun test, pytest, go/cargo/make test, node --test)* | Expresiones regulares con las que debe coincidir un comando para contar como ejecución de prueba. |
 | `testFilePatterns` | *(directorios de prueba, `*.test.*` / `*.spec.*`)* | Expresiones regulares que identifican archivos de prueba — siempre editables, exentos de la puerta red. |
-| `adversaryModel` | `null` | Reservado para el crítico de v0.3; `null` = el modelo principal se autorrevisa. Un valor no nulo falla al cargar. |
+| `adversaryModel` | `null` | Ruta del modelo crítico; `null` = el modelo principal se autorrevisa. |
+| `adversaryProvider` | `'fork'` | Nombre del provider de subagentes en el que corre el crítico. |
+| `adversaryMaxFindings` | `5` | Tope de hallazgos (1–20) inyectados en la sesión. |
+| `adversaryTools` | `['read', 'glob', 'grep']` | Allowlist de herramientas del crítico; mantenla de solo lectura. |
+| `adversaryTimeoutMs` | `120000` | Presupuesto de tiempo duro para una ejecución del crítico. |
 
-La mala configuración falla en voz alta: activar un módulo reservado o fijar `adversaryModel` lanza un error al cargar, en lugar de no hacer nada en silencio.
+La mala configuración falla en voz alta: una regex inválida, una lista de nombres vacía o duplicada, o un tope de hallazgos fuera de rango lanza un error al cargar en lugar de no hacer nada en silencio. Un crítico que no puede ejecutarse (seam ausente, fallo del provider, timeout) se resuelve como un aviso honesto «no disponible» en la sesión.
 
 ## Cómo funciona (puntos de extensión)
 
@@ -123,8 +133,9 @@ La mala configuración falla en voz alta: activar un módulo reservado o fijar `
 | Puerta red | waterfall `tools/pre-execute` — comprobación dura de la evidencia de prueba fallida antes de las ediciones de implementación |
 | Inyección de recordatorio | waterfall `tools/post-execute` — `additionalContexts` → registrado como `user/message` |
 | Puerta green | `agent/turn-stopping` serial — inyecta un recordatorio de finalización cuando las ediciones carecen de una prueba que pasa |
+| Revisión adversaria | `ctx.subagents.start()` — forked critic with structured findings schema, injected at green; `warn`/`block` steer one round |
 | Estado duradero | plegado del registro de sesión sobre `tool/call` + `tool/result` + `tool/code-dispatch`; visible para el modelo ⟺ registrado |
-| Eventos internos | `doublecheck/spec`, `doublecheck/reminder` (tipados por declaration merging, `@mode emit`) |
+| Eventos internos | `doublecheck/spec`, `doublecheck/reminder`, `doublecheck/review` (tipados por declaration merging, `@mode emit`) |
 
 Sin cambios en el agent-loop. Cada registro es un `ctx.effect` / `ctx.on` / `register()` de servicio reversible.
 
@@ -133,10 +144,10 @@ Sin cambios en el agent-loop. Cada registro es un `ctx.effect` / `ctx.on` / `reg
 - El skill `grill-requirements` se une al catálogo de skills de la sesión y se carga con la herramienta integrada `skill` (o `doublecheck_skills`).
 - `ask_user_question` sigue siendo la forma nativa de DSH de preguntar al usuario; el skill solo la coreografía (y en headless sin provider degrada a preguntas en prosa).
 - Los recordatorios llegan como contexto `{kind:'plugin'}`, así que las UIs de transcripción los muestran como metadatos de inyección.
+- La crítica del adversario llega de la misma manera cuando el crítico se asienta, con hallazgos etiquetados por severidad; bajo `warn`/`block` el bucle se dirige una ronda para que el modelo les responda.
 
 ## Hoja de ruta
 
-- **v0.3** — módulo adversary: un subagente crítico revisa la entrega; `adversaryModel` elige la ruta.
 - **v0.4** — orquestación de workflow e informe doublecheck consolidado.
 
 ## Desarrollo
