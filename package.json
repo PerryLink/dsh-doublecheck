@@ -24,6 +24,7 @@
     "lib",
     "skills",
     "cordis.patch.yml",
+    "CHANGELOG.md",
     "README.md",
     "README.zh.md",
     "README.es.md",
@@ -38,6 +39,7 @@
     "typecheck": "tsc --noEmit && tsc -p tsconfig.tests.json",
     "lint": "eslint src tests",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "pack:check": "pnpm run build && pnpm pack"
   },
   "keywords": [
@@ -82,6 +84,7 @@
     "@deepseek-ai/schemastery": "^3.18.1",
     "@eslint/js": "^9.30.0",
     "@types/node": "^22.15.0",
+    "@vitest/coverage-v8": "^3.2.0",
     "eslint": "^9.30.0",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.35.0",

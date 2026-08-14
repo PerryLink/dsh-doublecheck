@@ -4,5 +4,10 @@ export default defineConfig({
   test: {
     include: ['tests/**/*.spec.ts'],
     environment: 'node',
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.ts'],
+      exclude: ['src/index.ts'],
+    },
   },
 })
