@@ -72,8 +72,44 @@ Ambas filas de plugin se activan automáticamente con el profile. También sirve
 
 ```sh
 pnpm pack
-dsh plugin --profile <name> add ./dsh-doublecheck-0.4.0.tgz
+dsh plugin --profile <name> add ./dsh-doublecheck-0.5.0.tgz
 ```
+
+La instalación por git no necesita npm:
+
+```sh
+dsh plugin --profile <name> add "github:PerryLink/dsh-doublecheck#v0.5.0"
+```
+
+## Desinstalación
+
+```sh
+dsh plugin --profile <name> remove dsh-doublecheck
+```
+
+Para mantener el paquete pero desactivar una fila: sobrescríbela por id con `disabled: true` en el `cordis.patch.yml` del profile (`doublecheck-grill` / `doublecheck-guard`).
+
+## Compatibilidad
+
+- Verificado contra los peers `0.1.0-rc.6` (`@deepseek-ai/cordis ^4.0.1`); última verificación 2026-08-14 (Windows + Node 22).
+- El interruptor de sesión durable (`/doublecheck on|off` → `doublecheck/state`) necesita la superficie de escritura `ignorable` del host (harness posterior a rc.6): los hosts rc.6 ignoran el options bag y el evento queda required-on-read, así que allí prefiere el cambio en memoria hasta actualizar el harness.
+
+## Permisos y datos
+
+- **Lee**: solo en proceso el registro de sesión (`tool/call` / `tool/result` / `tool/code-dispatch` y fuentes `user/message` inyectadas).
+- **Escribe**: `doublecheck-spec.md` y `doublecheck-report.md` en el workspace de la sesión (rutas configurables), vía el seam `ctx.fs`.
+- **Llamadas al modelo**: solo la revisión adversaria opcional (`modules.adversary`, off por defecto) y el workflow de verificación de `doublecheck_report` (on por defecto) lanzan subagentes; nada más llama al modelo o a la red.
+- **Nunca toca**: credenciales, variables de entorno ni archivos fuera del workspace de la sesión.
+
+## Resolución de problemas
+
+| Síntoma | Causa y solución |
+|---|---|
+| No aparece la capa `# == dsh-doublecheck` en `--dump-config` | Falta el bundle patch o una fila está `disabled` — revisa el orden de parches del profile y los ids de fila. |
+| Los gates nunca reaccionan | Ejecuta `/doublecheck status`: el interruptor de sesión puede estar apagado, o todos los `modules.*` están en false. |
+| "Adversary review did not run: the subagents seam is not mounted" | Esta composición de profile no provee subagentes — monta uno (las composiciones spine lo traen) o desactiva `modules.adversary`. |
+| `doublecheck_report` muestra `verification: null` | Falta el seam `workflowEngine` o el run fue rechazado/abortado — el informe lo indica en lugar de adivinar. |
+| El informe dice `unverified` | La verificación corrió pero no todas las dimensiones del spec devolvieron veredicto — reintenta con `verify: true`; `proven` exige las seis. |
 
 ## Configuración
 

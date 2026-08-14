@@ -2,9 +2,10 @@
 
 > **发布前先双重检查：追问需求、验证实现、证明交付。**
 
-[![version](https://img.shields.io/badge/version-0.4.0-blue)](https://github.com/PerryLink/dsh-doublecheck/releases)
+[![version](https://img.shields.io/badge/version-0.5.0-blue)](https://github.com/PerryLink/dsh-doublecheck/releases)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![topics](https://img.shields.io/badge/topics-dsh%20%7C%20dsh--plugin-22c55e)](https://github.com/topics/dsh-plugin)
+[![CI](https://img.shields.io/github/actions/workflow/status/PerryLink/dsh-doublecheck/ci.yml?branch=main)](https://github.com/PerryLink/dsh-doublecheck/actions/workflows/ci.yml)
 
 面向 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的**工程纪律 bundle**。智能体总是急着写代码，而需求最怕被想当然。`dsh-doublecheck` 装上一套纪律循环，逼模型**在动手改第一行代码前把需求拷问清楚，并且用证据证明交付而不是嘴上宣称**——全部基于 DSH 自带扩展点（技能注册表、工具策略管线、审批接缝、subagent 与 workflow 接缝、会话日志）原生重实现，不借用任何上游提示词文件。已在 DSH `0.1.0-rc.6` 上实测。
 
@@ -34,7 +35,7 @@ grill ──▶ design ──▶ red ──▶ green ──▶ review ──▶ 
 | **review** | 派生对抗 critic 子代理，把交付与 spec 逐条对质。 | ✅ v0.3 |
 | **verify** | `doublecheck_report` + 逐维度核对 workflow，证明交付。 | ✅ v0.4 |
 
-## v0.4 功能
+## v0.5 功能
 
 - 🔥 **`grill-requirements` 技能** —— 按通用 Agent Skills 格式打包的技能，围绕六个维度（**目标、边界、验收标准、失败模式、优先级、非目标**）连环追问，使用 DSH 原生 `ask_user_question` 界面；共识达成前拒绝写代码，并记录契约。
 - 📜 **`doublecheck_spec` 工具** —— 把拷问出的 spec 写入会话日志，并在工作区落一份 markdown，让契约不随对话消失。
@@ -42,7 +43,8 @@ grill ──▶ design ──▶ red ──▶ green ──▶ review ──▶ 
 - 🟥🟩 **红/绿证据门**（`modules.tdd`）—— 会话日志硬校验：实现改动要求日志里**存在失败测试运行**（自上次通过以来；写测试文件永远放行——那正是 red 步骤）；回合结束时若有改动却没有通过测试运行，则注入 green 提醒。
 - 👁️ **对抗评审**（`modules.adversary`）—— 交付到达 green 后，经 DSH 原生 subagent 接缝（默认 `fork` provider）派生一个 critic 子代理，以对抗视角核对会话与已提交 spec，产出结构化 findings。`remind` 只注入评审意见；`warn`/`block` 额外 steer 一轮让模型正面回应 findings。`adversaryModel` 可把评审路由到独立模型；critic 工具白名单默认只读。findings 随 `doublecheck-review` 消息源持久结构化落盘。
 - 📊 **Doublecheck 报告 + 核对 workflow**（`doublecheck_report`，v0.4）—— 把会话纪律证据（spec、红/绿时间线、评审 findings、编辑数）汇总成交付报告并推导 verdict（`grill → draft → red → green → objections/verified → proven/challenged`），落盘工作区。开启 `verify` 时，经 DSH workflow 接缝为每个 spec 维度并行派一个核对员，其结论并入报告。
-- 🔁 **持久化状态** —— 所有模型可见内容（spec、提醒、拒绝反馈、评审 findings）都落会话日志；门禁判定完全由日志（`tool/call` + `tool/result`，含 Code Mode 子派发）推导，恢复/派生会话同样生效。
+- 🔁 **持久化状态** —— 所有模型可见内容（spec、提醒、拒绝反馈、评审 findings、`/doublecheck on|off` 开关）都落会话日志；门禁判定完全由日志（`tool/call` + `tool/result`，含 Code Mode 子派发）推导，恢复/派生会话同样生效。`remindOnce` 同样持久化：已收到提醒的会话重启后不会重复收到。
+- ⌨️ **`/doublecheck` 会话命令** —— `status` 报告生效开关、已配置模块与折叠阶段；`report` 当场折叠交付报告；`on|off` 写入持久 `doublecheck/state` 事件并注入切换通知。
 - 📚 **`doublecheck_skills` 工具** —— 通过官方技能注册表接缝列出与加载本包技能。
 
 ## 演示
@@ -71,8 +73,44 @@ dsh --profile <name> --dump-config   # 应看到 "# == dsh-doublecheck" 层
 
 ```sh
 pnpm pack
-dsh plugin --profile <name> add ./dsh-doublecheck-0.4.0.tgz
+dsh plugin --profile <name> add ./dsh-doublecheck-0.5.0.tgz
 ```
+
+git 安装不需要 npm：
+
+```sh
+dsh plugin --profile <name> add "github:PerryLink/dsh-doublecheck#v0.5.0"
+```
+
+## 卸载
+
+```sh
+dsh plugin --profile <name> remove dsh-doublecheck
+```
+
+想保留安装但关闭某一行：在 profile 的 `cordis.patch.yml` 里按 id 覆写该行并设 `disabled: true`（`doublecheck-grill` / `doublecheck-guard`）。
+
+## 兼容性
+
+- 已针对 `0.1.0-rc.6` peers（`@deepseek-ai/cordis ^4.0.1`）验证；最后验证日期 2026-08-14（Windows + Node 22）。
+- 持久会话开关（`/doublecheck on|off` → `doublecheck/state`）需要宿主的 `ignorable` 写入面（rc.6 之后的 harness）：rc.6 宿主会忽略选项包、事件保持 required-on-read，升级宿主之前请优先使用进程内切换。
+
+## 权限与数据
+
+- **读取**：仅进程内读取会话日志（`tool/call` / `tool/result` / `tool/code-dispatch` 与注入的 `user/message` source）。
+- **写入**：会话工作区内的 `doublecheck-spec.md` 与 `doublecheck-report.md`（路径可配），经 `ctx.fs` seam。
+- **模型调用**：只有可选的对抗式审查（`modules.adversary`，默认关）与 `doublecheck_report` 的校验工作流（默认开）会启动子代理；除此之外不调用模型、不联网。
+- **绝不触碰**：凭据、环境变量、以及会话工作区之外的任何文件。
+
+## 故障排查
+
+| 症状 | 原因与处理 |
+|---|---|
+| `--dump-config` 里没有 `# == dsh-doublecheck` 层 | bundle patch 缺失或某行被 `disabled`——检查 profile 的 patch 顺序与行 id。 |
+| 门卫从不触发 | 执行 `/doublecheck status`：会话开关可能关闭，或 guard 行的 `modules.*` 全为 false。 |
+| "Adversary review did not run: the subagents seam is not mounted" | 该 profile 组合没有子代理提供方——挂载一个（spine 组合自带），或关闭 `modules.adversary`。 |
+| `doublecheck_report` 显示 `verification: null` | `workflowEngine` seam 缺失或运行被拒绝/中止——报告如实说明而非猜测。 |
+| 报告给出 `unverified` | 校验跑了但并非每个 spec 维度都有裁决——用 `verify: true` 重跑；`proven` 要求六个维度齐备。 |
 
 ## 配置
 
@@ -133,11 +171,13 @@ dsh plugin --profile <name> add ./dsh-doublecheck-0.4.0.tgz
 | 键 | 默认 | 含义 |
 |---|---|---|
 | `modules.grill` | `true` | 关闭则 grill 门整体停用；grill 技能/工具的开关是各自行的 `disabled`。 |
-| `modules.tdd` | `false` | 开启红/绿证据门（v0.2）。 |
+| `modules.tdd` | `true` | 开启红/绿证据门（v0.2）；v0.5 起默认开启。 |
 | `modules.adversary` | `false` | 到达 green 后启用派生 critic 评审（v0.3）；使用 `ctx.subagents` 接缝——接缝缺失时以「unavailable」通知诚实降级。 |
+| `enableByDefault` | `true` | 没有 `/doublecheck on|off` 记录的会话的总开关默认值。 |
+| `language` | `'en'` | 注入的提醒/拒绝/评审文案语言（`en` / `zh`）。 |
 | `guardTools` | `['edit', 'write']` | 两道门监视的变更类工具名。 |
 | `vagueTaskMaxChars` | `200` | 超过此长度的任务一律不算模糊；简短任务提到文件名、路径、URL、下划线关键词或连字符关键词即为具体。 |
-| `remindOnce` | `true` | 每道门每个会话最多注入一次提醒。 |
+| `remindOnce` | `true` | 每道门每个会话最多注入一次提醒——持久化：从日志折叠，重启/恢复后不会重复。 |
 | `testToolNames` | `['bash', 'pwsh']` | 可运行测试的 shell 工具名。 |
 | `testCommandPatterns` | *（pnpm/npm/yarn/bun test、pytest、go/cargo/make test、node --test）* | 命令需匹配的正则才算测试运行。 |
 | `testFilePatterns` | *（测试目录、`*.test.*`/`*.spec.*`）* | 识别测试文件的正则——永远可编辑，豁免 red 门。 |
@@ -176,6 +216,7 @@ dsh plugin --profile <name> add ./dsh-doublecheck-0.4.0.tgz
 | 交付报告 | `doublecheck_report` 工具 —— 会话日志折叠 + 工作区 markdown |
 | 核对 workflow | `ctx.workflowEngine.start()` —— 每个 spec 维度并行一个核对员，结构化 checks |
 | 持久化状态 | 会话日志折叠 `tool/call` + `tool/result` + `tool/code-dispatch` + 注入的结构化消息源；模型可见 ⟺ 已记录 |
+| 会话命令 | `ctx.commands.register()` —— `/doublecheck status|report|on|off`；`on|off` 写入持久 `doublecheck/state` 会话事件 |
 | 包内事件 | `doublecheck/spec`、`doublecheck/reminder`、`doublecheck/review`、`doublecheck/report`（declaration merging 类型化，`@mode emit`） |
 
 不改 agent-loop。所有注册都是可逆的 `ctx.effect` / `ctx.on` / 服务 `register()`。
@@ -187,6 +228,16 @@ dsh plugin --profile <name> add ./dsh-doublecheck-0.4.0.tgz
 - 提醒以 `{kind:'plugin'}` 上下文到达，转录 UI 会将其展示为注入元数据。
 - 对抗评审意见在 critic 结算后以同样方式注入，带严重级标记的 findings；`warn`/`block` 下还会 steer 一轮，让模型正面回应这些 findings。
 - `doublecheck_report` 把汇总报告作为工具结果返回（spec、测试时间线、评审、核对、verdict），"证明交付"一次调用即可完成。
+
+## 会话命令
+
+```
+/doublecheck status|report|on|off
+```
+
+- `status` —— 生效开关（持久覆盖优先于配置默认）、已配置模块与折叠阶段（spec 是否提交、red/green 颜色、评审是否在档）。
+- `report` —— 当场从会话日志折叠交付报告（不跑验证工作流；验证属于 `doublecheck_report` 工具）。
+- `on` / `off` —— 写入持久 `doublecheck/state` 事件（跨重启/恢复/派生生效——重放即状态）并注入模型可见的切换通知。
 
 ## 路线图
 

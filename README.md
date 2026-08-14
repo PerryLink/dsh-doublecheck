@@ -2,9 +2,10 @@
 
 > **Double-check before you ship: grill the requirements, test the implementation, prove the delivery.**
 
-[![version](https://img.shields.io/badge/version-0.4.0-blue)](https://github.com/PerryLink/dsh-doublecheck/releases)
+[![version](https://img.shields.io/badge/version-0.5.0-blue)](https://github.com/PerryLink/dsh-doublecheck/releases)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![topics](https://img.shields.io/badge/topics-dsh%20%7C%20dsh--plugin-22c55e)](https://github.com/topics/dsh-plugin)
+[![CI](https://img.shields.io/github/actions/workflow/status/PerryLink/dsh-doublecheck/ci.yml?branch=main)](https://github.com/PerryLink/dsh-doublecheck/actions/workflows/ci.yml)
 
 An **engineering-discipline bundle** for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). Agents love to start coding; requirements hate being assumed. `dsh-doublecheck` installs a discipline loop that makes the agent **grill the requirements before the first edit, and prove the delivery instead of claiming it** — re-implemented natively on DSH's own extension points (skill registry, tool policy pipeline, approval seam, subagent and workflow seams, session log), not on borrowed prompt files. Tested against DSH `0.1.0-rc.6`.
 
@@ -35,7 +36,7 @@ grill ──▶ design ──▶ red ──▶ green ──▶ review ──▶ 
 | **review** | A forked adversary critic audits the delivery against the spec. | ✅ v0.3 |
 | **verify** | `doublecheck_report` + a per-dimension verification workflow prove the delivery. | ✅ v0.4 |
 
-## Features (v0.4)
+## Features (v0.5)
 
 - 🔥 **`grill-requirements` skill** — a bundled Agent-Skills-format skill that interrogates the task across six dimensions (**goal, scope, acceptance criteria, failure modes, priorities, non-goals**) using DSH's native `ask_user_question` UI, refuses to write code until consensus, and records the contract.
 - 📜 **`doublecheck_spec` tool** — commits the grilled spec to the session log and writes a markdown copy to the workspace, so the contract survives the conversation.
@@ -43,7 +44,8 @@ grill ──▶ design ──▶ red ──▶ green ──▶ review ──▶ 
 - 🟥🟩 **Red/green evidence gates** (`modules.tdd`) — hard checks over the session log: an implementation edit requires a **failing test run on record** since the last passing run (writing test files is always allowed — that is how the red step happens), and a turn that ends with edits but no passing run gets a green reminder injected.
 - 👁️ **Adversary review** (`modules.adversary`) — once the delivery reaches green, a forked critic subagent (DSH's native subagent seam, default `fork` provider) audits the session against the committed spec with an adversarial stance and returns structured findings. `remind` injects the critique; `warn`/`block` additionally steer one round to make the model answer the findings. `adversaryModel` routes the critic to a separate model; the critic's tool allowlist is read-only by default. Findings ride the durable `doublecheck-review` message source.
 - 📊 **Doublecheck report + verification workflow** (`doublecheck_report`, v0.4) — consolidates the session's discipline evidence (spec, red/green timeline, review findings, edits) into a delivery report with a derived verdict (`grill → draft → red → green → objections/verified → proven/challenged`), written to the workspace. With `verify`, one parallel checker per spec dimension runs through DSH's workflow seam and their verdicts fold into the report.
-- 🔁 **Durable state** — every model-visible artifact (spec, reminders, deny feedback, review findings) lands in the session log; gate decisions derive from the log alone (`tool/call` + `tool/result`, including Code Mode sub-dispatches), so resumed and forked sessions enforce identically.
+- 🔁 **Durable state** — every model-visible artifact (spec, reminders, deny feedback, review findings, the `/doublecheck on|off` switch) lands in the session log; gate decisions derive from the log alone (`tool/call` + `tool/result`, including Code Mode sub-dispatches), so resumed and forked sessions enforce identically. `remindOnce` is durable too: a session that already received a reminder never gets it twice, even after a restart.
+- ⌨️ **`/doublecheck` session command** — `status` reports the effective switch, the configured modules, and the folded stage; `report` folds the delivery report on the spot; `on|off` writes the durable `doublecheck/state` override and injects a switch notice.
 - 📚 **`doublecheck_skills` tool** — lists and loads the package's skills through the official skill registry seam.
 
 ## Demo
@@ -72,8 +74,44 @@ Both plugin rows activate automatically with the profile. Tarball installs work 
 
 ```sh
 pnpm pack
-dsh plugin --profile <name> add ./dsh-doublecheck-0.4.0.tgz
+dsh plugin --profile <name> add ./dsh-doublecheck-0.5.0.tgz
 ```
+
+Git installs need no npm:
+
+```sh
+dsh plugin --profile <name> add "github:PerryLink/dsh-doublecheck#v0.5.0"
+```
+
+## Uninstall
+
+```sh
+dsh plugin --profile <name> remove dsh-doublecheck
+```
+
+To keep the package installed but disable one row, override it by id with `disabled: true` in the profile's `cordis.patch.yml` (`doublecheck-grill` / `doublecheck-guard`).
+
+## Compatibility
+
+- Verified against the `0.1.0-rc.6` peers (`@deepseek-ai/cordis ^4.0.1`); last verified 2026-08-14 on Windows with Node 22.
+- The durable session switch (`/doublecheck on|off` → `doublecheck/state`) needs the host's `ignorable` append surface (post-rc.6 harness): on rc.6 hosts the options bag is ignored and the event stays required-on-read, so prefer in-memory switching there until the harness is upgraded.
+
+## Permissions & data
+
+- **Reads**: the session log (`tool/call` / `tool/result` / `tool/code-dispatch` and injected `user/message` sources) in-process only.
+- **Writes**: `doublecheck-spec.md` and `doublecheck-report.md` in the session workspace (paths configurable), through the `ctx.fs` seam.
+- **Model calls**: only the optional adversary review (`modules.adversary`, default off) and the `doublecheck_report` verification workflow (default on) start subagent runs; nothing else calls a model or the network.
+- **Never touched**: credentials, environment variables, or any file outside the session workspace.
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+|---|---|
+| No `# == dsh-doublecheck` layer in `--dump-config` | The bundle patch is missing or a row is `disabled` — check the profile patch order and row ids. |
+| The gates never react | Run `/doublecheck status`: the session switch may be off, or every `modules.*` entry is false in the guard row. |
+| "Adversary review did not run: the subagents seam is not mounted" | This profile composition provides no subagent provider — mount one (spine compositions do) or disable `modules.adversary`. |
+| `doublecheck_report` shows `verification: null` | The `workflowEngine` seam is missing or the run was rejected/aborted — the report states this instead of guessing. |
+| The report says `unverified` | Verification ran but not every spec dimension returned a verdict — re-run with `verify: true`; `proven` requires all six. |
 
 ## Configure
 
@@ -134,11 +172,13 @@ Override any row **by id** in the profile's `cordis.patch.yml`. A patch replaces
 | Key | Default | Meaning |
 |---|---|---|
 | `modules.grill` | `true` | Off disables the grill gate. The grill skill/tools switch is their row's `disabled` flag. |
-| `modules.tdd` | `false` | On enables the red/green evidence gates (v0.2). |
+| `modules.tdd` | `true` | On enables the red/green evidence gates (v0.2); enabled by default since v0.5. |
 | `modules.adversary` | `false` | On enables the forked critic review at green (v0.3); uses the `ctx.subagents` seam — a missing seam settles as an "unavailable" notice. |
+| `enableByDefault` | `true` | Master switch for sessions without a `/doublecheck on|off` record. |
+| `language` | `'en'` | Injected reminder/deny/review prose language (`en` / `zh`). |
 | `guardTools` | `['edit', 'write']` | Mutation tool names both gates watch. |
 | `vagueTaskMaxChars` | `200` | Longer tasks are never treated as vague. Brief tasks naming a file, path, URL, an underscore keyword, or a hyphenated keyword are concrete. |
-| `remindOnce` | `true` | Inject each gate's reminder at most once per session. |
+| `remindOnce` | `true` | Inject each gate's reminder at most once per session — durable across restarts (folded from the log). |
 | `testToolNames` | `['bash', 'pwsh']` | Shell tool names that can run tests. |
 | `testCommandPatterns` | *(pnpm/npm/yarn/bun test, pytest, go/cargo/make test, node --test)* | Regexes a command must match to count as a test run. |
 | `testFilePatterns` | *(test dirs, `*.test.*` / `*.spec.*`)* | Regexes identifying test files — always editable, exempt from the red gate. |
@@ -177,6 +217,7 @@ The report's classification knobs are independent of the guard's: gate enforceme
 | Delivery report | `doublecheck_report` tool — session-log fold + workspace markdown |
 | Verification workflow | `ctx.workflowEngine.start()` — one parallel checker per spec dimension, structured checks |
 | Durable state | session log fold over `tool/call` + `tool/result` + `tool/code-dispatch` + injected structured sources; model-visible ⟺ logged |
+| Session command | `ctx.commands.register()` — `/doublecheck status|report|on|off`; `on|off` writes the durable `doublecheck/state` session event |
 | Internal events | `doublecheck/spec`, `doublecheck/reminder`, `doublecheck/review`, `doublecheck/report` (typed via declaration merging, `@mode emit`) |
 
 No agent-loop changes. Every registration is a reversible `ctx.effect` / `ctx.on` / service `register()`.
@@ -188,6 +229,17 @@ No agent-loop changes. Every registration is a reversible `ctx.effect` / `ctx.on
 - Reminders arrive as `{kind:'plugin'}` context, so transcript UIs present them as injection metadata.
 - The adversary critique arrives the same way after the critic settles, with severity-tagged findings; under `warn`/`block` the loop is steered one round so the model answers them.
 - `doublecheck_report` returns the consolidated report as a tool result (spec, test timeline, review, verification, verdict), so "prove the delivery" is one call away.
+- `/doublecheck` answers in the transcript directly: `status` shows the switch/modules/stage, `report` prints the folded report, `on|off` flips the session switch.
+
+## Session command
+
+```
+/doublecheck status|report|on|off
+```
+
+- `status` — effective switch (durable override beats the config default), configured modules, and the folded stage (spec committed, red/green color, review on record).
+- `report` — folds the delivery report from the session log on the spot (no verification workflow; `doublecheck_report` owns that path).
+- `on` / `off` — writes the durable `doublecheck/state` event (survives restart, resume, and fork — replay IS the state) and injects a model-visible switch notice.
 
 ## Roadmap
 

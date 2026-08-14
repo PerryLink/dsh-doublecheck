@@ -72,8 +72,44 @@ dsh --profile <name> --dump-config   # "# == dsh-doublecheck" परत दि�
 
 ```sh
 pnpm pack
-dsh plugin --profile <name> add ./dsh-doublecheck-0.4.0.tgz
+dsh plugin --profile <name> add ./dsh-doublecheck-0.5.0.tgz
 ```
+
+git से स्थापना के लिए npm की ज़रूरत नहीं:
+
+```sh
+dsh plugin --profile <name> add "github:PerryLink/dsh-doublecheck#v0.5.0"
+```
+
+## अनइंस्टॉल
+
+```sh
+dsh plugin --profile <name> remove dsh-doublecheck
+```
+
+पैकेज रखकर सिर्फ़ एक पंक्ति बंद करने के लिए: profile के `cordis.patch.yml` में उस पंक्ति को id से ओवरराइड कर `disabled: true` करें (`doublecheck-grill` / `doublecheck-guard`)।
+
+## संगतता
+
+- `0.1.0-rc.6` peers (`@deepseek-ai/cordis ^4.0.1`) के विरुद्ध सत्यापित; अंतिम सत्यापन 2026-08-14 (Windows + Node 22)।
+- टिकाऊ सत्र स्विच (`/doublecheck on|off` → `doublecheck/state`) को host की `ignorable` लेखन-सतह चाहिए (rc.6 के बाद का harness): rc.6 hosts options bag अनदेखा कर देते हैं और इवेंट required-on-read रहता है, इसलिए harness अपग्रेड होने तक इन-मेमोरी स्विच बेहतर है।
+
+## अनुमतियाँ और डेटा
+
+- **पढ़ता है**: केवल प्रक्रिया के भीतर सत्र लॉग (`tool/call` / `tool/result` / `tool/code-dispatch` और इंजेक्टेड `user/message` स्रोत)।
+- **लिखता है**: सत्र workspace में `doublecheck-spec.md` व `doublecheck-report.md` (पथ configurable), `ctx.fs` seam से।
+- **मॉडल कॉल**: केवल वैकल्पिक एडवर्सरी समीक्षा (`modules.adversary`, डिफ़ॉल्ट off) और `doublecheck_report` का सत्यापन वर्कफ़्लो (डिफ़ॉल्ट on) subagent चलाते हैं; इसके अलावा न मॉडल कॉल, न नेटवर्क।
+- **कभी नहीं छूता**: क्रेडेंशियल, एनवायरनमेंट वेरिएबल या सत्र workspace से बाहर की कोई फ़ाइल।
+
+## समस्या निवारण
+
+| लक्षण | कारण और समाधान |
+|---|---|
+| `--dump-config` में `# == dsh-doublecheck` परत नहीं | bundle patch ग़ायब है या कोई पंक्ति `disabled` है — profile का patch क्रम और पंक्ति ids जाँचें। |
+| gates कभी प्रतिक्रिया नहीं देते | `/doublecheck status` चलाएँ: सत्र स्विच बंद हो सकता है, या guard पंक्ति के सारे `modules.*` false हैं। |
+| "Adversary review did not run: the subagents seam is not mounted" | इस profile संयोजन में subagent प्रदाता नहीं — एक लगाएँ (spine संयोजन लाते हैं) या `modules.adversary` बंद करें। |
+| `doublecheck_report` में `verification: null` | `workflowEngine` seam ग़ायब है या run अस्वीकृत/रुका — रिपोर्ट अनुमान लगाने के बजाय यही कहती है। |
+| रिपोर्ट कहती है `unverified` | सत्यापन चला पर हर spec आयाम का फ़ैसला नहीं मिला — `verify: true` से दोबारा चलाएँ; `proven` के लिए छहों चाहिए। |
 
 ## कॉन्फ़िगरेशन
 
