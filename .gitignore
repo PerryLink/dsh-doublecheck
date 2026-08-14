@@ -3,3 +3,5 @@ coverage/
 *.tgz
 *.log
 .dsh/
+
+pnpm-workspace.yaml
