@@ -2,6 +2,7 @@
   "name": "dsh-doublecheck",
   "version": "0.5.0",
   "description": "Double-check before you ship: grill the requirements, test the implementation, prove the delivery.",
+  "packageManager": "pnpm@11.7.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/PerryLink/dsh-doublecheck.git"

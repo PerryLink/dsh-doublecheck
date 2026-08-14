@@ -17,9 +17,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The packageManager field in package.json pins the exact pnpm version,
+      # so CI and local development resolve the same toolchain.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11
 
       - uses: actions/setup-node@v4
         with:
