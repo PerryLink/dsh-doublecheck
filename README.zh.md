@@ -4,6 +4,7 @@
 
 [![version](https://img.shields.io/badge/version-0.6.0-blue)](https://github.com/PerryLink/dsh-doublecheck/releases)
 [![npm](https://img.shields.io/npm/v/dsh-doublecheck)](https://www.npmjs.com/package/dsh-doublecheck)
+[![downloads](https://img.shields.io/npm/dw/dsh-doublecheck)](https://www.npmjs.com/package/dsh-doublecheck)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![topics](https://img.shields.io/badge/topics-dsh%20%7C%20dsh--plugin-22c55e)](https://github.com/topics/dsh-plugin)
 [![CI](https://img.shields.io/github/actions/workflow/status/PerryLink/dsh-doublecheck/ci.yml?branch=main)](https://github.com/PerryLink/dsh-doublecheck/actions/workflows/ci.yml)
@@ -276,6 +277,12 @@ pnpm run build
 ## 致谢
 
 方法论受 [obra/superpowers](https://github.com/obra/superpowers)（TDD 式工程纪律）与 [TimothyVang/Grill-me](https://github.com/TimothyVang/Grill-me)（实现前拷问需求）启发。本包为原创实现：未复制两项目的任何文本、提示词或文件。
+
+## 贡献者
+
+- [PerryLink](https://github.com/PerryLink) —— 作者与维护者：v0.1 → v0.6 纪律循环的全部代码、五语言文档、CI/发布管线，以及生态投递（[awesome-dsh-plugin#451](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/451)、[awesome-dsh-plugins#147](https://github.com/AdamPlatin123/awesome-dsh-plugins/pull/147)、[awesome-deepseek-harness#179](https://github.com/0xsline/awesome-deepseek-harness/pull/179)、[bruc3van/awesome-dsh-plugin#36](https://github.com/bruc3van/awesome-dsh-plugin/pull/36)、[dsh-hub-workshop#13](https://github.com/omdsh-dev/dsh-hub-workshop/issues/13)/[#19](https://github.com/omdsh-dev/dsh-hub-workshop/pull/19)）。
+
+欢迎通过 issue、PR 与 Discussions 参与——入口见本文档开头。
 
 ## 许可证
 

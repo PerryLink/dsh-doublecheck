@@ -5,6 +5,7 @@ All notable changes to dsh-doublecheck are recorded here, newest first.
 ## Unreleased
 
 - **OMDSH Workshop intake manifest**: `package.json#dshWorkshop` (`omdsh-workshop-package/v1`) declares the transactional `harness-profile` integration, lifecycle, permissions, and the named runtime capability (`/doublecheck status`) for the hub.omdsh.dev Registry intake. Author-declared facts only — verification evidence stays pending until the Workshop adapter run produces it.
+- **Community engineering**: structured issue forms (bug report / feature request), a pull-request checklist template, a security policy with private vulnerability reporting, GitHub Discussions enabled (welcome post), main-branch CI status protection, npm downloads badge, and a Contributors section across the five READMEs.
 
 ## v0.6.0 — 2026-08-14
 
