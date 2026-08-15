@@ -1,0 +1,95 @@
+name: Bug report / 缺陷报告
+description: 报告一个可复现的缺陷（Report a reproducible bug）
+title: '[Bug] '
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢花时间报告缺陷！请尽量完整填写，信息越全，定位越快。
+        Thanks for taking the time to report a bug — the more complete the report, the faster the fix.
+  - type: input
+    id: package-version
+    attributes:
+      label: 包版本 / Package version
+      description: dsh-doublecheck 的版本号，例如 0.6.0（`npm ls dsh-doublecheck` 或 `dsh plugin --profile <name> list` 可查）
+      placeholder: '0.6.0'
+    validations:
+      required: true
+  - type: input
+    id: harness-version
+    attributes:
+      label: 运行环境版本 / Harness version
+      description: DeepSeek Harness 的版本，例如 0.1.0-rc.6（`dsh --version`）
+      placeholder: '0.1.0-rc.6'
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: OS / Node 版本
+      description: 操作系统与 Node 版本，例如 Windows 11 + Node 22.19.0（`node --version`）
+      placeholder: 'Windows 11 / Node 22.19.0'
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: 涉及模块 / Affected area
+      options:
+        - grill 需求盘问（grill-requirements / doublecheck_spec）
+        - tdd 红绿门（red/green gates）
+        - adversary 对抗评审
+        - doublecheck_report / verify 工作流
+        - /doublecheck 会话命令
+        - doublecheck 会话投影（Web UI）
+        - 打包 / 安装（npm / dsh plugin add）
+        - 其他 / Other
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: 复现步骤 / Steps to reproduce
+      description: 按顺序列出最小复现步骤，最好附上相关配置文件片段（已脱敏）
+      placeholder: |
+        1. 安装 dsh-doublecheck@0.6.0
+        2. 配置 `intensity: block`
+        3. 运行 ……
+        4. 观察 ……
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为 / Expected behavior
+      description: 你认为应该发生什么
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为 / Actual behavior
+      description: 实际发生了什么（报错原文、门禁行为等）
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志 / Logs（选填）
+      description: 相关日志或会话记录片段
+      render: shell
+    validations:
+      required: false
+  - type: markdown
+    attributes:
+      value: |
+        > **⚠️ 重要：粘贴任何日志/配置前必须先脱敏——删除或替换 token、API 密钥、密码、Cookie、Authorization 请求头、账号信息等敏感内容。**
+        > **⚠️ Important: scrub every log/config snippet BEFORE pasting — remove or redact tokens, API keys, passwords, cookies, Authorization headers, and account details.**
+  - type: input
+    id: config
+    attributes:
+      label: 相关配置 / Relevant config（选填）
+      description: guard/grill 行的配置片段（已脱敏），帮助复现
+    validations:
+      required: false
