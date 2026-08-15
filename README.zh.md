@@ -2,7 +2,8 @@
 
 > **发布前先双重检查：追问需求、验证实现、证明交付。**
 
-[![version](https://img.shields.io/badge/version-0.5.0-blue)](https://github.com/PerryLink/dsh-doublecheck/releases)
+[![version](https://img.shields.io/badge/version-0.6.0-blue)](https://github.com/PerryLink/dsh-doublecheck/releases)
+[![npm](https://img.shields.io/npm/v/dsh-doublecheck)](https://www.npmjs.com/package/dsh-doublecheck)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![topics](https://img.shields.io/badge/topics-dsh%20%7C%20dsh--plugin-22c55e)](https://github.com/topics/dsh-plugin)
 [![CI](https://img.shields.io/github/actions/workflow/status/PerryLink/dsh-doublecheck/ci.yml?branch=main)](https://github.com/PerryLink/dsh-doublecheck/actions/workflows/ci.yml)
@@ -35,20 +36,23 @@ grill ──▶ design ──▶ red ──▶ green ──▶ review ──▶ 
 | **review** | 派生对抗 critic 子代理，把交付与 spec 逐条对质。 | ✅ v0.3 |
 | **verify** | `doublecheck_report` + 逐维度核对 workflow，证明交付。 | ✅ v0.4 |
 
-## v0.5 功能
+## 功能
 
 - 🔥 **`grill-requirements` 技能** —— 按通用 Agent Skills 格式打包的技能，围绕六个维度（**目标、边界、验收标准、失败模式、优先级、非目标**）连环追问，使用 DSH 原生 `ask_user_question` 界面；共识达成前拒绝写代码，并记录契约。
 - 🧰 **覆盖全循环的阶段技能** —— `red-green-tdd`（先写失败测试、跑红、实现、跑绿）、`delivery-review`（green 之后对照 spec 做对抗式自审）、`delivery-proof`（把证据汇总成交付报告后再宣称完成）与 `grill-requirements` 一起发货，六个阶段都有模型指引，而不再只有第一阶段。
-- 📜 **`doublecheck_spec` 工具** —— 把拷问出的 spec 写入会话日志，并在工作区落一份 markdown，让契约不随对话消失。
+- 📜 **`doublecheck_spec` 工具** —— 把拷问出的 spec 写入会话日志，并在工作区落一份 markdown，让契约不随对话消失。提交时拒绝空或纯空白的维度（v0.6）：grill 必须把六个维度全部敲定，spec 才算数。
 - 🔄 **任务变更重新 grill** —— 已提交的 spec 只覆盖它自己的任务：spec 提交之后用户新发的直接请求会让 grill 门对该后续请求重新开启，而不是悄悄沿用旧契约。
 - 🛡️ **纪律 guard** —— 挂在工具策略管线上的软门。模糊任务 + 没有 spec + 直奔 `edit`/`write` → 按 `intensity` 分别**提醒**、**请求人工批准**或**拦截**。
-- 🟥🟩 **红/绿证据门**（`modules.tdd`）—— 会话日志硬校验：实现改动要求日志里**存在失败测试运行**（自上次通过以来；写测试文件永远放行——那正是 red 步骤）；回合结束时若有改动却没有通过测试运行，则注入 green 提醒。
-- 👁️ **对抗评审**（`modules.adversary`）—— 交付到达 green 后，经 DSH 原生 subagent 接缝（默认 `fork` provider）派生一个 critic 子代理，以对抗视角核对会话与已提交 spec，产出结构化 findings。`remind` 只注入评审意见；`warn`/`block` 额外 steer 一轮让模型正面回应 findings。`adversaryModel` 可把评审路由到独立模型；critic 工具白名单默认只读。findings 随 `doublecheck-review` 消息源持久结构化落盘。评审会持久化重武装：最新评审记录之后的实现编辑会触发下一轮评审；取消回合会中止在途 critic。
+- 🟥🟩 **红/绿证据门**（`modules.tdd`）—— 会话日志硬校验：实现改动要求日志里**存在失败测试运行**（自上次通过以来；写测试文件永远放行——那正是 red 步骤）；回合结束时若有改动却没有通过测试运行，则注入 green 提醒。自定义 guard 工具开箱即用：门会读取 `file_path` 与 `path` 两种参数键，完全未命名任何文件的调用不视为实现改动。
+- 👁️ **对抗评审**（`modules.adversary`）—— 交付到达 green 后，经 DSH 原生 subagent 接缝（默认 `fork` provider）派生一个 critic 子代理，以对抗视角核对会话与已提交 spec，产出结构化 findings，并按 blocker 优先排序返回。`remind` 只注入评审意见；`warn`/`block` 额外 steer 一轮让模型正面回应 findings。`adversaryModel` 可把评审路由到独立模型；critic 工具白名单默认只读。findings 随 `doublecheck-review` 消息源持久结构化落盘。评审会持久化重武装：最新评审记录之后的实现编辑会触发下一轮评审；取消回合会中止在途 critic。
 - 📊 **Doublecheck 报告 + 核对 workflow**（`doublecheck_report`，v0.4）—— 把会话纪律证据（spec、红/绿时间线、评审 findings、编辑数）汇总成交付报告并推导 verdict（`grill → draft → red → green → objections/verified → proven/challenged/unverified`），落盘工作区。开启 `verify` 时，经 DSH workflow 接缝派发逐维度核对员（`verifyMode: all` 每维度并行一个；`single` 合并为一个核对员）并并入报告——`proven` 要求每个维度都有裁决。
 - 🚦 **交付门** —— 回合结束时，已到 green 但没有 `doublecheck_report` 记录的交付会收到「报告待补」提醒；成功报告会把阶段折叠推进到 `verify`。
-- 🔁 **持久化状态** —— 所有模型可见内容（spec、提醒、拒绝反馈、评审 findings、`/doublecheck on|off` 开关）都落会话日志；门禁判定完全由日志（`tool/call` + `tool/result`，含 Code Mode 子派发）推导，恢复/派生会话同样生效。`remindOnce` 同样持久化：已收到提醒的会话重启后不会重复收到。
-- ⌨️ **`/doublecheck` 会话命令** —— `status` 报告生效开关、已配置模块与折叠阶段；`report` 当场折叠交付报告；`on|off` 写入持久 `doublecheck/state` 事件并注入切换通知。
+- 🔁 **持久化状态** —— 所有模型可见内容（spec、提醒、拒绝反馈、评审 findings、`/doublecheck on|off` 开关）都落会话日志；门禁判定完全由日志（`tool/call` + `tool/result`，含 Code Mode 子派发）推导，恢复/派生会话同样生效。`remindOnce` 同样持久化：已收到提醒的会话重启后不会重复收到。开关折叠基于增量快照，长会话每次工具调用只摊 O(新增事件) 成本。
+- 🌐 **全本地化的模型界面** —— 本包注入或回答的每一个模型可见字符串（提醒、拒绝/询问反馈、评审 steering、切换通知、`/doublecheck` 回复、critic 的任务提示词）都遵循 `language: 'en' | 'zh'`；工作区 spec/report 文档保持其稳定的英文标题。
+- ⌨️ **`/doublecheck` 会话命令** —— `status` 报告生效开关、已配置模块、执行强度与折叠阶段事实（spec、测试颜色、评审、编辑数）；`report` 当场折叠交付报告；`on|off` 写入持久 `doublecheck/state` 事件并注入切换通知。
 - 📚 **`doublecheck_skills` 工具** —— 通过官方技能注册表接缝列出与加载本包技能。
+- 🔒 **严格 overlay** —— `strict.patch.yml` 在一个 patch 层中把每道门都以 `block` 强度打开（随包发布）。
+- 🧩 **独立 invariant 伴生行** —— `dsh-doublecheck/invariant` 子路径导出真实可用：无需加载 guard，即可通过宿主 `invariants` 注册表上报本包写入路径的矛盾（spec/report/review 结构）。
 
 ## 演示
 
@@ -76,13 +80,19 @@ dsh --profile <name> --dump-config   # 应看到 "# == dsh-doublecheck" 层
 
 ```sh
 pnpm pack
-dsh plugin --profile <name> add ./dsh-doublecheck-0.5.0.tgz
+dsh plugin --profile <name> add ./dsh-doublecheck-0.6.0.tgz
 ```
 
 git 安装不需要 npm：
 
 ```sh
-dsh plugin --profile <name> add "github:PerryLink/dsh-doublecheck#v0.5.0"
+dsh plugin --profile <name> add "github:PerryLink/dsh-doublecheck#v0.6.0"
+```
+
+想要零配置的严格模式（所有门开启、`block` 强度），在 bundle patch 之上叠加随包发布的 overlay：
+
+```sh
+dsh --profile <name> --patch ./node_modules/dsh-doublecheck/strict.patch.yml
 ```
 
 ## 卸载
@@ -131,6 +141,7 @@ dsh plugin --profile <name> remove dsh-doublecheck
       - '(?:^|[;&|]\s*)(?:(?:pnpm|npm|npx|yarn|bun)(?:\s+run)?\s+(?:test|vitest|jest|mocha)(?:\s|$))'
       - '(?:^|[;&|]\s*)(?:(?:pytest|go\s+test|cargo\s+test|make\s+test|ctest)(?:\s|$))'
       - '(?:^|[;&|]\s*)(?:node\s+--test(?:\s|$))'
+      - '(?:^|[;&|]\s*)(?:deno\s+test|uv\s+run\s+pytest)(?:\s|$)'
     reportMutationTools: ['edit', 'write']
     reportTestFilePatterns:
       - '(^|[\\/])(tests?|__tests__|specs?)([\\/]|$)'
@@ -156,10 +167,13 @@ dsh plugin --profile <name> remove dsh-doublecheck
       - '(?:^|[;&|]\s*)(?:(?:pnpm|npm|npx|yarn|bun)(?:\s+run)?\s+(?:test|vitest|jest|mocha)(?:\s|$))'
       - '(?:^|[;&|]\s*)(?:(?:pytest|go\s+test|cargo\s+test|make\s+test|ctest)(?:\s|$))'
       - '(?:^|[;&|]\s*)(?:node\s+--test(?:\s|$))'
+      - '(?:^|[;&|]\s*)(?:deno\s+test|uv\s+run\s+pytest)(?:\s|$)'
     testFilePatterns:
       - '(^|[\\/])(tests?|__tests__|specs?)([\\/]|$)'
       - '\\.(test|spec)\\.[A-Za-z0-9]+$'
 ```
+
+随包发布的 `strict.patch.yml` 正是这行 guard 配置在 `intensity: block` 且所有模块开启——把它作为 patch 层叠加在 bundle patch 之后，即可获得严格模式而无需手动编辑 profile。
 
 ### `intensity`
 
@@ -182,7 +196,7 @@ dsh plugin --profile <name> remove dsh-doublecheck
 | `vagueTaskMaxChars` | `200` | 超过此长度的任务一律不算模糊；简短任务提到文件名、路径、URL、下划线关键词或连字符关键词即为具体。 |
 | `remindOnce` | `true` | 每道门每个会话最多注入一次提醒——持久化：从日志折叠，重启/恢复后不会重复。 |
 | `testToolNames` | `['bash', 'pwsh']` | 可运行测试的 shell 工具名。 |
-| `testCommandPatterns` | *（pnpm/npm/yarn/bun test、pytest、go/cargo/make test、node --test）* | 命令需匹配的正则才算测试运行。 |
+| `testCommandPatterns` | *（pnpm/npm/yarn/bun test、pytest、go/cargo/make test、node --test、deno test、uv run pytest）* | 命令需匹配的正则才算测试运行。 |
 | `testFilePatterns` | *（测试目录、`*.test.*`/`*.spec.*`）* | 识别测试文件的正则——永远可编辑，豁免 red 门。 |
 | `adversaryModel` | `null` | critic 模型路由；`null` = 主模型自评。 |
 | `adversaryProvider` | `'fork'` | critic 使用的 subagent provider 名。 |
@@ -239,13 +253,15 @@ dsh plugin --profile <name> remove dsh-doublecheck
 /doublecheck status|report|on|off
 ```
 
-- `status` —— 生效开关（持久覆盖优先于配置默认）、已配置模块与折叠阶段（spec 是否提交、red/green 颜色、评审是否在档）。
+- `status` —— 生效开关（持久覆盖优先于配置默认）、已配置模块、执行强度与折叠阶段事实（spec 是否提交、red/green 颜色、评审是否在档、编辑数）。
 - `report` —— 当场从会话日志折叠交付报告（不跑验证工作流；验证属于 `doublecheck_report` 工具）。
 - `on` / `off` —— 写入持久 `doublecheck/state` 事件（跨重启/恢复/派生生效——重放即状态）并注入模型可见的切换通知。
 
+所有命令回复都遵循 guard 行的 `language` 设置。
+
 ## 路线图
 
-六阶段纪律环已全部完成：**grill → design → red → green → review → verify** 均随本包交付（v0.1 → v0.5）。真实转录回归夹具（`tests/fixtures/`）锁定持久事件形态。后续工作：更丰富的报告格式、Web UI 纪律状态徽章、以及从工作区 spec 文件播种跨会话状态。
+六阶段纪律环已全部完成：**grill → design → red → green → review → verify** 均随本包交付（v0.1 → v0.6）。真实转录回归夹具（`tests/fixtures/`）锁定持久事件形态。后续工作：更丰富的报告格式、Web UI 纪律状态徽章、以及从工作区 spec 文件播种跨会话状态。
 
 ## 开发
 

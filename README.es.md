@@ -2,7 +2,8 @@
 
 > **Verifica dos veces antes de publicar: interroga los requisitos, prueba la implementación, demuestra la entrega.**
 
-[![version](https://img.shields.io/badge/version-0.5.0-blue)](https://github.com/PerryLink/dsh-doublecheck/releases)
+[![version](https://img.shields.io/badge/version-0.6.0-blue)](https://github.com/PerryLink/dsh-doublecheck/releases)
+[![npm](https://img.shields.io/npm/v/dsh-doublecheck)](https://www.npmjs.com/package/dsh-doublecheck)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![topics](https://img.shields.io/badge/topics-dsh%20%7C%20dsh--plugin-22c55e)](https://github.com/topics/dsh-plugin)
 
@@ -35,20 +36,23 @@ grill ──▶ design ──▶ red ──▶ green ──▶ review ──▶ 
 | **review** | Un crítico adversario bifurcado audita la entrega contra el spec. | ✅ v0.3 |
 | **verify** | `doublecheck_report` + un workflow de verificación por dimensión demuestran la entrega. | ✅ v0.4 |
 
-## Funciones (v0.5)
+## Funciones
 
 - 🔥 **Skill `grill-requirements`** — un skill empaquetado en formato Agent Skills que interroga la tarea en seis dimensiones (**objetivo, alcance, criterios de aceptación, modos de fallo, prioridades, no-objetivos**) con la UI nativa `ask_user_question` de DSH, se niega a escribir código hasta el consenso y registra el contrato.
 - 🧰 **Skills de etapa para todo el bucle** — `red-green-tdd` (escribe la prueba que falla, ejecuta red, implementa, ejecuta green), `delivery-review` (autorrevisión adversaria contra el spec una vez en green) y `delivery-proof` (consolida la evidencia en el informe de entrega antes de declarar completado) se unen a `grill-requirements`: las seis etapas tienen guía de modelo, no solo la primera.
-- 📜 **Herramienta `doublecheck_spec`** — guarda el spec acordado en el registro de sesión y escribe una copia en markdown en el workspace, para que el contrato sobreviva a la conversación.
+- 📜 **Herramienta `doublecheck_spec`** — guarda el spec acordado en el registro de sesión y escribe una copia en markdown en el workspace, para que el contrato sobreviva a la conversación. Las dimensiones vacías o solo con espacios se rechazan en el commit (v0.6): el grill debe asentar las seis antes de que el spec cuente.
 - 🔄 **Re-grill ante cambio de tarea** — un spec registrado cubre su propia tarea: una nueva petición directa del usuario después del último spec reabre la puerta grill para ese seguimiento, en lugar de heredar el contrato anterior en silencio.
 - 🛡️ **Guard de disciplina** — una puerta blanda en el pipeline de políticas de herramientas. Tarea vaga + sin spec + rumbo a `edit`/`write` → **recordar**, **pedir aprobación humana** o **bloquear**, según `intensity`.
-- 🟥🟩 **Puertas de evidencia red/green** (`modules.tdd`) — comprobaciones duras sobre el registro de sesión: una edición de implementación requiere una **prueba que falla registrada** desde la última prueba que pasa (escribir archivos de prueba siempre está permitido — así ocurre el paso red), y un turno que termina con ediciones pero sin ninguna prueba que pasa recibe un recordatorio green inyectado.
-- 👁️ **Revisión adversaria** (`modules.adversary`) — una vez que la entrega alcanza green, un subagente crítico bifurcado (seam nativo de subagentes de DSH, provider `fork` por defecto) audita la sesión contra el spec registrado con una postura adversaria y devuelve hallazgos estructurados. `remind` inyecta la crítica; `warn`/`block` además dirigen una ronda para que el modelo responda a los hallazgos. `adversaryModel` enruta al crítico hacia un modelo separado; la allowlist de herramientas del crítico es de solo lectura por defecto. Los hallazgos viajan por la fuente de mensajes durable `doublecheck-review`. La revisión se rearma cuando el crítico termina: las ediciones de implementación posteriores al último registro de revisión disparan otra ronda, y cancelar el turno aborta al crítico en vuelo.
+- 🟥🟩 **Puertas de evidencia red/green** (`modules.tdd`) — comprobaciones duras sobre el registro de sesión: una edición de implementación requiere una **prueba que falla registrada** desde la última prueba que pasa (escribir archivos de prueba siempre está permitido — así ocurre el paso red), y un turno que termina con ediciones pero sin ninguna prueba que pasa recibe un recordatorio green inyectado. Las herramientas guard personalizadas funcionan de serie: las puertas leen las claves de argumento `file_path` y `path`, y una llamada que no nombra ningún archivo no se trata como edición de implementación.
+- 👁️ **Revisión adversaria** (`modules.adversary`) — una vez que la entrega alcanza green, un subagente crítico bifurcado (seam nativo de subagentes de DSH, provider `fork` por defecto) audita la sesión contra el spec registrado con una postura adversaria y devuelve hallazgos estructurados, ordenados con los blockers primero. `remind` inyecta la crítica; `warn`/`block` además dirigen una ronda para que el modelo responda a los hallazgos. `adversaryModel` enruta al crítico hacia un modelo separado; la allowlist de herramientas del crítico es de solo lectura por defecto. Los hallazgos viajan por la fuente de mensajes durable `doublecheck-review`. La revisión se rearma cuando el crítico termina: las ediciones de implementación posteriores al último registro de revisión disparan otra ronda, y cancelar el turno aborta al crítico en vuelo.
+- 🌐 **Superficie de modelo totalmente localizada** — cada cadena visible para el modelo que el paquete inyecta o responde (recordatorios, feedback de denegación/consulta, dirección de revisión, avisos de cambio, respuestas de `/doublecheck` y el prompt de tarea del crítico) respeta `language: 'en' | 'zh'`; los documentos spec/report del workspace conservan sus encabezados estables en inglés.
 - 📊 **Informe doublecheck + workflow de verificación** (`doublecheck_report`, v0.4) — consolida la evidencia de disciplina de la sesión (spec, cronología red/green, hallazgos de revisión, ediciones) en un informe de entrega con un veredicto derivado (`grill → draft → red → green → objections/verified → proven/challenged/unverified`), escrito en el workspace. Con `verify`, los verificadores por dimensión corren a través del seam de workflow de DSH (`verifyMode: all` lanza un verificador paralelo por dimensión; `single` ejecuta uno combinado) y sus veredictos se pliegan en el informe — `proven` exige un veredicto para cada dimensión.
 - 🚦 **Puerta de entrega** — en el límite del turno, una entrega que llegó a green sin `doublecheck_report` registrado recibe un recordatorio de informe esperado antes de declarar completado; un informe exitoso avanza la etapa a `verify`.
-- 🔁 **Estado duradero** — todo artefacto visible para el modelo (spec, recordatorios, feedback de denegación, hallazgos de revisión, el interruptor `/doublecheck on|off`) queda en el registro de sesión; las decisiones de las puertas se derivan solo del registro (`tool/call` + `tool/result`, incluidos los sub-despachos de Code Mode), así que las sesiones reanudadas o bifurcadas se comportan igual. `remindOnce` también es duradero: una sesión que ya recibió un recordatorio nunca lo recibe dos veces, incluso tras un reinicio.
-- ⌨️ **Comando de sesión `/doublecheck`** — `status` informa el interruptor efectivo, los módulos configurados y la etapa plegada; `report` pliega el informe de entrega al momento; `on|off` escribe el override durable `doublecheck/state` e inyecta un aviso de cambio.
+- 🔁 **Estado duradero** — todo artefacto visible para el modelo (spec, recordatorios, feedback de denegación, hallazgos de revisión, el interruptor `/doublecheck on|off`) queda en el registro de sesión; las decisiones de las puertas se derivan solo del registro (`tool/call` + `tool/result`, incluidos los sub-despachos de Code Mode), así que las sesiones reanudadas o bifurcadas se comportan igual. `remindOnce` también es duradero: una sesión que ya recibió un recordatorio nunca lo recibe dos veces, incluso tras un reinicio. El plegado del interruptor viaja en un snapshot incremental, así que las sesiones largas se mantienen en O(eventos nuevos) por llamada de herramienta.
+- ⌨️ **Comando de sesión `/doublecheck`** — `status` informa el interruptor efectivo, los módulos configurados, la intensidad de aplicación y los hechos de etapa plegados (spec, color de pruebas, revisión, número de ediciones); `report` pliega el informe de entrega al momento; `on|off` escribe el override durable `doublecheck/state` e inyecta un aviso de cambio.
 - 📚 **Herramienta `doublecheck_skills`** — lista y carga los skills del paquete a través del seam oficial del registro de skills.
+- 🔒 **Overlay estricto** — `strict.patch.yml` activa todas las puertas con intensidad `block` en una sola capa de patch (se incluye con el paquete).
+- 🧩 **Compañero invariante independiente** — la fila `dsh-doublecheck/invariant` es una exportación de subruta real: informa de las contradicciones de la ruta de escritura del paquete (forma spec/report/review) a través del registro `invariants` del host sin cargar el guard.
 
 ## Demo
 
@@ -76,13 +80,19 @@ Ambas filas de plugin se activan automáticamente con el profile. También sirve
 
 ```sh
 pnpm pack
-dsh plugin --profile <name> add ./dsh-doublecheck-0.5.0.tgz
+dsh plugin --profile <name> add ./dsh-doublecheck-0.6.0.tgz
 ```
 
 La instalación por git no necesita npm:
 
 ```sh
-dsh plugin --profile <name> add "github:PerryLink/dsh-doublecheck#v0.5.0"
+dsh plugin --profile <name> add "github:PerryLink/dsh-doublecheck#v0.6.0"
+```
+
+Para un modo estricto sin configuración (todas las puertas activas, intensidad `block`), aplica el overlay incluido encima del bundle patch:
+
+```sh
+dsh --profile <name> --patch ./node_modules/dsh-doublecheck/strict.patch.yml
 ```
 
 ## Desinstalación
@@ -131,6 +141,7 @@ Sobrescribe cualquier fila **por id** en el `cordis.patch.yml` del profile. Un p
       - '(?:^|[;&|]\s*)(?:(?:pnpm|npm|npx|yarn|bun)(?:\s+run)?\s+(?:test|vitest|jest|mocha)(?:\s|$))'
       - '(?:^|[;&|]\s*)(?:(?:pytest|go\s+test|cargo\s+test|make\s+test|ctest)(?:\s|$))'
       - '(?:^|[;&|]\s*)(?:node\s+--test(?:\s|$))'
+      - '(?:^|[;&|]\s*)(?:deno\s+test|uv\s+run\s+pytest)(?:\s|$)'
     reportMutationTools: ['edit', 'write']
     reportTestFilePatterns:
       - '(^|[\\/])(tests?|__tests__|specs?)([\\/]|$)'
@@ -156,10 +167,13 @@ Sobrescribe cualquier fila **por id** en el `cordis.patch.yml` del profile. Un p
       - '(?:^|[;&|]\s*)(?:(?:pnpm|npm|npx|yarn|bun)(?:\s+run)?\s+(?:test|vitest|jest|mocha)(?:\s|$))'
       - '(?:^|[;&|]\s*)(?:(?:pytest|go\s+test|cargo\s+test|make\s+test|ctest)(?:\s|$))'
       - '(?:^|[;&|]\s*)(?:node\s+--test(?:\s|$))'
+      - '(?:^|[;&|]\s*)(?:deno\s+test|uv\s+run\s+pytest)(?:\s|$)'
     testFilePatterns:
       - '(^|[\\/])(tests?|__tests__|specs?)([\\/]|$)'
       - '\\.(test|spec)\\.[A-Za-z0-9]+$'
 ```
+
+El `strict.patch.yml` incluido es exactamente esta fila guard con `intensity: block` y todos los módulos activos — aplícalo como capa de patch después del bundle patch para el modo estricto sin editar un profile a mano.
 
 ### `intensity`
 
@@ -174,13 +188,13 @@ Sobrescribe cualquier fila **por id** en el `cordis.patch.yml` del profile. Un p
 | Clave | Por defecto | Significado |
 |---|---|---|
 | `modules.grill` | `true` | En `false` desactiva la puerta grill. El interruptor de los skills/herramientas grill es el flag `disabled` de su fila. |
-| `modules.tdd` | `false` | En `true` activa las puertas de evidencia red/green (v0.2). |
+| `modules.tdd` | `true` | En `true` activa las puertas de evidencia red/green (v0.2); activado por defecto desde v0.5. |
 | `modules.adversary` | `false` | En `true` activa la revisión del crítico bifurcado en green (v0.3); usa el seam `ctx.subagents` — un seam ausente se resuelve como un aviso «no disponible». |
 | `guardTools` | `['edit', 'write']` | Nombres de herramientas de mutación que vigila el guard. |
 | `vagueTaskMaxChars` | `200` | Las tareas más largas nunca se consideran vagas. Las tareas breves que nombran un archivo, ruta, URL, una palabra clave con guion bajo o una palabra clave con guion son concretas. |
 | `remindOnce` | `true` | Inyectar el recordatorio de cada puerta como máximo una vez por sesión. |
 | `testToolNames` | `['bash', 'pwsh']` | Nombres de herramientas de shell que pueden ejecutar pruebas. |
-| `testCommandPatterns` | *(pnpm/npm/yarn/bun test, pytest, go/cargo/make test, node --test)* | Expresiones regulares con las que debe coincidir un comando para contar como ejecución de prueba. |
+| `testCommandPatterns` | *(pnpm/npm/yarn/bun test, pytest, go/cargo/make test, node --test, deno test, uv run pytest)* | Expresiones regulares con las que debe coincidir un comando para contar como ejecución de prueba. |
 | `testFilePatterns` | *(directorios de prueba, `*.test.*` / `*.spec.*`)* | Expresiones regulares que identifican archivos de prueba — siempre editables, exentos de la puerta red. |
 | `adversaryModel` | `null` | Ruta del modelo crítico; `null` = el modelo principal se autorrevisa. |
 | `adversaryProvider` | `'fork'` | Nombre del provider de subagentes en el que corre el crítico. |
@@ -228,10 +242,23 @@ Sin cambios en el agent-loop. Cada registro es un `ctx.effect` / `ctx.on` / `reg
 - Los recordatorios llegan como contexto `{kind:'plugin'}`, así que las UIs de transcripción los muestran como metadatos de inyección.
 - La crítica del adversario llega de la misma manera cuando el crítico se asienta, con hallazgos etiquetados por severidad; bajo `warn`/`block` el bucle se dirige una ronda para que el modelo les responda.
 - `doublecheck_report` devuelve el informe consolidado como resultado de herramienta (spec, cronología de pruebas, revisión, verificación, veredicto), así que «demostrar la entrega» está a una llamada de distancia.
+- `/doublecheck` responde directamente en la transcripción: `status` muestra el interruptor, los módulos, la intensidad y los hechos de etapa; `report` imprime el informe plegado; `on|off` cambia el interruptor de sesión.
+
+## Comando de sesión
+
+```
+/doublecheck status|report|on|off
+```
+
+- `status` — interruptor efectivo (el override durable vence al valor por defecto de la config), módulos configurados, intensidad de aplicación y los hechos de etapa plegados (spec registrado, color red/green, revisión en registro, número de ediciones).
+- `report` — pliega el informe de entrega desde el registro de sesión al momento (sin workflow de verificación; `doublecheck_report` es dueño de esa ruta).
+- `on` / `off` — escribe el evento durable `doublecheck/state` (sobrevive a reinicio, reanudación y bifurcación — el replay ES el estado) e inyecta un aviso de cambio visible para el modelo.
+
+Todas las respuestas del comando respetan el ajuste `language` de la fila guard.
 
 ## Hoja de ruta
 
-El bucle de disciplina de seis etapas está completo: **grill → design → red → green → review → verify** se incluyen todas en este paquete (v0.1 → v0.4). Trabajo futuro: cobertura de snapshot para las transcripciones de review/informe y un formato de informe más rico.
+El bucle de disciplina de seis etapas está completo: **grill → design → red → green → review → verify** se incluyen todas en este paquete (v0.1 → v0.6). Los fixtures de regresión con transcripciones reales fijan las formas de los eventos durables (`tests/fixtures/`). Trabajo futuro: un formato de informe más rico, una insignia de estado de disciplina para la Web UI y la siembra de spec entre sesiones desde el archivo del workspace.
 
 ## Desarrollo
 

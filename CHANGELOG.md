@@ -2,6 +2,23 @@
 
 All notable changes to dsh-doublecheck are recorded here, newest first.
 
+## v0.6.0 — 2026-08-14
+
+The hardening release: the whole model-visible surface honors `language`, the projection schema's runtime dependency is declared, and the gates get quieter and more precise.
+
+- **Runtime dependency fix**: `zod` moved from devDependencies to `dependencies` — the built `lib/` imports it for the `doublecheck` projection schema (`ZodType` is the sessionProjections registry contract), and git-hosted installs skip devDependencies.
+- **Complete localization**: the switch notices, the `/doublecheck` command replies (including a richer `status` line with intensity, default switch, `remindOnce`, and the edit count), the held-back-findings note, and the critic's task prompt now honor `language: 'en' | 'zh'`. The workspace spec/report documents keep their English headings as stable artifacts.
+- **Fail-fast spec commit**: `doublecheck_spec` rejects empty or whitespace-only dimensions instead of recording an uncheckable contract (the invariant companion reuses the shared field list).
+- **Deterministic review order**: findings are sorted blocker-first (stable within a severity) in both the injected prose and the durable `doublecheck-review` record.
+- **Custom guard tools**: `mutationTargetPath` recognizes the `path` argument key beside `file_path`, and a guard-tool call that names no file at all no longer trips the red gate.
+- **O(1) switch reads**: the durable `doublecheck/state` fold rides the guard's incremental snapshot instead of rescanning the whole log per tool call.
+- **One effective switch**: the `/doublecheck` command now reads the same effective switch the gates enforce (process-local override → durable `doublecheck/state` → configured default), so `status` and repeated `on|off` answer consistently even on rc.6 hosts where the override is in-memory.
+- **Standalone invariant companion subpath**: `dsh-doublecheck/invariant` is now a real `exports` entry (`./invariant` → `lib/invariant.js` + `.d.ts`); the row was documented but not importable before.
+- **Wider default test coverage**: `deno test` and `uv run pytest` joined the default test-command patterns.
+- **`strict.patch.yml` restored**: the v0.5-changeloged all-gates-`block` overlay now actually ships (added to `files`).
+- **Release pipeline**: `NPM_TOKEN` lives in the repo secrets; the publish step skips versions already on the registry (idempotent re-tags) instead of failing, and a new `release` job creates the GitHub Release with the top changelog section as its notes.
+- **Package metadata**: `publishConfig.access: 'public'`, `sideEffects: false`, an npm version badge across the five READMEs, and `README.hi.md` fully synced to v0.6.
+
 ## v0.5.0 — 2026-08-14
 
 The discipline loop gets a human-facing cockpit and a hardened delivery pipeline.
