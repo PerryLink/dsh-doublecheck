@@ -28,8 +28,47 @@ jobs:
         run: pnpm run build
 
       # npm publish runs prepublishOnly (tsc + full test suite) automatically.
-      # Requires the NPM_TOKEN repository secret.
+      # Requires the NPM_TOKEN repository secret. A tag push without the
+      # secret, or for a version already on the registry, skips the publish
+      # instead of failing the release tag. (The guard lives in bash because
+      # GitHub rejects the secrets context in step-level `if` expressions.)
       - name: Publish
-        run: npm publish --access public
         env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ -z "$NPM_TOKEN" ]; then
+            echo "NPM_TOKEN secret is not set; skipping npm publish"
+            exit 0
+          fi
+          if npm view "dsh-doublecheck@${version}" version >/dev/null 2>&1; then
+            echo "dsh-doublecheck@${version} is already published; skipping npm publish"
+          else
+            npm publish
+          fi
+
+  release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ github.ref_name }}" >/dev/null 2>&1; then
+            echo "release ${{ github.ref_name }} already exists; skipping"
+            exit 0
+          fi
+          node scripts/release-notes.mjs CHANGELOG.md > release-notes.md
+          if [ -s release-notes.md ]; then
+            gh release create "${{ github.ref_name }}" \
+              --title "${{ github.ref_name }}" \
+              --notes-file release-notes.md
+          else
+            gh release create "${{ github.ref_name }}" --generate-notes
+          fi

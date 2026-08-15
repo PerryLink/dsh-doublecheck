@@ -12,3 +12,6 @@ doublecheck-report.md
 *.bak
 
 *.tmpdir/
+
+# Local smoke-test overlay with machine-specific file:// URLs (regenerate as needed).
+scripts/smoke-insert.patch.yml
