@@ -2,6 +2,10 @@
 
 All notable changes to dsh-doublecheck are recorded here, newest first.
 
+## Unreleased
+
+- **OMDSH Workshop intake manifest**: `package.json#dshWorkshop` (`omdsh-workshop-package/v1`) declares the transactional `harness-profile` integration, lifecycle, permissions, and the named runtime capability (`/doublecheck status`) for the hub.omdsh.dev Registry intake. Author-declared facts only — verification evidence stays pending until the Workshop adapter run produces it.
+
 ## v0.6.0 — 2026-08-14
 
 The hardening release: the whole model-visible surface honors `language`, the projection schema's runtime dependency is declared, and the gates get quieter and more precise.
