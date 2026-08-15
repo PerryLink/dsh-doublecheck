@@ -49,3 +49,35 @@ jobs:
 
       - name: Built artifacts are fresh
         run: git diff --exit-code lib
+
+  # Assemble the published bundle into a real DSH profile and prove both
+  # plugin rows mount: the only step that exercises cordis.patch.yml.
+  smoke:
+    needs: gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Pack
+        run: pnpm pack
+
+      - name: Install the DSH CLI
+        run: npm install --global @deepseek-ai/dsh@0.1.0-rc.6
+
+      - name: Assemble a scratch profile with the packed bundle
+        run: |
+          dsh plugin --profile ci add ./dsh-doublecheck-*.tgz
+          dsh --profile ci --dump-config > dump.txt
+
+      - name: Assert the bundle rows mounted
+        run: node scripts/assert-profile.mjs dump.txt
