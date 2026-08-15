@@ -40,4 +40,4 @@ Standalone DeepSeek Harness plugin repository (`dsh-doublecheck`). Development f
 
 ## Checks
 
-`pnpm run typecheck && pnpm run lint && pnpm test && pnpm run build && pnpm run pack:check` — CI runs the same on a 3-OS × 2-Node matrix.
+`pnpm run typecheck && pnpm run lint && pnpm test && pnpm run build && pnpm run pack:check` — CI runs the same on a 3-OS × 2-Node matrix. A separate `smoke` job then packs the tarball, installs it into a scratch `dsh` profile, and asserts both bundle rows mount (`scripts/assert-profile.mjs`).

@@ -6,6 +6,7 @@ All notable changes to dsh-doublecheck are recorded here, newest first.
 
 - **OMDSH Workshop intake manifest**: `package.json#dshWorkshop` (`omdsh-workshop-package/v1`) declares the transactional `harness-profile` integration, lifecycle, permissions, and the named runtime capability (`/doublecheck status`) for the hub.omdsh.dev Registry intake. Author-declared facts only — verification evidence stays pending until the Workshop adapter run produces it.
 - **Community engineering**: structured issue forms (bug report / feature request), a pull-request checklist template, a security policy with private vulnerability reporting, GitHub Discussions enabled (welcome post), main-branch CI status protection, npm downloads badge, and a Contributors section across the five READMEs.
+- **CI profile smoke**: a `smoke` job packs the bundle, installs it into a scratch profile with the real `dsh` CLI, and asserts both rows mount (`scripts/assert-profile.mjs`) — the end-to-end check for `cordis.patch.yml` that unit tests cannot see. Ported from PR #1, which this closes.
 
 ## v0.6.0 — 2026-08-14
 
