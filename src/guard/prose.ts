@@ -5,6 +5,12 @@
  * `green gate`) stay English: they are stable session-log ids the durable
  * once-semantics fold matches, and translating them would silently break
  * `remindOnce` after a language switch. Only the model-facing text localizes.
+ *
+ * Scope of localization: every model-visible string the package injects or
+ * answers with (gate prose, the critic task, `/doublecheck` replies, the
+ * switch notice) is localized. The workspace documents (`doublecheck-spec.md`
+ * / `doublecheck-report.md`) keep their English section headings: they are
+ * stable artifacts whose structure other tooling may match.
  * @module dsh-doublecheck/guard/prose
  */
 
@@ -31,6 +37,44 @@ export interface GuardProse {
   reviewUnavailableNoFindings: string
   reviewFindingsHeader: (count: number) => string
   reviewFindingsFooter: string
+  reviewHeldBack: (held: number) => string
+  /** The critic's task prompt (model-facing behavior of the review run). */
+  criticTask: string
+  switchOnDurable: string
+  switchOnLocal: string
+  switchOffDurable: string
+  switchOffLocal: string
+  commandNoAgent: string
+  commandUnknown: (input: string) => string
+  commandAlreadyOn: string
+  commandAlreadyOff: string
+  commandOnDurable: string
+  commandOnLocal: string
+  commandOffDurable: string
+  commandOffLocal: string
+  commandStatus: (facts: CommandStatusFacts) => string
+}
+
+/** The folded facts the localized `/doublecheck status` reply renders. */
+export interface CommandStatusFacts {
+  /** The effective session switch. */
+  enabled: boolean
+  /** The configured default for sessions without a state record. */
+  defaultEnabled: boolean
+  /** Configured module switches. */
+  modules: { grill: boolean; tdd: boolean; adversary: boolean }
+  /** Configured enforcement strength. */
+  intensity: string
+  /** Whether reminder repetition is capped per session. */
+  remindOnce: boolean
+  /** Whether a committed spec exists in the log. */
+  hasSpec: boolean
+  /** The latest test-run color (`none` / `red` / `green`). */
+  color: string
+  /** Whether an adversary review record exists in the log. */
+  reviewed: boolean
+  /** Total implementation edits folded so far. */
+  editCount: number
 }
 
 const EN: GuardProse = {
@@ -98,6 +142,45 @@ const EN: GuardProse = {
     `Adversary review found ${count} objection(s) the delivery must answer:`,
   reviewFindingsFooter:
     'Answer each: fix what is real, and state plainly what is false.',
+  reviewHeldBack: held =>
+    `… ${held} further objection(s) held back by adversaryMaxFindings`,
+  criticTask:
+    'You are the delivery reviewer for this software-engineering session. The '
+    + 'conversation you inherited contains a requirements spec recorded with the '
+    + 'doublecheck_spec tool (six dimensions: goal, scope, acceptance criteria, '
+    + 'failure modes, priorities, non-goals), followed by the implementation '
+    + 'work and its test evidence. Assume the delivery FAILS its own spec. Hunt '
+    + 'for the strongest objections you can actually support from this session: '
+    + 'dimensions the work did not meet, acceptance criteria with no evidence, '
+    + 'scope or non-goal violations, failure modes left unhandled. Answer '
+    + 'through the required structured output, one entry per objection, citing '
+    + 'what in the session supports it. If — and only if — the evidence '
+    + 'genuinely satisfies every dimension, return an empty findings list. Do '
+    + 'not invent objections; the empty answer is correct when nothing is wrong.',
+  switchOnDurable:
+    'Double-check discipline was switched ON for this session (changed by the user): the requirements grill, the red/green gates, and the delivery review are active again.',
+  switchOnLocal:
+    'Double-check discipline was switched ON for this process only (changed by the user; this harness build predates the ignorable append surface, so the switch is not durable): the requirements grill, the red/green gates, and the delivery review are active again.',
+  switchOffDurable:
+    'Double-check discipline was switched OFF for this session (changed by the user): the discipline gates defer to the human approval chain until switched back on.',
+  switchOffLocal:
+    'Double-check discipline was switched OFF for this process only (changed by the user; this harness build predates the ignorable append surface, so the switch is not durable): the discipline gates defer to the human approval chain until switched back on.',
+  commandNoAgent: '/doublecheck needs an agent session to inspect.',
+  commandUnknown: input =>
+    `Unknown /doublecheck argument "${input}". Usage: /doublecheck status|report|on|off`,
+  commandAlreadyOn: 'Double-check discipline is already ON for this session.',
+  commandAlreadyOff: 'Double-check discipline is already OFF for this session.',
+  commandOnDurable: 'Double-check discipline ON for this session.',
+  commandOnLocal: 'Double-check discipline ON for this process only (not durable on this harness).',
+  commandOffDurable: 'Double-check discipline OFF for this session.',
+  commandOffLocal: 'Double-check discipline OFF for this process only (not durable on this harness).',
+  commandStatus: facts => [
+    `Double-check discipline is ${facts.enabled ? 'ON' : 'OFF'} for this session. (/doublecheck on|off)`,
+    `Modules: grill=${facts.modules.grill ? 'on' : 'off'}, tdd=${facts.modules.tdd ? 'on' : 'off'}, adversary=${facts.modules.adversary ? 'on' : 'off'} (cordis.yml).`,
+    `Intensity: ${facts.intensity}. Default switch: ${facts.defaultEnabled ? 'on' : 'off'}. remindOnce: ${facts.remindOnce ? 'on' : 'off'}.`,
+    `Stage: spec=${facts.hasSpec ? 'committed' : 'missing'}, tests=${facts.color}, review=${facts.reviewed ? 'on record' : 'not run'}, edits=${facts.editCount}.`,
+    `Usage: /doublecheck status|report|on|off`,
+  ].join('\n'),
 }
 
 const ZH: GuardProse = {
@@ -136,6 +219,40 @@ const ZH: GuardProse = {
     `对抗式审查发现 ${count} 条反对意见，交付必须回应：`,
   reviewFindingsFooter:
     '逐条回应：属实的修掉，不属实的明确说明。',
+  reviewHeldBack: held =>
+    `… 另有 ${held} 条反对意见因 adversaryMaxFindings 上限被保留`,
+  criticTask:
+    '你是本次软件工程会话的交付审查者。你继承的会话里包含一份通过 '
+    + 'doublecheck_spec 工具记录的需求 spec（六个维度：目标、范围、验收标准、'
+    + '失败模式、优先级、非目标），其后是实现工作和测试证据。假设交付不满足自己的 '
+    + 'spec。寻找你能从本会话证据中真正支撑的最强反对意见：未达到的维度、没有证据的'
+    + '验收标准、范围或非目标被违反、未处理的失败模式。通过要求的结构化输出作答，'
+    + '每条反对意见占一项，并引用会话中支撑它的内容。当且仅当证据确实满足每一个维度时，'
+    + '才返回空的 findings 列表。不要编造反对意见；没有问题时空答案才是正确的。',
+  switchOnDurable:
+    'Double-check 纪律已对本会话开启（由用户切换）：需求盘问、红绿门和交付审查恢复生效。',
+  switchOnLocal:
+    'Double-check 纪律已对本进程开启（由用户切换；此 harness 版本早于 ignorable 追加接口，切换不持久）：需求盘问、红绿门和交付审查恢复生效。',
+  switchOffDurable:
+    'Double-check 纪律已对本会话关闭（由用户切换）：在重新开启之前，纪律门让位于人工审批链。',
+  switchOffLocal:
+    'Double-check 纪律已对本进程关闭（由用户切换；此 harness 版本早于 ignorable 追加接口，切换不持久）：在重新开启之前，纪律门让位于人工审批链。',
+  commandNoAgent: '/doublecheck 需要代理会话才能查看。',
+  commandUnknown: input =>
+    `未知的 /doublecheck 参数 "${input}"。用法：/doublecheck status|report|on|off`,
+  commandAlreadyOn: '本会话的 Double-check 纪律已经是开启状态。',
+  commandAlreadyOff: '本会话的 Double-check 纪律已经是关闭状态。',
+  commandOnDurable: 'Double-check 纪律已对本会话开启。',
+  commandOnLocal: 'Double-check 纪律已对本进程开启（此 harness 上不持久）。',
+  commandOffDurable: 'Double-check 纪律已对本会话关闭。',
+  commandOffLocal: 'Double-check 纪律已对本进程关闭（此 harness 上不持久）。',
+  commandStatus: facts => [
+    `本会话的 Double-check 纪律：${facts.enabled ? '已开启' : '已关闭'}。(/doublecheck on|off)`,
+    `模块：grill=${facts.modules.grill ? '开' : '关'}, tdd=${facts.modules.tdd ? '开' : '关'}, adversary=${facts.modules.adversary ? '开' : '关'}（cordis.yml）。`,
+    `强度：${facts.intensity}。默认开关：${facts.defaultEnabled ? '开' : '关'}。remindOnce：${facts.remindOnce ? '开' : '关'}。`,
+    `阶段：spec=${facts.hasSpec ? '已提交' : '缺失'}, tests=${facts.color}, review=${facts.reviewed ? '有记录' : '未运行'}, edits=${facts.editCount}。`,
+    '用法：/doublecheck status|report|on|off',
+  ].join('\n'),
 }
 
 /** The localized prose tables by language. */

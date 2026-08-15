@@ -23,9 +23,9 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import type { ReviewVerdict } from './domain/vocabulary.ts'
+import { SPEC_FIELD_NAMES } from './domain/vocabulary.ts'
 import { deriveReportVerdict, foldReportFacts } from './domain/report.ts'
 import type { TestRunDetection } from './domain/evidence.ts'
-import type { GrilledSpec } from './domain/vocabulary.ts'
 import type {} from './events.ts'
 
 /** Full npm package name owning the reported failures. */
@@ -54,9 +54,7 @@ export const name = 'dsh-doublecheck-invariant'
 export const inject = ['invariants']
 
 /** All six spec fields, in declaration order. */
-const SPEC_FIELDS: readonly (keyof GrilledSpec)[] = [
-  'goal', 'scope', 'acceptanceCriteria', 'failureModes', 'priorities', 'nonGoals',
-]
+const SPEC_FIELDS = SPEC_FIELD_NAMES
 
 /**
  * Build the installer over a facts source. The standalone companion and the

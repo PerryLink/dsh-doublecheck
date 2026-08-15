@@ -102,6 +102,8 @@ export interface Snapshot {
     lastReviewSeq: number;
     /** Implementation edits folded after {@link lastReviewSeq}. */
     editsAfterReview: number;
+    /** The last durable `doublecheck/state` switch on record, when one exists. */
+    stateEnabled?: boolean;
 }
 /**
  * Install the guard listeners.

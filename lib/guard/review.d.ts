@@ -42,6 +42,14 @@ export interface ReviewOutcome {
 export declare const REVIEW_OUTPUT_SCHEMA: ObjectJsonSchema;
 /** Injected when the critic found nothing supportable (English contract text). */
 export declare const CLEAN_TEXT: string;
+/**
+ * Sort findings blocker-first, keeping the critic's original order within a
+ * severity. A deterministic order means the most threatening objection leads
+ * both the injected prose and the durable record.
+ * @param findings - the structured findings as produced by the critic.
+ * @returns the same findings, severity-ordered.
+ */
+export declare function sortFindings(findings: readonly ReviewFinding[]): ReviewFinding[];
 /** Render structured findings as the model-facing review text. */
 export declare function renderFindings(findings: readonly ReviewFinding[], prose?: GuardProse, totalCount?: number): string;
 /**

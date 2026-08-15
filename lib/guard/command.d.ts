@@ -34,6 +34,13 @@ export interface CommandDeps {
     snapshotOf: (session: Session) => Snapshot;
     /** The compiled test-run detection shared with the tdd/adversary gates. */
     detection: TestRunDetection;
+    /**
+     * The effective session switch — the exact reader the gates use (local
+     * override → durable `doublecheck/state` → configured default), so the
+     * command answers consistently with what the gates enforce, including on
+     * rc.6 hosts where the override is process-local.
+     */
+    effectiveEnabled: (session: Session) => boolean;
     /** Whether the host append surface stamps `ignorable` (see {@link hostStampsIgnorable}). */
     stampsIgnorable: () => boolean;
     /** Record a process-local switch override when the durable write is unavailable. */

@@ -22,6 +22,11 @@ export interface GrilledSpec {
   nonGoals: string
 }
 
+/** All six spec fields, in declaration order. */
+export const SPEC_FIELD_NAMES: readonly (keyof GrilledSpec)[] = [
+  'goal', 'scope', 'acceptanceCriteria', 'failureModes', 'priorities', 'nonGoals',
+]
+
 /** One structured objection from the adversary review. */
 export interface ReviewFinding {
   /** How much the finding threatens the delivery claim. */

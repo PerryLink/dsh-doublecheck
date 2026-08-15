@@ -98,7 +98,23 @@ describe('/doublecheck command', () => {
     expect(result.text).toContain('ON')
     expect(result.text).toContain('Modules: grill=on, tdd=on, adversary=off')
     expect(result.text).toContain('spec=missing')
+    expect(result.text).toContain('Intensity: remind')
     expect(result.text).toContain('Usage: /doublecheck status|report|on|off')
+  })
+
+  it('answers in zh when the language config is zh', async () => {
+    const { registered } = await setup(fullConfig({ language: 'zh' }))
+    const handler = registered[0]!.handler
+    const session = fakeSession([userTask('vague task')])
+    const agent = fakeAgent(session)
+    const status = handler({ agent, rawInput: 'status' })
+    expect(status.kind).toBe('success')
+    expect(status.text).toContain('本会话的 Double-check 纪律')
+    expect(status.text).toContain('用法：/doublecheck status|report|on|off')
+
+    const unknown = handler({ agent, rawInput: 'maybe' })
+    expect(unknown.kind).toBe('error')
+    expect(unknown.text).toContain('未知的 /doublecheck 参数')
   })
 
   it('status reflects a durable off override', async () => {
@@ -129,11 +145,36 @@ describe('/doublecheck command', () => {
     expect(injections).toHaveLength(1) // only the switch notice
   })
 
+  it('reads the effective switch through the process-local override (rc.6 consistency)', async () => {
+    const { registered } = await setup()
+    const handler = registered[0]!.handler
+    const injections: unknown[] = []
+    const session = fakeSession([userTask('task')])
+    const agent = fakeAgent(session, injections)
+
+    const first = handler({ agent, rawInput: 'off' })
+    expect(first.kind).toBe('success')
+    expect(first.text).toContain('for this process only')
+
+    // The command must see the same override the gates honor: a second `off`
+    // is already-off (not a fresh toggle) and `status` reports OFF.
+    const second = handler({ agent, rawInput: 'off' })
+    expect(second.kind).toBe('success')
+    expect(second.text).toContain('already OFF')
+
+    const status = handler({ agent, rawInput: 'status' })
+    expect(status.kind).toBe('success')
+    expect(status.text).toContain('OFF')
+
+    expect(injections).toHaveLength(1) // only the first switch notice
+  })
+
   it('writes the durable state event when the host stamps ignorable', () => {
     const handler = doublecheckHandler({
       config: fullConfig(),
       snapshotOf: () => { throw new Error('unused for on/off') },
       detection: { testToolNames: [], testCommandPatterns: [], mutationTools: [], testFilePatterns: [] },
+      effectiveEnabled: () => true,
       stampsIgnorable: () => true,
       setLocalOverride: () => undefined,
     })

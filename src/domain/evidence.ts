@@ -30,6 +30,7 @@ export const DEFAULT_TEST_COMMAND_PATTERNS: readonly string[] = [
   '(?:^|[;&|]\\s*)(?:(?:pnpm|npm|npx|yarn|bun)(?:\\s+run)?\\s+(?:test|vitest|jest|mocha)(?:\\s|$))',
   '(?:^|[;&|]\\s*)(?:(?:pytest|go\\s+test|cargo\\s+test|make\\s+test|ctest)(?:\\s|$))',
   '(?:^|[;&|]\\s*)(?:node\\s+--test(?:\\s|$))',
+  '(?:^|[;&|]\\s*)(?:deno\\s+test|uv\\s+run\\s+pytest)(?:\\s|$)',
 ]
 
 /** Shared defaults: mutation tools and test-file path patterns. */
@@ -135,7 +136,10 @@ export function isTestCommand(command: string, detection: TestRunDetection): boo
 
 /**
  * The mutation target path of a tool call, when the tool is a configured
- * mutation tool and its arguments name a file.
+ * mutation tool and its arguments name a file. Accepts both the DSH-native
+ * `file_path` key (`edit` / `write`) and the `path` key custom guard tools
+ * may use, so a configured tool is never mis-gated merely for its argument
+ * shape.
  * @param name - the called tool name.
  * @param args - the parsed arguments record.
  * @param detection - the compiled detection knobs.
@@ -143,7 +147,8 @@ export function isTestCommand(command: string, detection: TestRunDetection): boo
  */
 export function mutationTargetPath(name: string, args: Record<string, unknown> | undefined, detection: TestRunDetection): string | undefined {
   if (!detection.mutationTools.includes(name)) return undefined
-  const path = args?.['file_path']
+  const filePath = args?.['file_path']
+  const path = filePath ?? args?.['path']
   return typeof path === 'string' && path.length > 0 ? path : undefined
 }
 

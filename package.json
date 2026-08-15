@@ -1,6 +1,6 @@
 {
   "name": "dsh-doublecheck",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Double-check before you ship: grill the requirements, test the implementation, prove the delivery.",
   "packageManager": "pnpm@11.7.0",
   "repository": {
@@ -27,12 +27,21 @@
       "types": "./lib/guard/index.d.ts",
       "import": "./lib/guard/index.js"
     },
+    "./invariant": {
+      "types": "./lib/invariant.d.ts",
+      "import": "./lib/invariant.js"
+    },
     "./package.json": "./package.json"
   },
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false,
   "files": [
     "lib",
     "skills",
     "cordis.patch.yml",
+    "strict.patch.yml",
     "CHANGELOG.md",
     "README.md",
     "README.zh.md",
@@ -82,7 +91,8 @@
     "@deepseek-ai/schemastery": "^3.18.1"
   },
   "dependencies": {
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
@@ -103,7 +113,6 @@
     "@vitest/coverage-v8": "^3.2.0",
     "eslint": "^9.30.0",
     "typescript-eslint": "^8.35.0",
-    "vitest": "^3.2.0",
-    "zod": "^4.4.3"
+    "vitest": "^3.2.0"
   }
 }

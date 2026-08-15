@@ -10,7 +10,7 @@ import type { PreToolDecision, ToolExecution } from '@deepseek-ai/dsh-tools'
 import * as guardModule from '../src/guard/index.ts'
 import { SPEC_TOOL_NAME } from '../src/domain/stages.ts'
 import type { GuardIntensity, ReviewFinding } from '../src/events.ts'
-import { fakeAgent, fakeSession, mutationCall, shellCall, shellResult, toolCall, toolResult, userTask } from './helpers.ts'
+import { fakeAgent, fakeSession, mutationCall, sessionEvent, shellCall, shellResult, toolCall, toolResult, userTask } from './helpers.ts'
 
 const signal = new AbortController().signal
 
@@ -167,6 +167,7 @@ describe('doublecheck-guard', () => {
         '(?:^|[;&|]\\s*)(?:(?:pnpm|npm|npx|yarn|bun)(?:\\s+run)?\\s+(?:test|vitest|jest|mocha)(?:\\s|$))',
         '(?:^|[;&|]\\s*)(?:(?:pytest|go\\s+test|cargo\\s+test|make\\s+test|ctest)(?:\\s|$))',
         '(?:^|[;&|]\\s*)(?:node\\s+--test(?:\\s|$))',
+        '(?:^|[;&|]\\s*)(?:deno\\s+test|uv\\s+run\\s+pytest)(?:\\s|$)',
       ],
       testFilePatterns: ['(^|[\\\\/])(tests?|__tests__|specs?)([\\\\/]|$)', '\\.(test|spec)\\.[A-Za-z0-9]+$'],
     })
@@ -480,6 +481,49 @@ describe('doublecheck-guard', () => {
     expect(decision).toEqual({ kind: 'ask', reason: expect.stringContaining('red step') })
   })
 
+  it('lets pathless guard-tool calls through the red gate', async () => {
+    const { ctx } = await setup(tdd({ intensity: 'block' }))
+    const session = concreteSession()
+    // A guard tool invoked without a file-naming argument is not an
+    // implementation edit (custom guard tools may use another argument shape).
+    const decision = await gateDecision(ctx, {
+      name: 'write',
+      arguments: { content: 'no path named' },
+      agent: fakeAgent(session),
+    } as unknown as ToolExecution)
+    expect(decision).toEqual({ kind: 'allow' })
+  })
+
+  it('reads the path key for custom guard tools', async () => {
+    const { ctx } = await setup(tdd({ intensity: 'block', guardTools: ['edit', 'write', 'apply_patch'] }))
+    const session = concreteSession()
+    const named = await gateDecision(ctx, {
+      name: 'apply_patch',
+      arguments: { path: 'src/app.ts' },
+      agent: fakeAgent(session),
+    } as unknown as ToolExecution)
+    expect(named).toEqual({ kind: 'deny', reason: expect.stringContaining('red/green evidence gate') })
+
+    const unnamed = await gateDecision(ctx, {
+      name: 'apply_patch',
+      arguments: { hunks: [] },
+      agent: fakeAgent(session),
+    } as unknown as ToolExecution)
+    expect(unnamed).toEqual({ kind: 'allow' })
+  })
+
+  it('folds a durable switch event appended after the first snapshot', async () => {
+    const { ctx } = await setup()
+    const session = vagueSession()
+    const agent = fakeAgent(session)
+    const first = await runEdit(ctx, agent, 'switch-fold-1')
+    expect(first.additionalContexts).toHaveLength(1)
+
+    ;(session.events as SessionEvent[]).push(sessionEvent('doublecheck/state', { enabled: false }))
+    const after = await runEdit(ctx, agent, 'switch-fold-2')
+    expect(after.additionalContexts).toBeUndefined()
+  })
+
   it('injects the green reminder at turn end when edits lack a passing run', async () => {
     const { ctx } = await setup(tdd({ remindOnce: false }))
     const injections: unknown[] = []
@@ -627,6 +671,16 @@ describe('doublecheck-guard', () => {
     const request = starts[0]?.request as { agentOptions?: { model?: string }; toolFilter?: { allow?: string[] } }
     expect(request.agentOptions).toEqual({ model: 'deepseek-v4-pro' })
     expect(request.toolFilter).toEqual({ allow: ['read', 'glob', 'grep'] })
+  })
+
+  it('sends the localized critic task when language is zh', async () => {
+    const { ctx, starts } = await setup(adversary({ language: 'zh' }), { review: { findings: [] } })
+    const session = fakeSession(greenDeliverySession() as never)
+    const agent = fakeAgent(session)
+    await ctx.serial('agent/turn-stopping', { agent, turn: 1, signal })
+
+    const request = starts[0]?.request as { prompt?: { type: string; text: string }[] }
+    expect(request.prompt?.[0]?.text).toContain('你是本次软件工程会话的交付审查者')
   })
 
   it('steers once under warn intensity when findings exist', async () => {

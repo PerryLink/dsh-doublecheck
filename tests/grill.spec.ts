@@ -78,6 +78,7 @@ describe('doublecheck-grill', () => {
         '(?:^|[;&|]\\s*)(?:(?:pnpm|npm|npx|yarn|bun)(?:\\s+run)?\\s+(?:test|vitest|jest|mocha)(?:\\s|$))',
         '(?:^|[;&|]\\s*)(?:(?:pytest|go\\s+test|cargo\\s+test|make\\s+test|ctest)(?:\\s|$))',
         '(?:^|[;&|]\\s*)(?:node\\s+--test(?:\\s|$))',
+        '(?:^|[;&|]\\s*)(?:deno\\s+test|uv\\s+run\\s+pytest)(?:\\s|$)',
       ],
       reportMutationTools: ['edit', 'write'],
       reportTestFilePatterns: ['(^|[\\\\/])(tests?|__tests__|specs?)([\\\\/]|$)', '\\.(test|spec)\\.[A-Za-z0-9]+$'],
@@ -153,6 +154,21 @@ describe('doublecheck-grill', () => {
       path: null,
       written: false,
     })
+  })
+
+  it('rejects a spec with an empty dimension instead of committing it', async () => {
+    const { ctx } = await setup()
+    const result = await ctx.tools.execute({
+      signal,
+      callId: CallId('spec-empty'),
+      name: SPEC_TOOL_NAME,
+      arguments: { ...fullSpec, failureModes: '   ' },
+    })
+    expect(result.isError).toBe(true)
+    if (result.isError) {
+      expect(result.error.message).toContain('failureModes')
+      expect(result.error.message).toContain('must not be empty')
+    }
   })
 
   it('announces the committed spec on the package-internal event with the calling session', async () => {

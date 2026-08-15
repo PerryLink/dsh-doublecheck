@@ -22,6 +22,7 @@ import type { SessionEvent, UserMessage } from '@deepseek-ai/dsh-session'
 import { deriveReportVerdict, foldReportFacts, renderReportMarkdown, type ReportData } from '../domain/report.ts'
 import type { TestRunDetection } from '../domain/evidence.ts'
 import type { StateAppend } from '../events.ts'
+import { PROSE, type GuardProse } from './prose.ts'
 import type { Config, Snapshot } from './index.ts'
 
 /**
@@ -72,6 +73,13 @@ export interface CommandDeps {
   snapshotOf: (session: Session) => Snapshot
   /** The compiled test-run detection shared with the tdd/adversary gates. */
   detection: TestRunDetection
+  /**
+   * The effective session switch — the exact reader the gates use (local
+   * override → durable `doublecheck/state` → configured default), so the
+   * command answers consistently with what the gates enforce, including on
+   * rc.6 hosts where the override is process-local.
+   */
+  effectiveEnabled: (session: Session) => boolean
   /** Whether the host append surface stamps `ignorable` (see {@link hostStampsIgnorable}). */
   stampsIgnorable: () => boolean
   /** Record a process-local switch override when the durable write is unavailable. */
@@ -79,14 +87,11 @@ export interface CommandDeps {
 }
 
 /** The switch notice injected after `/doublecheck on|off`. */
-function switchNotice(enabled: boolean, durable: boolean): UserMessage {
+function switchNotice(enabled: boolean, durable: boolean, prose: GuardProse): UserMessage {
   const source: MessageSource = { kind: 'plugin', plugin: 'dsh-doublecheck', form: 'notice', summary: 'doublecheck state' }
-  const scope = durable
-    ? 'for this session'
-    : 'for this process only (this harness build predates the ignorable append surface, so the switch is not durable)'
   const text = enabled
-    ? `Double-check discipline was switched ON ${scope} (changed by the user): the requirements grill, the red/green gates, and the delivery review are active again.`
-    : `Double-check discipline was switched OFF ${scope} (changed by the user): the discipline gates defer to the human approval chain until switched back on.`
+    ? durable ? prose.switchOnDurable : prose.switchOnLocal
+    : durable ? prose.switchOffDurable : prose.switchOffLocal
   return createUserMessage({ content: [{ type: 'text', text }], source })
 }
 
@@ -96,27 +101,33 @@ function switchNotice(enabled: boolean, durable: boolean): UserMessage {
  * @returns the command handler for `ctx.commands.register`.
  */
 export function doublecheckHandler(deps: CommandDeps): (invocation: CommandInvocation) => CommandResult {
-  const { config, snapshotOf, detection, stampsIgnorable, setLocalOverride } = deps
+  const { config, snapshotOf, detection, stampsIgnorable, setLocalOverride, effectiveEnabled } = deps
+  const prose = PROSE[config.language]
   return (invocation: CommandInvocation): CommandResult => {
     const agent = invocation.agent
     if (agent === undefined) {
-      return { kind: 'error', text: '/doublecheck needs an agent session to inspect.' }
+      return { kind: 'error', text: prose.commandNoAgent }
     }
     const session = agent.session
     const input = invocation.rawInput.trim().toLowerCase()
-    const enabled = effectiveDoublecheckEnabled(session.events, config.enableByDefault)
+    const enabled = effectiveEnabled(session)
 
     if (input === 'status' || input === '') {
       const snapshot = snapshotOf(session)
       const discipline = snapshot.discipline
       return {
         kind: 'success',
-        text: [
-          `Double-check discipline is ${enabled ? 'ON' : 'OFF'} for this session. (/doublecheck on|off)`,
-          `Modules: grill=${config.modules.grill ? 'on' : 'off'}, tdd=${config.modules.tdd ? 'on' : 'off'}, adversary=${config.modules.adversary ? 'on' : 'off'} (cordis.yml).`,
-          `Stage: spec=${discipline.hasSpec ? 'committed' : 'missing'}, tests=${discipline.color}, review=${snapshot.lastReviewSeq >= 0 ? 'on record' : 'not run'}.`,
-          'Usage: /doublecheck status|report|on|off',
-        ].join('\n'),
+        text: prose.commandStatus({
+          enabled,
+          defaultEnabled: config.enableByDefault,
+          modules: config.modules,
+          intensity: config.intensity,
+          remindOnce: config.remindOnce,
+          hasSpec: discipline.hasSpec,
+          color: discipline.color,
+          reviewed: snapshot.lastReviewSeq >= 0,
+          editCount: discipline.editCount,
+        }),
       }
     }
 
@@ -133,12 +144,12 @@ export function doublecheckHandler(deps: CommandDeps): (invocation: CommandInvoc
     }
 
     if (input !== 'on' && input !== 'off') {
-      return { kind: 'error', text: `Unknown /doublecheck argument "${invocation.rawInput.trim()}". Usage: /doublecheck status|report|on|off` }
+      return { kind: 'error', text: prose.commandUnknown(invocation.rawInput.trim()) }
     }
 
     const target = input === 'on'
     if (enabled === target) {
-      return { kind: 'success', text: `Double-check discipline is already ${input.toUpperCase()} for this session.` }
+      return { kind: 'success', text: target ? prose.commandAlreadyOn : prose.commandAlreadyOff }
     }
     // Adaptive durable write: only hosts that stamp `ignorable` may write the
     // state event; on rc.6 the options bag is ignored and an unmarked foreign
@@ -149,12 +160,12 @@ export function doublecheckHandler(deps: CommandDeps): (invocation: CommandInvoc
     } else {
       setLocalOverride(session, target)
     }
-    agent.inject(switchNotice(target, durable))
+    agent.inject(switchNotice(target, durable, prose))
     return {
       kind: 'success',
-      text: durable
-        ? `Double-check discipline ${input.toUpperCase()} for this session.`
-        : `Double-check discipline ${input.toUpperCase()} for this process only (not durable on this harness).`,
+      text: target
+        ? durable ? prose.commandOnDurable : prose.commandOnLocal
+        : durable ? prose.commandOffDurable : prose.commandOffLocal,
     }
   }
 }

@@ -59,7 +59,7 @@ import {
 } from '../domain/projection.ts'
 import { doublecheckViewSchema, type DoublecheckView } from '../types.ts'
 import { installInvariant, PACKAGE_NAME, type InvariantRegistry } from '../invariant.ts'
-import { doublecheckHandler, effectiveDoublecheckEnabled, hostStampsIgnorable } from './command.ts'
+import { doublecheckHandler, hostStampsIgnorable } from './command.ts'
 
 export const name = 'doublecheck-guard'
 export const inject = ['commands']
@@ -154,6 +154,8 @@ export interface Snapshot {
   lastReviewSeq: number
   /** Implementation edits folded after {@link lastReviewSeq}. */
   editsAfterReview: number
+  /** The last durable `doublecheck/state` switch on record, when one exists. */
+  stateEnabled?: boolean
 }
 
 /**
@@ -190,9 +192,14 @@ export function apply(ctx: Context, config: Config): void {
   /** Process-local switch overrides written by `/doublecheck on|off` on hosts that cannot store the durable event. */
   const localOverrides = new WeakMap<Session, boolean>()
 
-  /** The effective switch for a session: the local override first, then the durable log fold. */
+  /**
+   * The effective switch for a session: the local override first, then the
+   * durable `doublecheck/state` fold, then the configured default. The fold
+   * rides the same incremental snapshot as the discipline facts, so the read
+   * costs O(new events) instead of rescanning the log per tool call.
+   */
   function doublecheckEnabled(session: Session): boolean {
-    return localOverrides.get(session) ?? effectiveDoublecheckEnabled(session.events, config.enableByDefault)
+    return localOverrides.get(session) ?? snapshotOf(session).stateEnabled ?? config.enableByDefault
   }
 
   const prose = PROSE[config.language]
@@ -230,6 +237,8 @@ export function apply(ctx: Context, config: Config): void {
             snapshot.lastTaskSeq = event.seq
           }
         }
+      } else if (event.type === 'doublecheck/state') {
+        snapshot.stateEnabled = event.data.enabled
       } else if (event.type === 'tool/call' && event.seq > snapshot.lastReviewSeq) {
         // Implementation edits after the latest review re-arm the adversary
         // trigger for a second review round.
@@ -318,6 +327,7 @@ export function apply(ctx: Context, config: Config): void {
       config,
       snapshotOf,
       detection,
+      effectiveEnabled: doublecheckEnabled,
       stampsIgnorable: hostStampsIgnorable,
       setLocalOverride: (session, enabled) => localOverrides.set(session, enabled),
     }),
@@ -388,11 +398,13 @@ export function apply(ctx: Context, config: Config): void {
     }
 
     // Red gate: implementation edits need a failing test on record. Writing
-    // test files is the red step itself and always delegates.
+    // test files is the red step itself and always delegates, and a call that
+    // names no file at all (a custom guard tool with another argument shape)
+    // is not an implementation edit either.
     if (config.modules.tdd && snapshot.discipline.color !== 'red') {
       const args = exec.arguments as Record<string, unknown> | undefined
       const path = mutationTargetPath(exec.name, args, detection)
-      if (path !== undefined && isTestFilePath(path, detection)) return next()
+      if (path === undefined || isTestFilePath(path, detection)) return next()
       const reminder = nextTddRedReminder(snapshot)
       if (reminder !== undefined) pendingReminders.set(exec, reminder)
       switch (config.intensity) {

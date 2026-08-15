@@ -38,7 +38,7 @@ import {
   VERIFY_META,
   type ReportData,
 } from '../domain/report.ts'
-import { VERIFY_DIMENSIONS } from '../domain/vocabulary.ts'
+import { SPEC_FIELD_NAMES, VERIFY_DIMENSIONS } from '../domain/vocabulary.ts'
 import { BundledSkillProvider, PROVIDER_NAME } from './provider.ts'
 
 export const name = 'doublecheck-grill'
@@ -266,6 +266,15 @@ export function apply(ctx: Context, config: Config): void {
         failureModes: args.failureModes,
         priorities: args.priorities,
         nonGoals: args.nonGoals,
+      }
+      // Fail fast at the commit: an empty dimension would satisfy the gate
+      // shape while recording an uncheckable contract. The grill must settle
+      // every dimension before the spec counts.
+      const empty = SPEC_FIELD_NAMES.filter(field => spec[field].trim() === '')
+      if (empty.length > 0) {
+        throw new Error(
+          `doublecheck_spec: the spec dimension(s) ${empty.join(', ')} must not be empty; finish the requirements grill before committing the spec`,
+        )
       }
       const outcome = await writeSpecFile(ctx, spec, args.filePath ?? config.specFile, exec)
       if (exec.agent !== undefined) {

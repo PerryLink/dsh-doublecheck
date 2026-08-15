@@ -1,0 +1,33 @@
+# dsh-doublecheck strict overlay: every discipline gate ON at `block` intensity.
+#
+# Apply this patch AFTER the bundle patch (later layers win by position), e.g.:
+#   dsh --profile <name> --patch ./strict.patch.yml
+# A patch replaces the row's WHOLE config — Schema defaults are NOT re-applied
+# on override — so every key the guard row needs is restated here. The grill
+# row keeps its defaults and is not restated.
+- id: doublecheck-guard
+  config:
+    intensity: block
+    modules:
+      grill: true
+      tdd: true
+      adversary: true
+    adversaryModel: null
+    adversaryProvider: fork
+    adversaryMaxFindings: 5
+    adversaryTools: ['read', 'glob', 'grep']
+    adversaryTimeoutMs: 120000
+    guardTools: ['edit', 'write']
+    vagueTaskMaxChars: 200
+    remindOnce: true
+    language: en
+    enableByDefault: true
+    testToolNames: ['bash', 'pwsh']
+    testCommandPatterns:
+      - '(?:^|[;&|]\s*)(?:(?:pnpm|npm|npx|yarn|bun)(?:\s+run)?\s+(?:test|vitest|jest|mocha)(?:\s|$))'
+      - '(?:^|[;&|]\s*)(?:(?:pytest|go\s+test|cargo\s+test|make\s+test|ctest)(?:\s|$))'
+      - '(?:^|[;&|]\s*)(?:node\s+--test(?:\s|$))'
+      - '(?:^|[;&|]\s*)(?:deno\s+test|uv\s+run\s+pytest)(?:\s|$)'
+    testFilePatterns:
+      - '(^|[\\/])(tests?|__tests__|specs?)([\\/]|$)'
+      - '\\.(test|spec)\\.[A-Za-z0-9]+$'

@@ -70,7 +70,10 @@ export declare function shellCommand(name: string, args: Record<string, unknown>
 export declare function isTestCommand(command: string, detection: TestRunDetection): boolean;
 /**
  * The mutation target path of a tool call, when the tool is a configured
- * mutation tool and its arguments name a file.
+ * mutation tool and its arguments name a file. Accepts both the DSH-native
+ * `file_path` key (`edit` / `write`) and the `path` key custom guard tools
+ * may use, so a configured tool is never mis-gated merely for its argument
+ * shape.
  * @param name - the called tool name.
  * @param args - the parsed arguments record.
  * @param detection - the compiled detection knobs.

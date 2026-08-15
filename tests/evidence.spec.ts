@@ -54,6 +54,13 @@ describe('shellCommand + isTestCommand', () => {
     expect(isTestCommand('echo hello', det)).toBe(false)
     expect(isTestCommand('pnpm build', det)).toBe(false)
   })
+
+  it('recognizes deno and uv test invocations when configured', () => {
+    const det = detection({ testCommandPatterns: ['(?:^|[;&|]\\s*)(?:deno\\s+test|uv\\s+run\\s+pytest)(?:\\s|$)'] })
+    expect(isTestCommand('deno test', det)).toBe(true)
+    expect(isTestCommand('uv run pytest tests/', det)).toBe(true)
+    expect(isTestCommand('deno fmt', det)).toBe(false)
+  })
 })
 
 describe('mutationTargetPath + isTestFilePath', () => {
@@ -63,6 +70,15 @@ describe('mutationTargetPath + isTestFilePath', () => {
     expect(mutationTargetPath('write', { file_path: 'x.ts' }, det)).toBe('x.ts')
     expect(mutationTargetPath('read', { file_path: 'x.ts' }, det)).toBeUndefined()
     expect(mutationTargetPath('edit', {}, det)).toBeUndefined()
+  })
+
+  it('falls back to the path key for custom guard tools', () => {
+    const det = detection({ guardTools: ['edit', 'write', 'apply_patch'] })
+    expect(mutationTargetPath('apply_patch', { path: 'src/lib.ts' }, det)).toBe('src/lib.ts')
+    expect(mutationTargetPath('edit', { path: 'src/lib.ts' }, det)).toBe('src/lib.ts')
+    // file_path wins over path when both are present.
+    expect(mutationTargetPath('edit', { file_path: 'a.ts', path: 'b.ts' }, det)).toBe('a.ts')
+    expect(mutationTargetPath('apply_patch', { hunks: [] }, det)).toBeUndefined()
   })
 
   it('identifies test files by directory and extension', () => {

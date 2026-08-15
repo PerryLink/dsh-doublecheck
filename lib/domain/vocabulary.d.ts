@@ -20,6 +20,8 @@ export interface GrilledSpec {
     /** What the user explicitly does not want. */
     nonGoals: string;
 }
+/** All six spec fields, in declaration order. */
+export declare const SPEC_FIELD_NAMES: readonly (keyof GrilledSpec)[];
 /** One structured objection from the adversary review. */
 export interface ReviewFinding {
     /** How much the finding threatens the delivery claim. */

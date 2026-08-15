@@ -69,27 +69,27 @@ export const REVIEW_OUTPUT_SCHEMA: ObjectJsonSchema = {
   },
 }
 
-/**
- * The critic's task, delivered as the forked child's user message. The child
- * already holds the parent history; this prompt only sets the adversarial
- * stance and the answer discipline.
- */
-const CRITIC_TASK =
-  'You are the delivery reviewer for this software-engineering session. The '
-  + 'conversation you inherited contains a requirements spec recorded with the '
-  + 'doublecheck_spec tool (six dimensions: goal, scope, acceptance criteria, '
-  + 'failure modes, priorities, non-goals), followed by the implementation '
-  + 'work and its test evidence. Assume the delivery FAILS its own spec. Hunt '
-  + 'for the strongest objections you can actually support from this session: '
-  + 'dimensions the work did not meet, acceptance criteria with no evidence, '
-  + 'scope or non-goal violations, failure modes left unhandled. Answer '
-  + 'through the required structured output, one entry per objection, citing '
-  + 'what in the session supports it. If — and only if — the evidence '
-  + 'genuinely satisfies every dimension, return an empty findings list. Do '
-  + 'not invent objections; the empty answer is correct when nothing is wrong.'
-
 /** Injected when the critic found nothing supportable (English contract text). */
 export const CLEAN_TEXT = PROSE.en.reviewClean
+
+/** Severity ranks for a deterministic, blocker-first findings order. */
+const SEVERITY_RANK: Readonly<Record<ReviewFinding['severity'], number>> = {
+  blocker: 0,
+  major: 1,
+  minor: 2,
+  info: 3,
+}
+
+/**
+ * Sort findings blocker-first, keeping the critic's original order within a
+ * severity. A deterministic order means the most threatening objection leads
+ * both the injected prose and the durable record.
+ * @param findings - the structured findings as produced by the critic.
+ * @returns the same findings, severity-ordered.
+ */
+export function sortFindings(findings: readonly ReviewFinding[]): ReviewFinding[] {
+  return [...findings].sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity])
+}
 
 /** Render structured findings as the model-facing review text. */
 export function renderFindings(findings: readonly ReviewFinding[], prose: GuardProse = PROSE.en, totalCount: number = findings.length): string {
@@ -102,7 +102,7 @@ export function renderFindings(findings: readonly ReviewFinding[], prose: GuardP
     lines.push(`  ${finding.detail}`)
   }
   if (totalCount > findings.length) {
-    lines.push(`… ${totalCount - findings.length} further objection(s) held back by adversaryMaxFindings`)
+    lines.push(prose.reviewHeldBack(totalCount - findings.length))
   }
   lines.push('', prose.reviewFindingsFooter)
   return lines.join('\n')
@@ -138,7 +138,7 @@ export async function runAdversaryReview(
   try {
     run = await subagents.start(config.adversaryProvider, {
       label: 'doublecheck-adversary',
-      prompt: [{ type: 'text', text: CRITIC_TASK }],
+      prompt: [{ type: 'text', text: prose.criticTask }],
       parent: agent,
       signal,
       ...config.adversaryModel !== null ? { agentOptions: { model: config.adversaryModel } } : {},
@@ -184,7 +184,7 @@ async function settleResult(run: SubagentRun, signal: AbortSignal, prose: GuardP
   if (!Array.isArray(raw)) {
     return { verdict: 'unavailable', findings: [], text: outputText(result.output, prose.reviewUnavailableNoFindings) }
   }
-  const findings = raw.slice(0, maxFindings) as ReviewFinding[]
+  const findings = sortFindings(raw as ReviewFinding[]).slice(0, maxFindings)
   if (findings.length === 0) return { verdict: 'clean', findings: [], text: prose.reviewClean }
   return { verdict: 'findings', findings, text: renderFindings(findings, prose, raw.length) }
 }
