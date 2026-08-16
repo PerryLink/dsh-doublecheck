@@ -127,6 +127,9 @@ export function doublecheckHandler(deps: CommandDeps): (invocation: CommandInvoc
           color: discipline.color,
           reviewed: snapshot.lastReviewSeq >= 0,
           editCount: discipline.editCount,
+          gate: snapshot.lastGate === null
+            ? null
+            : { verdict: snapshot.lastGate.verdict, redCount: snapshot.lastGate.redCount },
         }),
       }
     }

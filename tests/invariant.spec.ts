@@ -6,6 +6,16 @@ import { installInvariant, PACKAGE_NAME } from '../src/invariant.ts'
 import type { TestRunDetection } from '../src/domain/evidence.ts'
 import { compileDetection } from '../src/domain/evidence.ts'
 import {
+  evaluateConsistency,
+  evaluateRequirements,
+  evaluateReview,
+  evaluateTests,
+  foldRequirementsEvidence,
+  foldTestEvidence,
+  DEFAULT_GATE_QUESTIONS,
+  type GateState,
+} from '../src/domain/gate.ts'
+import {
   fakeAgent,
   fakeSession,
   mutationCall,
@@ -146,6 +156,46 @@ describe('installInvariant checks', () => {
       findings: [],
       text: 'clean',
     })
+    expect(fail).not.toHaveBeenCalled()
+  })
+
+  // ── v0.7 gate announcement ──────────────────────────────────────────────
+
+  function gateState(): GateState {
+    const requirements = evaluateRequirements(
+      foldRequirementsEvidence([], 'ask_user_question'),
+      { checklist: DEFAULT_GATE_QUESTIONS, minConfirmed: 6 },
+    )
+    const tests = evaluateTests(foldTestEvidence([], detection(), /x/), { requirePassingRun: true, allowFailingRuns: 0, requireCoverage: false, minCoveragePct: 80 })
+    const consistency = evaluateConsistency([], '')
+    const review = evaluateReview(null, [], '', 'local').result
+    return {
+      verdict: 'rework',
+      phases: { requirements, tests, consistency, review },
+      reviewEngine: 'local',
+      at: '2026-08-14T00:00:00.000Z',
+    }
+  }
+
+  it('rejects a gate verdict that contradicts its own phases', () => {
+    const { ctx, fail, session } = install({ detection })
+    const state = gateState()
+    state.verdict = 'deliverable' // its phases derive rework
+    ctx.emit('doublecheck/gate', { session, state })
+    expect(fail).toHaveBeenCalledWith(expect.stringContaining('derive "rework"'))
+  })
+
+  it('rejects a gate state with a missing phase', () => {
+    const { ctx, fail, session } = install({ detection })
+    const state = gateState()
+    delete state.phases.review
+    ctx.emit('doublecheck/gate', { session, state })
+    expect(fail).toHaveBeenCalledWith(expect.stringContaining('no "review" phase'))
+  })
+
+  it('accepts a consistent gate state', () => {
+    const { ctx, fail, session } = install({ detection })
+    ctx.emit('doublecheck/gate', { session, state: gateState() })
     expect(fail).not.toHaveBeenCalled()
   })
 })

@@ -14,6 +14,8 @@
  *    the tool result, not this event, so equality is not checkable there).
  * 3. Every `doublecheck/review` announcement's findings satisfy the
  *    structured finding shape (severity enum, non-empty title and detail).
+ * 4. Every `doublecheck/gate` announcement's verdict matches the re-derivation
+ *    from its own phase results, and all four phases are present.
  *
  * The guard registers a facts-bearing installer from its own context; the
  * `./invariant` export is the standalone companion usable through a separate

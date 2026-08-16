@@ -10,9 +10,10 @@ Standalone DeepSeek Harness plugin repository (`dsh-doublecheck`). Development f
 - `src/guard/index.ts` — plugin row `doublecheck-guard`: the policy gates (grill / tdd red-green / adversary review) on the `tools/pre-execute` and `tools/post-execute` waterfalls.
 - `src/guard/command.ts` — the `/doublecheck status|report|on|off` session command and the durable `doublecheck/state` fold.
 - `src/guard/review.ts` — adversary review orchestration (forked critic subagent, structured findings, honest "unavailable" degradation).
-- `src/guard/prose.ts` — the injected reminder/deny/review prose, per-language (`en` / `zh`).
-- `src/domain/` — pure folds and vocabularies shared by both rows (stages, evidence, vagueness, vocabulary, report). No Cordis imports.
-- `src/events.ts` — process-local Cordis event vocabulary (`@mode emit`, observability-only) + the durable `doublecheck/state` `SessionEventMap` member.
+- `src/guard/gate.ts` — the delivery quality gate (v0.7): the `gate.*` Schema config, fail-loud validation, the four-phase runner (deterministic requirements/tests folds + forked consistency/local reviewers), the dsh-auto-review weak dependency (durable `autoReview/*` verdict records; degrade-to-local), the `/gate status|run|config` command, the durable `doublecheck/gate` fold, and the `doublecheck.gate` settings namespace.
+- `src/guard/prose.ts` — the injected reminder/deny/review/gate prose, per-language (`en` / `zh`); gate notices open with a one-sentence role statement and stay short.
+- `src/domain/` — pure folds and vocabularies shared by both rows (stages, evidence, vagueness, vocabulary, report, gate). No Cordis imports.
+- `src/events.ts` — process-local Cordis event vocabulary (`@mode emit`, observability-only) + the durable `doublecheck/state` and `doublecheck/gate` `SessionEventMap` members and the `doublecheck-gate` message source.
 - `skills/` — four bundled discipline skills (`grill-requirements`, `red-green-tdd`, `delivery-review`, `delivery-proof`), each `<name>/SKILL.md` in the generic Agent Skills layout.
 - `tests/` — vitest; real Cordis `Context` with scripted services (subagents/commands) and synthetic durable events; `tests/fixtures/` holds real-transcript regression logs.
 - `scripts/` — session-log tooling (`decode-session`, `extract-fixture`, `scan-sessions`) + `release-notes.mjs` (extracts the top changelog section for the publish workflow's release job).
@@ -20,8 +21,9 @@ Standalone DeepSeek Harness plugin repository (`dsh-doublecheck`). Development f
 ## Hard rules applied here
 
 - Waterfall listeners (`tools/pre-execute`, `tools/post-execute`) always call `next()` unless they claim the request; claiming a request is the only deliberate short-circuit (veto/ask) and always emits `doublecheck/reminder` first.
-- Model-visible ⟺ logged: every injected reminder/review/command notice rides the standard channels and lands in the session log as a `user/message` event with a `plugin` source; the durable spec/report/state facts ride `tool/call` results or `SessionEventMap` members.
-- Fail closed / fail loud: guard config is validated in `apply` (assertions throw); the adversary seam is validated lazily at review time and degrades to an honest "unavailable" notice.
+- Model-visible ⟺ logged: every injected reminder/review/gate command notice rides the standard channels and lands in the session log as a `user/message` event with a `plugin`/structured source; the durable spec/report/state/gate facts ride `tool/call` results or `SessionEventMap` members.
+- Fail closed / fail loud: guard config is validated in `apply` (assertions throw); the adversary and gate-reviewer seams are validated lazily at run time and degrade to honest "unavailable"/skip notices. Gate reports are audit-safe: counts, ids, and verdicts only, with secrets redacted before storage or display.
+- Weak dependency on dsh-auto-review: never imported, never hard-required — the gate folds its durable verdict records and degrades to the local reviewer; the gate never synthesizes approval requests (the chain may reach a human).
 - No agent-loop changes; only documented seams (skills provider, tools, `tools/pre-execute` / `post-execute`, subagents, commands, session events).
 - Process-local `doublecheck/*` events are observability-only: listeners must not veto or reroute; durable state never depends on them.
 

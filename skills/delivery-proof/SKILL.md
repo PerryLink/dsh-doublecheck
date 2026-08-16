@@ -32,6 +32,18 @@ for a proof, a delivery summary, or a "what did we actually do" record.
    proven and must not be described as such; `unverified` means not every
    dimension returned a verdict.
 
+## Passing the delivery gate
+
+Before claiming the delivery is ready to ship, run the quality gate:
+
+1. Run `/gate run`. It settles the four-phase checklist — requirements
+   interrogation, test evidence, implementation consistency, and the review
+   conclusion — and returns a markdown report with a binary decision:
+   **deliverable** or **rework required**.
+2. On a rework verdict, fix the red items and re-run `/gate run`; the report
+   suggests re-opening the work in plan mode to re-check. Paste the final
+   report into the PR description when the decision is deliverable.
+
 ## Reading the verdict
 
 - **grill / draft / red** — the discipline loop is not complete. State what

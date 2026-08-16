@@ -32,6 +32,8 @@ import type Schema from '@deepseek-ai/schemastery';
 import { type DisciplineState } from '../domain/stages.ts';
 import type { GuardIntensity } from '../events.ts';
 import { type ProseLanguage } from './prose.ts';
+import { type GateConfig } from './gate.ts';
+import { type GateVerdict } from '../domain/gate.ts';
 export declare const name = "doublecheck-guard";
 export declare const inject: string[];
 /**
@@ -74,6 +76,8 @@ export interface Config {
     testCommandPatterns: string[];
     /** Regexes identifying test-file paths, exempt from the red gate. */
     testFilePatterns: string[];
+    /** The delivery quality gate: the configurable checklist and the panel. */
+    gate: GateConfig;
 }
 export declare const Config: Schema<Config>;
 /** Cached per-session guard facts, folded incrementally from the append-only log. */
@@ -102,6 +106,14 @@ export interface Snapshot {
     lastReviewSeq: number;
     /** Implementation edits folded after {@link lastReviewSeq}. */
     editsAfterReview: number;
+    /** The latest durable `doublecheck/gate` run, or null before any. */
+    lastGate: {
+        seq: number;
+        verdict: GateVerdict;
+        redCount: number;
+    } | null;
+    /** A gate-red notice is already on record in the log (durable `remindOnce`). */
+    gateRedReminded: boolean;
     /** The last durable `doublecheck/state` switch on record, when one exists. */
     stateEnabled?: boolean;
 }

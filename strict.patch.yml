@@ -31,3 +31,40 @@
     testFilePatterns:
       - '(^|[\\/])(tests?|__tests__|specs?)([\\/]|$)'
       - '\\.(test|spec)\\.[A-Za-z0-9]+$'
+    gate:
+      enabled: true
+      planSuggestion: true
+      reportFile: 'gate-report.md'
+      requirements:
+        enabled: true
+        checklist:
+          - { id: goal, question: 'What outcome must the delivery produce?', specDimension: goal, required: true }
+          - { id: scope, question: 'What is in scope, and what is out of scope?', specDimension: scope, required: true }
+          - { id: acceptance, question: 'Which observable checks prove the work is done?', specDimension: acceptanceCriteria, required: true }
+          - { id: failureModes, question: 'What can go wrong, and what is the correct behavior in each case?', specDimension: failureModes, required: true }
+          - { id: priorities, question: 'What is traded when goals conflict; what is optional?', specDimension: priorities, required: true }
+          - { id: nonGoals, question: 'What does the user explicitly not want?', specDimension: nonGoals, required: true }
+        minConfirmed: 6
+        interrogateTool: 'ask_user_question'
+      tests:
+        enabled: true
+        requirePassingRun: true
+        allowFailingRuns: 0
+        requireCoverage: true
+        minCoveragePct: 80
+        coveragePattern: 'coverage[^\\d]{0,40}(\\d+(?:\\.\\d+)?)\\s*%'
+      consistency:
+        enabled: true
+        provider: fork
+        model: null
+        tools: ['read', 'glob', 'grep']
+        timeoutMs: 120000
+        maxFindings: 5
+      review:
+        enabled: true
+        engine: auto
+        provider: fork
+        model: null
+        tools: ['read', 'glob', 'grep']
+        timeoutMs: 120000
+        maxFindings: 5

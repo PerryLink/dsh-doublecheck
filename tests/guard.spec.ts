@@ -170,6 +170,49 @@ describe('doublecheck-guard', () => {
         '(?:^|[;&|]\\s*)(?:deno\\s+test|uv\\s+run\\s+pytest)(?:\\s|$)',
       ],
       testFilePatterns: ['(^|[\\\\/])(tests?|__tests__|specs?)([\\\\/]|$)', '\\.(test|spec)\\.[A-Za-z0-9]+$'],
+      gate: {
+        enabled: true,
+        planSuggestion: true,
+        reportFile: 'gate-report.md',
+        requirements: {
+          enabled: true,
+          checklist: [
+            { id: 'goal', question: 'What outcome must the delivery produce?', required: true, specDimension: 'goal' },
+            { id: 'scope', question: 'What is in scope, and what is out of scope?', required: true, specDimension: 'scope' },
+            { id: 'acceptance', question: 'Which observable checks prove the work is done?', required: true, specDimension: 'acceptanceCriteria' },
+            { id: 'failureModes', question: 'What can go wrong, and what is the correct behavior in each case?', required: true, specDimension: 'failureModes' },
+            { id: 'priorities', question: 'What is traded when goals conflict; what is optional?', required: true, specDimension: 'priorities' },
+            { id: 'nonGoals', question: 'What does the user explicitly not want?', required: true, specDimension: 'nonGoals' },
+          ],
+          minConfirmed: 6,
+          interrogateTool: 'ask_user_question',
+        },
+        tests: {
+          enabled: true,
+          requirePassingRun: true,
+          allowFailingRuns: 0,
+          requireCoverage: false,
+          minCoveragePct: 80,
+          coveragePattern: 'coverage[^\\d]{0,40}(\\d+(?:\\.\\d+)?)\\s*%',
+        },
+        consistency: {
+          enabled: true,
+          provider: 'fork',
+          model: null,
+          tools: ['read', 'glob', 'grep'],
+          timeoutMs: 120000,
+          maxFindings: 5,
+        },
+        review: {
+          enabled: true,
+          engine: 'auto',
+          provider: 'fork',
+          model: null,
+          tools: ['read', 'glob', 'grep'],
+          timeoutMs: 120000,
+          maxFindings: 5,
+        },
+      },
     })
     expect(() => guardModule.Config({ intensity: 'loud' })).toThrow()
   })

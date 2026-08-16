@@ -34,6 +34,7 @@ describe('doublecheck projection fold', () => {
     expect(applyDoublecheckEvent(state, unrelated, detection())).toBe(state)
     expect(viewDoublecheck(state)).toEqual({
       stage: 'grill', color: 'none', hasSpec: false, specGoal: '', reviewed: false, editCount: 0,
+      gateVerdict: 'none', gateRedCount: 0,
     })
   })
 
@@ -53,6 +54,7 @@ describe('doublecheck projection fold', () => {
     const view = viewDoublecheck(state)
     expect(view).toEqual({
       stage: 'green', color: 'green', hasSpec: true, specGoal: 'ship parser fix', reviewed: true, editCount: 1,
+      gateVerdict: 'none', gateRedCount: 0,
     })
     // The wire payload passes its own schema.
     expect(doublecheckViewSchema.parse(view)).toEqual(view)

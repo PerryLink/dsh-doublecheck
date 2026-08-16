@@ -1,7 +1,7 @@
 {
   "name": "dsh-doublecheck",
-  "version": "0.6.0",
-  "description": "Double-check before you ship: grill the requirements, test the implementation, prove the delivery.",
+  "version": "0.7.0",
+  "description": "Delivery quality gate for DeepSeek Harness: grill the requirements, test the implementation, prove the delivery, and gate the handoff with a deliverable/rework decision.",
   "packageManager": "pnpm@11.7.0",
   "repository": {
     "type": "git",
@@ -67,7 +67,9 @@
     "engineering-discipline",
     "requirements",
     "guard",
-    "skill"
+    "skill",
+    "quality-gate",
+    "delivery-gate"
   ],
   "author": "PerryLink",
   "license": "Apache-2.0",
@@ -108,8 +110,8 @@
     "capability": {
       "id": "doublecheck",
       "kind": "command",
-      "invocation": "send /doublecheck status in a session with the plugin rows loaded",
-      "expected": "a reply reporting the effective switch, configured modules, intensity, and folded stage facts (spec, test color, review, edit count)"
+      "invocation": "send /gate status in a session with the plugin rows loaded",
+      "expected": "a reply reporting the live checklist progress (requirements/test evidence phases), the latest gate run verdict with red items, and the plan-mode state"
     },
     "evidence": {
       "install": null,

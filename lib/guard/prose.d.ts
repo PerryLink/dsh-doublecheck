@@ -38,6 +38,18 @@ export interface GuardProse {
     reviewHeldBack: (held: number) => string;
     /** The critic's task prompt (model-facing behavior of the review run). */
     criticTask: string;
+    /** The gate-red notice injected at the turn boundary (role statement first). */
+    gateRedNotice: (redCount: number) => string;
+    /** The localized `/gate status` panel header. */
+    gateStatusHeader: string;
+    /** The localized `/gate status` usage hint. */
+    gateStatusHint: string;
+    /** The localized `/gate config` header. */
+    gateConfigHeader: string;
+    /** The localized `/gate` usage error. */
+    gateCommandUnknown: (input: string) => string;
+    /** The localized `/gate` no-agent error. */
+    gateCommandNoAgent: string;
     switchOnDurable: string;
     switchOnLocal: string;
     switchOffDurable: string;
@@ -76,6 +88,11 @@ export interface CommandStatusFacts {
     reviewed: boolean;
     /** Total implementation edits folded so far. */
     editCount: number;
+    /** The latest durable gate run, or null before any. */
+    gate: {
+        verdict: string;
+        redCount: number;
+    } | null;
 }
 /** The localized prose tables by language. */
 export declare const PROSE: Readonly<Record<ProseLanguage, GuardProse>>;

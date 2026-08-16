@@ -81,11 +81,13 @@ describe('effectiveDoublecheckEnabled', () => {
 })
 
 describe('/doublecheck command', () => {
-  it('registers one command on the commands service', async () => {
+  it('registers the discipline and gate commands on the commands service', async () => {
     const { registered } = await setup()
-    expect(registered).toHaveLength(1)
+    expect(registered).toHaveLength(2)
     expect(registered[0]?.name).toBe('doublecheck')
     expect(registered[0]?.description).toContain('discipline gates')
+    expect(registered[1]?.name).toBe('gate')
+    expect(registered[1]?.description).toContain('quality gate')
   })
 
   it('status reports the effective switch, modules, and folded stage', async () => {

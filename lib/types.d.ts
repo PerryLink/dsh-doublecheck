@@ -8,6 +8,7 @@
  */
 import { z as zod } from 'zod';
 import type { DisciplineStage, TestColor } from './domain/stages.ts';
+import type { GateVerdict } from './domain/gate.ts';
 /** The whole wire value of the `doublecheck` session projection. */
 export interface DoublecheckView {
     /** The last discipline stage reached on durable evidence. */
@@ -22,6 +23,10 @@ export interface DoublecheckView {
     reviewed: boolean;
     /** Total implementation edits folded so far. */
     editCount: number;
+    /** The latest delivery-gate verdict, or 'none' before any gate run. */
+    gateVerdict: 'none' | GateVerdict;
+    /** Red-light (failing) checks of the latest gate run. */
+    gateRedCount: number;
 }
 /** Validates the `doublecheck` projection's wire payload before it leaves the host. */
 export declare const doublecheckViewSchema: zod.ZodObject<{
@@ -31,6 +36,8 @@ export declare const doublecheckViewSchema: zod.ZodObject<{
     specGoal: zod.ZodString;
     reviewed: zod.ZodBoolean;
     editCount: zod.ZodNumber;
+    gateVerdict: zod.ZodUnion<readonly [zod.ZodLiteral<"none">, zod.ZodLiteral<"deliverable">, zod.ZodLiteral<"rework">]>;
+    gateRedCount: zod.ZodNumber;
 }, zod.core.$strip>;
 declare module '@deepseek-ai/dsh-session-projection/types' {
     interface SessionProjectionMap {

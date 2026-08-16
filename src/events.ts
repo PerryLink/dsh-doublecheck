@@ -16,17 +16,19 @@
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { Session, SessionEventMap } from '@deepseek-ai/dsh-session'
 import type { GrilledSpec, ReviewFinding, ReviewVerdict, ReportVerdict, VerifyCheck } from './domain/vocabulary.ts'
+import type { GateState, GateVerdict } from './domain/gate.ts'
 
 export type { GrilledSpec, ReviewFinding, ReviewVerdict, ReportVerdict, VerifyCheck } from './domain/vocabulary.ts'
+export type { GateState } from './domain/gate.ts'
 
 /** Guard enforcement strength. */
 export type GuardIntensity = 'remind' | 'warn' | 'block'
 
 /** Which discipline gate produced a guard reaction. */
-export type GuardGate = 'grill' | 'tdd' | 'delivery'
+export type GuardGate = 'grill' | 'tdd' | 'delivery' | 'gate'
 
 /** Policy outcome of one guard reaction. */
-export type GuardVerdict = 'reminded' | 'held' | 'denied' | 'green-pending' | 'report-expected'
+export type GuardVerdict = 'reminded' | 'held' | 'denied' | 'green-pending' | 'report-expected' | 'gate-red'
 
 declare module '@deepseek-ai/dsh-session' {
   interface SessionEventMap {
@@ -38,6 +40,14 @@ declare module '@deepseek-ai/dsh-session' {
      * type still load the log.
      */
     'doublecheck/state': { enabled: boolean }
+    /**
+     * One settled delivery-gate run written by `/gate run`: the full gate
+     * state (checklist statuses, red items, verdict, engine, timestamp).
+     * Audit-safe by construction — counts, ids, and verdicts only — and the
+     * replayable source the `/gate status` panel and the turn-boundary red
+     * notice re-derive from. Rides `ignorable: true` like the state switch.
+     */
+    'doublecheck/gate': GateState
   }
 }
 
@@ -48,6 +58,14 @@ declare module '@deepseek-ai/dsh-session' {
  */
 export interface StateAppend {
   (type: 'doublecheck/state', data: SessionEventMap['doublecheck/state'], options: { ignorable: true }): void
+}
+
+/**
+ * `Session.append` narrowed to the `doublecheck/gate` event, with the same
+ * `ignorable: true` envelope marker as the state switch.
+ */
+export interface GateAppend {
+  (type: 'doublecheck/gate', data: SessionEventMap['doublecheck/gate'], options: { ignorable: true }): void
 }
 
 declare module '@deepseek-ai/dsh-llm' {
@@ -62,6 +80,17 @@ declare module '@deepseek-ai/dsh-llm' {
       kind: 'doublecheck-review'
       verdict: ReviewVerdict
       findings: ReviewFinding[]
+    }
+    /**
+     * The delivery-gate red notice injected at the turn boundary: the
+     * model-facing text is the short gate notice (role statement first), and
+     * the structured verdict + red count ride this source so the durable
+     * once-semantics and the report folds read them without re-parsing prose.
+     */
+    'doublecheck-gate': {
+      kind: 'doublecheck-gate'
+      verdict: GateVerdict
+      redCount: number
     }
   }
 }
@@ -148,5 +177,14 @@ declare module '@deepseek-ai/cordis' {
       path: string | null
       written: boolean
     }): void
+    /**
+     * One delivery-gate run settled: the full gate state the `/gate run`
+     * command derived, after the durable `doublecheck/gate` session event was
+     * appended. Observability only — listeners must not veto or reroute.
+     * @param payload.session - the gated session.
+     * @param payload.state - the settled gate state (redacted by construction).
+     * @mode emit
+     */
+    'doublecheck/gate'(payload: { session: Session; state: GateState }): void
   }
 }

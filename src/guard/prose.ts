@@ -40,6 +40,18 @@ export interface GuardProse {
   reviewHeldBack: (held: number) => string
   /** The critic's task prompt (model-facing behavior of the review run). */
   criticTask: string
+  /** The gate-red notice injected at the turn boundary (role statement first). */
+  gateRedNotice: (redCount: number) => string
+  /** The localized `/gate status` panel header. */
+  gateStatusHeader: string
+  /** The localized `/gate status` usage hint. */
+  gateStatusHint: string
+  /** The localized `/gate config` header. */
+  gateConfigHeader: string
+  /** The localized `/gate` usage error. */
+  gateCommandUnknown: (input: string) => string
+  /** The localized `/gate` no-agent error. */
+  gateCommandNoAgent: string
   switchOnDurable: string
   switchOnLocal: string
   switchOffDurable: string
@@ -75,6 +87,8 @@ export interface CommandStatusFacts {
   reviewed: boolean
   /** Total implementation edits folded so far. */
   editCount: number
+  /** The latest durable gate run, or null before any. */
+  gate: { verdict: string; redCount: number } | null
 }
 
 const EN: GuardProse = {
@@ -157,6 +171,14 @@ const EN: GuardProse = {
     + 'what in the session supports it. If — and only if — the evidence '
     + 'genuinely satisfies every dimension, return an empty findings list. Do '
     + 'not invent objections; the empty answer is correct when nothing is wrong.',
+  gateRedNotice: redCount =>
+    `You are the delivery gate panel for this session. The latest gate run is RED with ${redCount} red item(s). Re-open the work in plan mode to re-check, or run /gate run for the full checklist.`,
+  gateStatusHeader: 'Delivery gate panel — checklist progress for this session:',
+  gateStatusHint: 'Deterministic phases fold live; the reviewer phases show the latest /gate run. Run /gate run to settle everything; /gate config shows the checklist.',
+  gateConfigHeader: 'Delivery gate configuration for this session:',
+  gateCommandUnknown: input =>
+    `Unknown /gate argument "${input}". Usage: /gate status|run|config`,
+  gateCommandNoAgent: '/gate needs an agent session to inspect.',
   switchOnDurable:
     'Double-check discipline was switched ON for this session (changed by the user): the requirements grill, the red/green gates, and the delivery review are active again.',
   switchOnLocal:
@@ -179,6 +201,7 @@ const EN: GuardProse = {
     `Modules: grill=${facts.modules.grill ? 'on' : 'off'}, tdd=${facts.modules.tdd ? 'on' : 'off'}, adversary=${facts.modules.adversary ? 'on' : 'off'} (cordis.yml).`,
     `Intensity: ${facts.intensity}. Default switch: ${facts.defaultEnabled ? 'on' : 'off'}. remindOnce: ${facts.remindOnce ? 'on' : 'off'}.`,
     `Stage: spec=${facts.hasSpec ? 'committed' : 'missing'}, tests=${facts.color}, review=${facts.reviewed ? 'on record' : 'not run'}, edits=${facts.editCount}.`,
+    `Gate: ${facts.gate === null ? 'not run' : `${facts.gate.verdict} (${facts.gate.redCount} red item(s))`} (/gate status|run|config).`,
     `Usage: /doublecheck status|report|on|off`,
   ].join('\n'),
 }
@@ -229,6 +252,14 @@ const ZH: GuardProse = {
     + '验收标准、范围或非目标被违反、未处理的失败模式。通过要求的结构化输出作答，'
     + '每条反对意见占一项，并引用会话中支撑它的内容。当且仅当证据确实满足每一个维度时，'
     + '才返回空的 findings 列表。不要编造反对意见；没有问题时空答案才是正确的。',
+  gateRedNotice: redCount =>
+    `你是本会话的交付门禁面板。最近一次门禁结论为红灯，共 ${redCount} 项红灯。建议转 plan mode 复查，或运行 /gate run 查看完整检查单。`,
+  gateStatusHeader: '交付门禁面板 — 本会话的检查单进度：',
+  gateStatusHint: '确定性阶段实时折叠；评审类阶段显示最近一次 /gate run 的结果。运行 /gate run 结算全部检查；/gate config 查看检查单配置。',
+  gateConfigHeader: '本会话的交付门禁配置：',
+  gateCommandUnknown: input =>
+    `未知的 /gate 参数 "${input}"。用法：/gate status|run|config`,
+  gateCommandNoAgent: '/gate 需要代理会话才能查看。',
   switchOnDurable:
     'Double-check 纪律已对本会话开启（由用户切换）：需求盘问、红绿门和交付审查恢复生效。',
   switchOnLocal:
@@ -251,6 +282,7 @@ const ZH: GuardProse = {
     `模块：grill=${facts.modules.grill ? '开' : '关'}, tdd=${facts.modules.tdd ? '开' : '关'}, adversary=${facts.modules.adversary ? '开' : '关'}（cordis.yml）。`,
     `强度：${facts.intensity}。默认开关：${facts.defaultEnabled ? '开' : '关'}。remindOnce：${facts.remindOnce ? '开' : '关'}。`,
     `阶段：spec=${facts.hasSpec ? '已提交' : '缺失'}, tests=${facts.color}, review=${facts.reviewed ? '有记录' : '未运行'}, edits=${facts.editCount}。`,
+    `门禁：${facts.gate === null ? '未运行' : `${facts.gate.verdict}（${facts.gate.redCount} 项红灯）`}（/gate status|run|config）。`,
     '用法：/doublecheck status|report|on|off',
   ].join('\n'),
 }

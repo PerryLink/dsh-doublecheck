@@ -14,6 +14,8 @@
  *    the tool result, not this event, so equality is not checkable there).
  * 3. Every `doublecheck/review` announcement's findings satisfy the
  *    structured finding shape (severity enum, non-empty title and detail).
+ * 4. Every `doublecheck/gate` announcement's verdict matches the re-derivation
+ *    from its own phase results, and all four phases are present.
  *
  * The guard registers a facts-bearing installer from its own context; the
  * `./invariant` export is the standalone companion usable through a separate
@@ -25,6 +27,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { ReviewVerdict } from './domain/vocabulary.ts'
 import { SPEC_FIELD_NAMES } from './domain/vocabulary.ts'
 import { deriveReportVerdict, foldReportFacts } from './domain/report.ts'
+import { deriveGateVerdict, GATE_PHASES, type GateState } from './domain/gate.ts'
 import type { TestRunDetection } from './domain/evidence.ts'
 import type {} from './events.ts'
 
@@ -105,6 +108,19 @@ export function installInvariant(facts: InvariantFacts): InvariantInstaller {
         }
         if (typeof finding.detail !== 'string' || finding.detail.trim() === '') {
           fail('doublecheck/review finding has an empty detail')
+        }
+      }
+    })
+
+    ctx.on('doublecheck/gate', (payload) => {
+      const state = payload.state as GateState
+      const derived = deriveGateVerdict(GATE_PHASES.map(phase => state.phases[phase]).filter(phase => phase !== undefined))
+      if (derived !== state.verdict) {
+        fail(`doublecheck/gate announces verdict "${state.verdict}" but its phases derive "${derived}"`)
+      }
+      for (const phase of GATE_PHASES) {
+        if (state.phases[phase] === undefined) {
+          fail(`doublecheck/gate carries no "${phase}" phase result`)
         }
       }
     })

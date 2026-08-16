@@ -52,6 +52,16 @@ import { runAdversaryReview, reviewInjection } from './review.ts'
 import type { AdversaryConfig } from './review.ts'
 import { PROSE, type ProseLanguage } from './prose.ts'
 import {
+  gateHandler,
+  gateInjection,
+  GateConfigSchema,
+  runGate,
+  settleGate,
+  validateGateConfig,
+  type GateConfig,
+} from './gate.ts'
+import { countRedChecks, type GateState, type GateVerdict } from '../domain/gate.ts'
+import {
   applyDoublecheckEvent,
   emptyDoublecheckState,
   viewDoublecheck,
@@ -104,6 +114,8 @@ export interface Config {
   testCommandPatterns: string[]
   /** Regexes identifying test-file paths, exempt from the red gate. */
   testFilePatterns: string[]
+  /** The delivery quality gate: the configurable checklist and the panel. */
+  gate: GateConfig
 }
 
 export const Config: Schema<Config> = z.object({
@@ -126,6 +138,7 @@ export const Config: Schema<Config> = z.object({
   testToolNames: z.array(z.string()).default([...DEFAULT_TEST_TOOL_NAMES]),
   testCommandPatterns: z.array(z.string()).default([...DEFAULT_TEST_COMMAND_PATTERNS]),
   testFilePatterns: z.array(z.string()).default([...DEFAULT_TEST_FILE_PATTERNS]),
+  gate: GateConfigSchema,
 })
 
 /** Cached per-session guard facts, folded incrementally from the append-only log. */
@@ -154,6 +167,10 @@ export interface Snapshot {
   lastReviewSeq: number
   /** Implementation edits folded after {@link lastReviewSeq}. */
   editsAfterReview: number
+  /** The latest durable `doublecheck/gate` run, or null before any. */
+  lastGate: { seq: number; verdict: GateVerdict; redCount: number } | null
+  /** A gate-red notice is already on record in the log (durable `remindOnce`). */
+  gateRedReminded: boolean
   /** The last durable `doublecheck/state` switch on record, when one exists. */
   stateEnabled?: boolean
 }
@@ -166,6 +183,7 @@ export interface Snapshot {
 export function apply(ctx: Context, config: Config): void {
   assertPositiveInteger('vagueTaskMaxChars', config.vagueTaskMaxChars)
   assertGuardTools(config.guardTools)
+  validateGateConfig(config.gate)
   if (config.modules.adversary) {
     assertBoundedInteger('adversaryMaxFindings', config.adversaryMaxFindings, 20)
     assertPositiveInteger('adversaryTimeoutMs', config.adversaryTimeoutMs)
@@ -226,6 +244,8 @@ export function apply(ctx: Context, config: Config): void {
         } else if (source.kind === 'doublecheck-review') {
           snapshot.lastReviewSeq = event.seq
           snapshot.editsAfterReview = 0
+        } else if (source.kind === 'doublecheck-gate') {
+          snapshot.gateRedReminded = true
         } else if (source.kind === 'user') {
           const parts: string[] = []
           for (const block of event.data.content) {
@@ -239,6 +259,13 @@ export function apply(ctx: Context, config: Config): void {
         }
       } else if (event.type === 'doublecheck/state') {
         snapshot.stateEnabled = event.data.enabled
+      } else if (event.type === 'doublecheck/gate') {
+        const gate = event.data as GateState
+        snapshot.lastGate = {
+          seq: event.seq,
+          verdict: gate.verdict,
+          redCount: gate.phases === undefined ? 0 : countRedChecks(Object.values(gate.phases)),
+        }
       } else if (event.type === 'tool/call' && event.seq > snapshot.lastReviewSeq) {
         // Implementation edits after the latest review re-arm the adversary
         // trigger for a second review round.
@@ -267,6 +294,8 @@ export function apply(ctx: Context, config: Config): void {
       reportReminded: false,
       lastReviewSeq: -1,
       editsAfterReview: 0,
+      lastGate: null,
+      gateRedReminded: false,
     }
     foldEvents(snapshot, events, 0, events.length)
     snapshots.set(session, snapshot)
@@ -333,8 +362,67 @@ export function apply(ctx: Context, config: Config): void {
     }),
   })
 
+  // The delivery gate panel: `/gate` stays available even when the gate or
+  // every discipline module is off — it is the user's inspection surface.
+  ctx.commands.register({
+    name: 'gate',
+    description: 'run the delivery quality gate and report the deliverable/rework decision',
+    input: { hint: 'status|run|config' },
+    handler: gateHandler({
+      config: config.gate,
+      detection,
+      prose,
+      runGate: (agent, signal) => runGate(ctx, config.gate, detection, agent, signal, config.language),
+      settleGate: (state, agent, signal) => settleGate(ctx, config.gate, state, agent, signal, hostStampsIgnorable()),
+      stampsIgnorable: hostStampsIgnorable,
+      planMode: ctx.get('planMode') as { get(agent: import('@deepseek-ai/dsh-agent').Agent): { active?: boolean } | undefined } | undefined,
+    }),
+  })
+
+  // The gate settings namespace: the pluggable checklist becomes editable
+  // through the harness settings surface when one is mounted (weak seam —
+  // a profile without the settings service simply has no settings page).
+  const settings = ctx.get('settings') as {
+    register(ns: string, schema: unknown, options: { base: unknown; applies: 'restart'; expose: boolean }): unknown
+  } | undefined
+  if (settings !== undefined) {
+    try {
+      settings.register('doublecheck.gate', GateConfigSchema, {
+        base: config.gate,
+        applies: 'restart',
+        expose: true,
+      })
+    } catch (error) {
+      ctx.logger.warn(`dsh-doublecheck: gate settings namespace skipped: ${String(error)}`)
+    }
+  }
+
+  // The gate-red turn notice: once per session, a settled rework verdict
+  // suggests re-opening the work in plan mode. Installed even when every
+  // discipline module is off — the gate panel is advisory, not a gate.
+  if (config.gate.enabled) {
+    ctx.on('agent/turn-stopping', async ({ agent }) => {
+      if (!doublecheckEnabled(agent.session)) return
+      const snapshot = snapshotOf(agent.session)
+      if (snapshot.gateRedReminded) return
+      const gate = snapshot.lastGate
+      if (gate === null || gate.verdict !== 'rework') return
+      snapshot.gateRedReminded = true
+      const text = prose.gateRedNotice(gate.redCount)
+      agent.inject(gateInjection(gate.verdict, gate.redCount, text))
+      ctx.emit('doublecheck/reminder', {
+        agent,
+        session: agent.session,
+        intensity: config.intensity,
+        gate: 'gate',
+        verdict: 'gate-red',
+        reminder: text,
+      })
+    })
+  }
+
   if (!config.modules.grill && !config.modules.tdd && !config.modules.adversary) {
-    ctx.logger.info('dsh-doublecheck: all discipline gates disabled; only the /doublecheck command remains active')
+    ctx.logger.info('dsh-doublecheck: all discipline gates disabled; the /doublecheck and /gate commands remain active')
     return
   }
 
@@ -560,7 +648,7 @@ export function apply(ctx: Context, config: Config): void {
       init: emptyDoublecheckState,
       apply: (state, event) => applyDoublecheckEvent(state, event, detection),
       view: viewDoublecheck,
-      stateVersion: 1,
+      stateVersion: 2,
     })
   })
 

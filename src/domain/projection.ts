@@ -23,6 +23,7 @@ import {
   type TestRunDetection,
 } from './evidence.ts'
 import { SPEC_TOOL_NAME, type DisciplineStage, type TestColor } from './stages.ts'
+import { countRedChecks, type GateState, type GateVerdict } from './gate.ts'
 import type { DoublecheckView } from '../types.ts'
 
 /** The projection unit's plain-JSON fold state. */
@@ -39,6 +40,10 @@ export interface DoublecheckProjectionState {
   reviewed: boolean
   /** Total implementation edits folded so far. */
   editCount: number
+  /** The latest delivery-gate verdict, or 'none' before any gate run. */
+  gateVerdict: 'none' | GateVerdict
+  /** Red-light (failing) checks of the latest gate run. */
+  gateRedCount: number
   /** Spec-tool call ids (with their goals) whose results have not been folded yet. */
   pendingSpecCalls: Record<string, string>
   /** Test-run call ids (with their commands) whose results have not been folded yet. */
@@ -54,6 +59,8 @@ export function emptyDoublecheckState(): DoublecheckProjectionState {
     specGoal: '',
     reviewed: false,
     editCount: 0,
+    gateVerdict: 'none',
+    gateRedCount: 0,
     pendingSpecCalls: {},
     pendingTestCalls: {},
   }
@@ -132,6 +139,12 @@ export function applyDoublecheckEvent(
       }
       return state
     }
+    case 'doublecheck/gate': {
+      const gate = event.data as GateState
+      const redCount = countRedChecks(Object.values(gate.phases))
+      if (state.gateVerdict === gate.verdict && state.gateRedCount === redCount) return state
+      return { ...state, gateVerdict: gate.verdict, gateRedCount: redCount }
+    }
     default:
       return state
   }
@@ -167,5 +180,7 @@ export function viewDoublecheck(state: DoublecheckProjectionState): DoublecheckV
     specGoal: state.specGoal,
     reviewed: state.reviewed,
     editCount: state.editCount,
+    gateVerdict: state.gateVerdict,
+    gateRedCount: state.gateRedCount,
   }
 }

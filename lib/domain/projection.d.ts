@@ -13,6 +13,7 @@
 import type { SessionEvent } from '@deepseek-ai/dsh-session';
 import { type TestRunDetection } from './evidence.ts';
 import { type DisciplineStage, type TestColor } from './stages.ts';
+import { type GateVerdict } from './gate.ts';
 import type { DoublecheckView } from '../types.ts';
 /** The projection unit's plain-JSON fold state. */
 export interface DoublecheckProjectionState {
@@ -28,6 +29,10 @@ export interface DoublecheckProjectionState {
     reviewed: boolean;
     /** Total implementation edits folded so far. */
     editCount: number;
+    /** The latest delivery-gate verdict, or 'none' before any gate run. */
+    gateVerdict: 'none' | GateVerdict;
+    /** Red-light (failing) checks of the latest gate run. */
+    gateRedCount: number;
     /** Spec-tool call ids (with their goals) whose results have not been folded yet. */
     pendingSpecCalls: Record<string, string>;
     /** Test-run call ids (with their commands) whose results have not been folded yet. */
