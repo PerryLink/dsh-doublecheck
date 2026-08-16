@@ -2,12 +2,6 @@
 
 All notable changes to dsh-doublecheck are recorded here, newest first.
 
-## Unreleased
-
-- **OMDSH Workshop intake manifest**: `package.json#dshWorkshop` (`omdsh-workshop-package/v1`) declares the transactional `harness-profile` integration, lifecycle, permissions, and the named runtime capability (`/gate status`) for the hub.omdsh.dev Registry intake. Author-declared facts only — verification evidence stays pending until the Workshop adapter run produces it.
-- **Community engineering**: structured issue forms (bug report / feature request), a pull-request checklist template, a security policy with private vulnerability reporting, GitHub Discussions enabled (welcome post), main-branch CI status protection, npm downloads badge, and a Contributors section across the five READMEs.
-- **CI profile smoke**: a `smoke` job packs the bundle, installs it into a scratch profile with the real `dsh` CLI, and asserts both rows mount (`scripts/assert-profile.mjs`) — the end-to-end check for `cordis.patch.yml` that unit tests cannot see. Ported from PR #1, which this closes.
-
 ## v0.7.0 — 2026-08-16
 
 The delivery quality gate release: the discipline loop grows a productized front panel that aggregates the session's durable evidence into one **deliverable / rework required** decision.
@@ -20,6 +14,9 @@ The delivery quality gate release: the discipline loop grows a productized front
 - **Panel surfaces**: `/gate status` renders the live deterministic phases plus the latest settled run (verdict, red count, engine, timestamp); the `doublecheck` session projection now carries `gateVerdict` + `gateRedCount` (stateVersion 2); `/doublecheck status` shows the latest gate verdict; the four-phase progress doubles as the in-conversation card.
 - **Short role-statement prose**: the gate-red turn notice and the consistency reviewer task open with a one-sentence role statement and stay short (Minimal-persona style); `en` / `zh` localized.
 - **Invariant companion + skills**: the invariant now checks the `doublecheck/gate` announcement (verdict re-derivation, all four phases present); the `delivery-proof` skill routes the model through `/gate run` before completion claims; `strict.patch.yml` restates the full gate block with `requireCoverage: true`.
+- **OMDSH Workshop intake manifest**: `package.json#dshWorkshop` (`omdsh-workshop-package/v1`) declares the transactional `harness-profile` integration, lifecycle, permissions, and the named runtime capability (`/gate status`) for the hub.omdsh.dev Registry intake. Author-declared facts only — verification evidence stays pending until the Workshop adapter run produces it.
+- **Community engineering**: structured issue forms (bug report / feature request), a pull-request checklist template, a security policy with private vulnerability reporting, GitHub Discussions enabled (welcome post), main-branch CI status protection, npm downloads badge, and a Contributors section across the five READMEs.
+- **CI profile smoke**: a `smoke` job packs the bundle, installs it into a scratch profile with the real `dsh` CLI, and asserts both rows mount (`scripts/assert-profile.mjs`) — the end-to-end check for `cordis.patch.yml` that unit tests cannot see. Ported from PR #1, which this closes.
 
 ## v0.6.0 — 2026-08-14
 
