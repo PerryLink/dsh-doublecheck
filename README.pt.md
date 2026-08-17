@@ -1,76 +1,157 @@
+<div align="center">
+
 # dsh-doublecheck
 
-> **O portão de qualidade de entrega para o DeepSeek Harness: interrogue os requisitos, teste a implementação, comprove a entrega — e então controle a passagem com uma decisão de entregável / retrabalho necessário.**
+**O portão de qualidade de entrega para o DeepSeek Harness: interrogue os requisitos, teste a implementação, comprove a entrega — e então controle a passagem com uma decisão de entregável / retrabalho necessário.**
 
-[![version](https://img.shields.io/badge/version-0.7.0-blue)](https://github.com/PerryLink/dsh-doublecheck/releases)
-[![npm](https://img.shields.io/npm/v/dsh-doublecheck)](https://www.npmjs.com/package/dsh-doublecheck)
-[![downloads](https://img.shields.io/npm/dw/dsh-doublecheck)](https://www.npmjs.com/package/dsh-doublecheck)
-[![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
-[![topics](https://img.shields.io/badge/topics-dsh%20%7C%20dsh--plugin-22c55e)](https://github.com/topics/dsh-plugin)
-[![CI](https://img.shields.io/github/actions/workflow/status/PerryLink/dsh-doublecheck/ci.yml?branch=main)](https://github.com/PerryLink/dsh-doublecheck/actions/workflows/ci.yml)
+*Os requisitos são interrogados antes da primeira edição; a entrega é comprovada, nunca afirmada.*
 
-Um **bundle de disciplina de engenharia e painel de portão de qualidade de entrega** para o [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). Agentes adoram começar a codar; requisitos odeiam ser presumidos. O `dsh-doublecheck` instala um ciclo de disciplina que faz o agente **interrogar os requisitos antes da primeira edição e comprovar a entrega em vez de afirmá-la** — e um **painel de portão de entrega** que agrega a interrogação de requisitos, a evidência de testes, a consistência diff↔requisito e uma conclusão de revisão em uma única decisão de **entregável / retrabalho necessário**, renderizada como um relatório markdown pronto para PR. Reimplementado de forma nativa nos pontos de extensão do próprio DSH (registro de skills, pipeline de políticas de ferramentas, seam de aprovação, seams de subagente e workflow, comandos, projeções de sessão, namespace de configurações, modo plano), sem arquivos de prompt emprestados. Testado contra DSH `0.1.0-rc.6`.
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![DSH plugin](https://img.shields.io/badge/dsh-plugin-✅-green)](https://github.com/topics/dsh-plugin)
+[![Node](https://img.shields.io/badge/node-%5E22.19%20%7C%7C%20%3E%3D24-brightgreen.svg)](#)
+[![CI](https://img.shields.io/github/actions/workflow/status/PerryLink/dsh-doublecheck/ci.yml?branch=main&label=CI)](https://github.com/PerryLink/dsh-doublecheck/actions)
+[![Version](https://img.shields.io/github/v/tag/PerryLink/dsh-doublecheck?label=version)](https://github.com/PerryLink/dsh-doublecheck/releases)
+[![npm version](https://img.shields.io/npm/v/dsh-doublecheck)](https://www.npmjs.com/package/dsh-doublecheck)
+[![npm downloads](https://img.shields.io/npm/dm/dsh-doublecheck)](https://www.npmjs.com/package/dsh-doublecheck)
 
-A metodologia é inspirada em [obra/superpowers](https://github.com/obra/superpowers) e [TimothyVang/Grill-me](https://github.com/TimothyVang/Grill-me). Todos os prompts, termos, exemplos e arquivos deste pacote foram escritos do zero — nada é copiado de nenhum dos dois projetos.
+[English](README.md) · [简体中文](README.zh.md) · [Español](README.es.md) · [Português](README.pt.md) · [हिन्दी](README.hi.md)
 
-## Por quê
+</div>
 
-- Tarefas vagas produzem software errado. Um pedido curto («faz uma função pra mim») esconde seis decisões em aberto; hoje o agente chuta todas elas e você paga pelo chute.
-- Times disciplinados fazem isso com humanos: revisão de requisitos → teste que falha → teste que passa → autorrevisão → comprovação de entrega. Agentes merecem o mesmo ciclo, imposto pelo harness, não pela boa vontade.
-- Publicar exige uma decisão, não um palpite. O portão de entrega transforma a evidência do ciclo em um único veredito de **entregável / retrabalho necessário** com itens vermelhos e sugestões de retrabalho — o painel que uma plataforma de avaliação cola na descrição do PR.
+---
 
-## O ciclo de disciplina
+## Compatibilidade
 
-```
+| Superfície | Status |
+|---|---|
+| Harness | DeepSeek Harness `0.1.0-rc.6` |
+| Node | `^22.19.0 \|\| >=24.0.0` |
+| Plataformas | Todas (host puro; sem código nativo, sem requisições de rede diretas próprias) |
+| Modelo | Qualquer (o guard nunca chama um modelo; as fases de crítico e revisor rodam como subagentes do harness) |
+
+## O que você obtém
+
+`dsh-doublecheck` instala duas linhas de plugin que leem e aplicam a partir do mesmo registro de sessão durável:
+
+1. **`doublecheck-grill`** — o forno de requisitos: a skill empacotada `grill-requirements` mais as ferramentas voltadas ao modelo `doublecheck_skills`, `doublecheck_spec` e `doublecheck_report`, e o fluxo de verificação por dimensão.
+2. **`doublecheck-guard`** — o guard de disciplina: o portão grill, os portões de evidência vermelho/verde, a revisão adversarial, os comandos `/doublecheck` e `/gate`, o namespace de configurações `doublecheck.gate` e o portão de entrega de quatro fases.
+
+Juntos impõem o **ciclo de disciplina** — *grill → design → red → green → review → verify*:
+
+```text
 grill ──▶ design ──▶ red ──▶ green ──▶ review ──▶ verify
-  │         │
-  │      (v0.1)        (v0.2+)        (v0.3)         (v0.4)
-  │
-  └─ fornalha de requisitos: seis dimensões, portão de consenso,
-     spec estruturado gravado na sessão e no workspace
+   │
+   └─ seis dimensões de requisitos, portão de consenso,
+      spec estruturado confirmado na sessão + workspace
 ```
 
-| Etapa | Significado | Status |
+| Etapa | Significado |
+|---|---|
+| **grill** | Interroga as seis dimensões de requisitos; recusa implementar até o consenso. |
+| **design** | O spec acordado é confirmado via `doublecheck_spec`. |
+| **red** | Uma execução de teste que falha comprova a lacuna antes das edições de implementação. |
+| **green** | Uma execução de teste aprovada após as edições fecha o ciclo. |
+| **review** | Um crítico adversarial bifurcado audita a entrega contra o spec. |
+| **verify** | `doublecheck_report` + um fluxo de verificação por dimensão comprovam a entrega. |
+
+## Início rápido
+
+```sh
+# 1. install the bundle into your profile
+dsh plugin --profile web add "github:PerryLink/dsh-doublecheck#main"
+
+# or from npm (published releases)
+dsh plugin --profile web add dsh-doublecheck
+
+# 2. restart and verify the row
+dsh --profile web --dump-config | grep -E -A3 'id: doublecheck-(grill|guard)'
+```
+
+Ambas as linhas (`doublecheck-grill` e `doublecheck-guard`) são ativadas automaticamente com o perfil.
+
+## Instalar e desinstalar
+
+- **canal git** (última `main`): `dsh plugin --profile web add "github:PerryLink/dsh-doublecheck#main"` — o script `prepare` compila apenas com dependências de produção.
+- **canal npm** (versões publicadas): `dsh plugin --profile web add dsh-doublecheck`.
+- **canal tarball**: `pnpm pack` neste repo e então `dsh plugin --profile web add ./dsh-doublecheck-<version>.tgz`.
+- **desinstalar**: `dsh plugin --profile web remove dsh-doublecheck` (ou remova as linhas do patch de perfil).
+
+Para um modo estrito sem configuração (cada portão ativo com intensidade `block`, cobertura do portão exigida), aplique a camada de sobreposição incluída sobre o patch do bundle: `dsh --profile web --patch ./node_modules/dsh-doublecheck/strict.patch.yml`.
+
+## Configuração
+
+Todos os ajustes são campos `Config` do Schemastery (alteráveis a partir do cordis.yml). Uma sobrescrita direcionada por id substitui a linha inteira — redeclare cada chave de que você precisa. `cordis.patch.yml` documenta cada chave inline; os padrões do Schema são a única fonte dos padrões de ajuste.
+
+| Chave | Padrão | Significado |
 |---|---|---|
-| **grill** | Interrogar as seis dimensões de requisitos; recusar implementar até o consenso. | ✅ v0.1 |
-| **design** | Spec registrado via `doublecheck_spec`. | ✅ v0.1 |
-| **red** | Um teste que falha comprova a lacuna; edições de implementação precisam dele no registro. | ✅ v0.2 |
-| **green** | Um teste que passa após as edições fecha o ciclo. | ✅ v0.2 |
-| **review** | Um crítico adversário bifurcado audita a entrega contra o spec. | ✅ v0.3 |
-| **verify** | `doublecheck_report` + um workflow de verificação por dimensão comprovam a entrega. | ✅ v0.4 |
+| `specFile` | `'doublecheck-spec.md'` | Arquivo do workspace para o markdown do spec confirmado (linha grill). |
+| `reportFile` | `'doublecheck-report.md'` | Arquivo do workspace para o relatório de entrega (linha grill). |
+| `reportVerify` | `true` | Executa o fluxo de verificação por padrão (linha grill). |
+| `verifyProvider` | `'fork'` | Provedor de subagente para os verificadores por dimensão (linha grill). |
+| `verifyMode` | `'all'` | `all` = um verificador paralelo por dimensão; `single` = um verificador combinado (linha grill). |
+| `intensity` | `'remind'` | Força de aplicação dos portões grill, vermelho/verde e de revisão (`remind` / `warn` / `block`). |
+| `enableByDefault` | `true` | Interruptor mestre para sessões sem registro `/doublecheck on\|off`. |
+| `language` | `'en'` | Idioma da prosa injetada de lembrete/negação/revisão/portão (`en` / `zh`). |
+| `guardTools` | `['edit', 'write']` | Nomes de ferramentas de mutação que ambos os portões vigiam. |
+| `vagueTaskMaxChars` | `200` | Tarefas mais longas nunca são tratadas como vagas. |
+| `remindOnce` | `true` | Injeta cada lembrete no máximo uma vez por sessão (durável entre reinícios). |
+| `testToolNames` | `['bash', 'pwsh']` | Nomes de ferramentas shell que podem executar testes. |
+| `testCommandPatterns` | *(pnpm/npm/yarn/bun test, pytest, go/cargo/make test, node --test, deno test, uv run pytest)* | Regex que um comando deve corresponder para contar como execução de teste. |
+| `testFilePatterns` | *(dirs de teste, `*.test.*` / `*.spec.*`)* | Regex que identificam arquivos de teste — sempre editáveis, isentos do portão vermelho. |
+| `modules.grill` | `true` | Desligado desativa o portão grill. |
+| `modules.tdd` | `true` | Ligado habilita os portões de evidência vermelho/verde. |
+| `modules.adversary` | `false` | Ligado habilita a revisão de crítico bifurcado no verde. |
+| `adversaryModel` | `null` | Rota de modelo do crítico; `null` = o modelo principal se autorrevisa. |
+| `adversaryProvider` | `'fork'` | Provedor de subagente sobre o qual o crítico roda. |
+| `adversaryMaxFindings` | `5` | Limite de achados (1–20) injetados na sessão. |
+| `adversaryTools` | `['read', 'glob', 'grep']` | Lista permitida de ferramentas do crítico; mantenha somente leitura. |
+| `adversaryTimeoutMs` | `120000` | Orçamento de tempo rígido para uma execução do crítico. |
+| `gate.enabled` | `true` | Interruptor mestre do painel do portão e do aviso vermelho de limite de turno. |
+| `gate.planSuggestion` | `true` | Acrescenta a sugestão de reverificação em modo plano aos relatórios vermelhos. |
+| `gate.reportFile` | `'gate-report.md'` | Arquivo do workspace para o relatório do portão. |
+| `gate.requirements.checklist` | *(seis perguntas de dimensão de spec)* | Lista de perguntas-chave plugável: `{ id, question, specDimension, required }`. |
+| `gate.requirements.minConfirmed` | `6` | Perguntas obrigatórias mínimas que devem passar (1..quantidade obrigatória). |
+| `gate.requirements.interrogateTool` | `'ask_user_question'` | Nome da ferramenta cujas chamadas contam como evidência de interrogação. |
+| `gate.tests.requirePassingRun` | `true` | Uma última execução de teste não aprovada (ou ausente) é uma luz vermelha. |
+| `gate.tests.allowFailingRuns` | `0` | Execuções que falham após o último verde permitidas antes do vermelho. |
+| `gate.tests.requireCoverage` | `false` | Ligado exige evidência de cobertura na saída do teste. |
+| `gate.tests.minCoveragePct` | `80` | Percentual mínimo de cobertura (0–100). |
+| `gate.consistency.*` | `provider: 'fork'`, `model: null`, `tools: ['read','glob','grep']`, `timeoutMs: 120000`, `maxFindings: 5` | Ajustes do revisor local de consistência (`model: null` = modelo principal). |
+| `gate.review.engine` | `'auto'` | `auto` = registros de veredicto do dsh-auto-review quando presentes, senão o revisor local; `local` = sempre local. |
+| `gate.review.provider` | `'fork'` | Provedor do revisor local de revisão (seu `model`/`tools`/`timeoutMs`/`maxFindings` coincidem com `gate.consistency.*`). |
 
-## O portão de entrega (v0.7)
+A má configuração falha em voz alta ao carregar: regex inválidas, listas de nomes vazias ou duplicadas, limites fora de faixa e ids de lista duplicados lançam erro em vez de não fazer nada em silêncio. `strict.patch.yml` é a camada de todos os portões em bloqueio que redeclara a linha guard com `intensity: block`, todos os módulos ativos e o requisito de cobertura habilitado.
 
-O portão é o **front end productizado do ciclo**: ele agrega a evidência durável da sessão em uma checklist configurável de quatro fases e produz uma única decisão binária. Cada fase dobra apenas o log da sessão (o replay É o estado), então uma execução do portão se re-deriva de forma idêntica após retomada ou bifurcação.
+## Ferramentas e superfícies
 
-```mermaid
-flowchart TD
-    A["/gate run"] --> B["1. Requirements interrogation"]
-    B --> C["2. Test evidence"]
-    C --> D["3. Implementation consistency"]
-    D --> E["4. Review conclusion"]
-    E --> F{"any red item?"}
-    F -- yes --> G["VERDICT: rework required"]
-    F -- no --> H["VERDICT: deliverable"]
-    G --> I["suggest plan-mode re-check + /gate run again"]
-    H --> J["paste the report into the PR description"]
-```
+| Superfície | Tipo | Notas |
+|---|---|---|
+| `doublecheck_skills` | ferramenta | Lista e carrega as quatro skills empacotadas por meio da interface do registro de skills. |
+| `doublecheck_spec` | ferramenta | Confirma o spec de seis dimensões no registro de sessão e em uma cópia markdown do workspace. |
+| `doublecheck_report` | ferramenta | Dobra a evidência de disciplina em um relatório de entrega (fluxo de verificação por dimensão opcional). |
+| `/doublecheck status\|report\|on\|off` | comando | Interruptor, módulos, intensidade, fatos de etapa, relatório dobrado e a sobrescrita durável on/off. |
+| `/gate status\|run\|config` | comando | Progresso da lista em tempo real, o relatório entregável/retrabalho assentado e a configuração efetiva. |
+| `grill-requirements`, `red-green-tdd`, `delivery-review`, `delivery-proof` | skill | Skills de disciplina empacotadas que cobrem as seis etapas do ciclo. |
+| `doublecheck.gate` | namespace de configurações | A lista plugável, exposta a UIs com configurações (`expose: true`, `applies: restart`). |
+| `strict.patch.yml` | camada de sobreposição | Cada portão ativo com intensidade `block` mais o requisito de cobertura, em uma camada de patch. |
+| `dsh-doublecheck/invariant` | linha acompanhante | Reporta contradições de caminho de escrita próprias do pacote por meio do registro `invariants` do host. |
+
+## Fases do portão
+
+O portão de entrega agrega a evidência durável da sessão em uma lista configurável de quatro fases e assenta uma decisão **entregável / retrabalho necessário**. Cada fase dobra apenas o registro de sessão (a reprodução É o estado), então uma execução é rederivada de forma idêntica após retomar ou bifurcar.
 
 | Fase | Verificações | Fonte de evidência | Custo de modelo |
 |---|---|---|---|
-| **Interrogação de requisitos** | Checklist configurável de perguntas-chave, confirmada item a item (seis perguntas de dimensão do spec por padrão). | `doublecheck_spec` registrado + chamadas `ask_user_question`. | nenhum |
-| **Evidência de testes** | Cor da última execução, execuções que falham após green, limite de cobertura opcional. | Execuções de teste de shell no log da sessão (`[exit code: N]`, percentuais de cobertura). | nenhum |
-| **Consistência da implementação** | Mapeamento diff ↔ requisito: toda edição deve servir a uma dimensão do spec. | Revisor bifurcado local (achados estruturados, ferramentas somente leitura). | um subagente |
-| **Conclusão da revisão** | O veredito de entrega. `engine: auto` consome os registros de veredito duráveis do **dsh-auto-review** quando presentes e degrada para o revisor local caso contrário; `engine: local` usa sempre o revisor local. | Eventos `autoReview/verdict` / `autoReview/rejection`, ou o revisor bifurcado local. | um subagente (local) |
+| Interrogação de requisitos | Lista de perguntas-chave confirmadas item a item (seis perguntas de dimensão de spec por padrão) | `doublecheck_spec` confirmado + chamadas `ask_user_question` | nenhum |
+| Evidência de teste | Cor da última execução, execuções que falham após o verde, limite de cobertura opcional | Execuções de teste shell no registro de sessão (`[exit code: N]`, percentuais de cobertura) | nenhum |
+| Consistência de implementação | Mapeamento diff ↔ requisito: cada edição deve servir a uma dimensão de spec | Revisor bifurcado local (achados estruturados, ferramentas somente leitura) | um subagente |
+| Conclusão de revisão | O veredicto de entrega; `engine: auto` consome os registros de veredicto duráveis do dsh-auto-review quando presentes, senão o revisor local | Eventos `autoReview/verdict` / `autoReview/rejection`, ou o revisor bifurcado local | um subagente (local) |
 
-- **Luzes vermelhas** são verificações que falharam: um spec ausente, uma última execução de teste que falha, cobertura abaixo do mínimo, uma edição sem mapeamento, uma chamada de engine rejeitada, achados de revisão blocker/major. Cada item vermelho traz uma sugestão de retrabalho.
-- **Avisos e pulos nunca mudam a decisão**: uma revisão pulada mantém o relatório honesto ("not reviewed") sem inventar uma luz vermelha — fail-closed para afirmações, nunca para evidência.
-- **Modo plano e aprovações**: um veredito de retrabalho sugere reabrir o trabalho em modo plano (no banner do relatório, no painel `/gate status` e no aviso de turno de uma vez por sessão). Os portões de disciplina abaixo mantêm sua aplicação na cadeia de aprovação `warn`/`block`; o portão em si é consultivo.
-- **À prova de auditoria por construção**: os relatórios registram apenas contagens, ids e vereditos — sem conteúdos de arquivo nem texto de sessão. Os textos de achados produzidos pelo modelo passam por um redator de segredos (chaves de nuvem, tokens, blocos de chave privada, atribuições de senha, sequências longas hex/base64) antes de serem armazenados ou exibidos. O estado assentado trafega pelo evento de sessão durável `doublecheck/gate` e pelo `gate-report.md` do workspace.
+As luzes vermelhas são verificações que falharam (um spec ausente, uma última execução que falhou, cobertura abaixo do mínimo, uma edição sem mapeamento, achados blocker/major) — cada uma carrega uma sugestão de retrabalho. Avisos e pulos nunca invertem a decisão. O portão integra o [dsh-auto-review](https://github.com/PerryLink/dsh-auto-review) como dependência fraca: `review.engine: auto` dobra seus registros de veredicto quando presentes e degrada para o revisor local caso contrário; o portão nunca sintetiza solicitações de aprovação.
 
-### Relatório de exemplo
+## Relatório de exemplo
 
-`/gate run` devolve este markdown — cole-o na descrição de um PR:
+`/gate run` retorna este markdown — cole-o na descrição de um PR:
 
 ````markdown
 # Delivery gate report
@@ -107,371 +188,71 @@ flowchart TD
 - counts, ids, and verdicts only: no file contents or session text are embedded, and recognized secrets are redacted.
 ````
 
-### Dependência fraca do dsh-auto-review
-
-O portão integra-se com o [dsh-auto-review](https://github.com/PerryLink/dsh-auto-review) como **"usar o engine quando ele estiver lá"**, nunca como uma dependência dura:
-
-- `review.engine: auto` (padrão) dobra os registros de veredito duráveis do engine (`autoReview/verdict` / `autoReview/rejection`) a partir do log da sessão — as conclusões reais do engine sobre as revisões da cadeia de aprovação desta sessão. Chamadas rejeitadas ou de alto risco viram itens vermelhos.
-- Sem registros (o engine não está instalado, ou nada o acionou nesta sessão) → a fase degrada para o revisor bifurcado local e nomeia o motivo numa verificação de aviso: `dsh-auto-review is not installed` / `dsh-auto-review is installed but has no verdict records in this session`.
-- O portão **nunca sintetiza pedidos de aprovação**: essa cadeia pode chegar a um humano. Os próprios registros do engine são a evidência; `engine: local` a ignora por completo.
-
-### Superfície de configurações
-
-A checklist plugável é config validada por Schema (`gate.*` na linha guard) e ainda é registrada como o **namespace de configurações `doublecheck.gate`** (`expose: true`, `applies: restart`) quando o serviço de configurações do harness está montado — assim UIs capazes de configurações podem ler e editar a checklist sem editar um profile à mão.
-
-## Recursos
-
-- 🔥 **Skill `grill-requirements`** — um skill empacotado no formato Agent Skills que interroga a tarefa em seis dimensões (**objetivo, escopo, critérios de aceite, modos de falha, prioridades, não-objetivos**) usando a UI nativa `ask_user_question` do DSH, recusa escrever código até o consenso e registra o contrato.
-- 🧰 **Skills de etapa para o ciclo inteiro** — `red-green-tdd` (escreva o teste que falha, rode red, implemente, rode green), `delivery-review` (autorrevisão adversária contra o spec uma vez em green) e `delivery-proof` (consolide a evidência no relatório de entrega e passe pelo portão de entrega antes de declarar concluído) juntam-se ao `grill-requirements`: as seis etapas têm orientação de modelo, não só a primeira.
-- 📜 **Ferramenta `doublecheck_spec`** — grava o spec acordado no log da sessão e escreve uma cópia em markdown no workspace, para o contrato sobreviver à conversa. Dimensões vazias ou só com espaços são rejeitadas no commit (v0.6): o grill precisa assentar as seis antes de o spec contar.
-- 🔄 **Re-grill na mudança de tarefa** — um spec registrado cobre a própria tarefa: um novo pedido direto do usuário após o último spec reabre o portão grill para esse follow-up, em vez de herdar o contrato anterior em silêncio.
-- 🛡️ **Guard de disciplina** — um portão suave no pipeline de políticas de ferramentas. Tarefa vaga + sem spec + rumo a `edit`/`write` → **lembrar**, **pedir aprovação humana** ou **bloquear**, conforme `intensity`.
-- 🟥🟩 **Portões de evidência red/green** (`modules.tdd`) — verificações duras sobre o log da sessão: uma edição de implementação exige um **teste que falha registrado** desde o último teste que passa (escrever arquivos de teste é sempre permitido — é assim que o passo red acontece), e um turno que termina com edições mas sem nenhum teste que passa recebe um lembrete green injetado. Ferramentas guard personalizadas funcionam de cara: os portões leem as chaves de argumento `file_path` e `path`, e uma chamada que não nomeia arquivo nenhum não é tratada como edição de implementação.
-- 👁️ **Revisão adversária** (`modules.adversary`) — assim que a entrega chega ao green, um subagente crítico bifurcado (seam nativo de subagentes do DSH, provider `fork` por padrão) audita a sessão contra o spec registrado com postura adversária e devolve achados estruturados, ordenados com blockers primeiro. `remind` injeta a crítica; `warn`/`block` ainda direcionam uma rodada para o modelo responder aos achados. `adversaryModel` roteia o crítico para um modelo separado; a allowlist de ferramentas do crítico é somente leitura por padrão. Os achados trafegam pela fonte de mensagens durável `doublecheck-review`. A revisão se rearma quando o crítico termina: edições de implementação após o último registro de revisão disparam outra rodada, e cancelar o turno aborta o crítico em voo.
-- 🚦 **Portão de qualidade de entrega** (v0.7) — a checklist configurável de quatro fases acima: interrogação de requisitos (perguntas-chave confirmadas item a item), evidência de testes (cor da execução, casos que falham, limite de cobertura), consistência da implementação (mapeamento diff ↔ requisito por um revisor local) e a conclusão da revisão (registros de veredito do dsh-auto-review com uma degradação local honesta). Uma única decisão de **entregável / retrabalho necessário**, itens vermelhos com sugestões de retrabalho, uma sugestão de rechecagem em modo plano no vermelho, um aviso vermelho no limite do turno (curto, uma vez por sessão) e o relatório markdown pronto para PR.
-- ⌨️ **Comando de sessão `/gate`** — `status` renderiza o progresso ao vivo da checklist (fases determinísticas dobram na hora; fases de revisor mostram a última execução), `run` assenta o portão completo e devolve o relatório, `config` renderiza a checklist e os limites efetivos.
-- 🌐 **Superfície de modelo totalmente localizada** — toda string visível ao modelo que o pacote injeta ou responde (lembretes, feedback de negação/consulta, direcionamento de revisão, avisos de portão, avisos de troca, respostas do `/doublecheck` e `/gate`, e os prompts de tarefa do revisor) respeita `language: 'en' | 'zh'`; os documentos spec/report/gate do workspace mantêm seus cabeçalhos estáveis em inglês e seus ids de auditoria.
-- 📊 **Relatório doublecheck + workflow de verificação** (`doublecheck_report`, v0.4) — consolida a evidência de disciplina da sessão (spec, cronologia red/green, achados da revisão, edições) em um relatório de entrega com um veredito derivado (`grill → draft → red → green → objections/verified → proven/challenged/unverified`), gravado no workspace. Com `verify`, os verificadores por dimensão rodam pelo seam de workflow do DSH (`verifyMode: all` lança um verificador paralelo por dimensão; `single` executa um combinado) e os vereditos se dobram no relatório — `proven` exige um veredito para cada dimensão.
-- 🚦 **Portão de entrega** — no limite do turno, uma entrega que chegou ao green sem `doublecheck_report` registrado recebe um lembrete de relatório esperado antes de declarar concluído; um relatório bem-sucedido avança a etapa para `verify`.
-- 🔁 **Estado durável** — todo artefato visível ao modelo (spec, lembretes, feedback de negação, achados da revisão, execuções do portão, o interruptor `/doublecheck on|off`) fica no log da sessão; as decisões dos portões derivam só do log (`tool/call` + `tool/result`, incluindo os sub-despachos do Code Mode), então sessões retomadas ou bifurcadas se comportam igual. `remindOnce` também é durável: uma sessão que já recebeu um lembrete nunca o recebe duas vezes, mesmo após reiniciar. A dobra do interruptor viaja num snapshot incremental, então sessões longas ficam em O(eventos novos) por chamada de ferramenta.
-- ⌨️ **Comando de sessão `/doublecheck`** — `status` informa o interruptor efetivo, os módulos configurados, a intensidade de aplicação, os fatos de etapa dobrados e o último veredito do portão; `report` dobra o relatório de entrega na hora; `on|off` grava o override durável `doublecheck/state` e injeta um aviso de troca.
-- 📚 **Ferramenta `doublecheck_skills`** — lista e carrega os skills do pacote pelo seam oficial do registro de skills.
-- 🔒 **Overlay estrito** — `strict.patch.yml` liga todos os portões com intensidade `block` e habilita o requisito de cobertura (80%) numa única camada de patch (vem com o pacote).
-- 🧩 **Companheiro invariante independente** — a linha `dsh-doublecheck/invariant` é uma exportação de subrota real: relata contradições do caminho de escrita do pacote (forma spec/report/review/gate e consistência de veredito) pelo registro `invariants` do host sem carregar o guard.
-
-## Demo
-
-Uma execução headless real com `intensity: block` e todos os portões habilitados, transcrição gravada a partir do log de sessão durável:
-
-```sh
-dsh --profile demo headless "把这个项目里最慢的代码直接改快，别问我任何问题，直接改文件。"
-```
-
-1. **grill** bloqueia a primeira edição — nenhum spec registrado:
-   `Error: Blocked by the dsh-doublecheck requirements guard: the task statement is vague and no doublecheck_spec exists for this session.`
-2. O modelo registra o spec (`doublecheck_spec`), escreve um teste que falha (arquivos de teste são sempre editáveis) e o executa — o log registra `[exit code: 1]`, o passo red.
-3. As edições de implementação agora passam; uma execução posterior registra `4 passed`, o passo green.
-4. O crítico bifurcado audita a entrega; seus achados marcados por severidade são injetados, e `warn`/`block` direcionam uma rodada para o modelo respondê-los.
-5. `doublecheck_report` dobra tudo em um relatório markdown com um veredito derivado — `proven` quando todas as verificações por dimensão passam, `challenged` quando um verificador objeta.
-6. **`/gate run`** assenta a checklist de quatro fases na decisão de **entregável / retrabalho necessário**; um veredito vermelho lista os itens vermelhos com sugestões de retrabalho e sugere uma rechecagem em modo plano.
-
-## Instalação
-
-```sh
-dsh plugin --profile <name> add dsh-doublecheck
-dsh --profile <name> --dump-config   # espere uma camada "# == dsh-doublecheck"
-```
-
-As duas linhas de plugin ativam automaticamente com o profile. Instalação por tarball também funciona:
-
-```sh
-pnpm pack
-dsh plugin --profile <name> add ./dsh-doublecheck-0.7.0.tgz
-```
-
-Instalação por git dispensa npm:
-
-```sh
-dsh plugin --profile <name> add "github:PerryLink/dsh-doublecheck#v0.7.0"
-```
-
-Para um modo estrito sem configuração (todos os portões ligados, intensidade `block`, cobertura do portão exigida), aplique o overlay incluído por cima do bundle patch:
-
-```sh
-dsh --profile <name> --patch ./node_modules/dsh-doublecheck/strict.patch.yml
-```
-
-## Desinstalação
-
-```sh
-dsh plugin --profile <name> remove dsh-doublecheck
-```
-
-Para manter o pacote instalado mas desativar uma linha: sobrescreva-a por id com `disabled: true` no `cordis.patch.yml` do profile (`doublecheck-grill` / `doublecheck-guard`).
-
-## Compatibilidade
-
-- Verificado contra os peers `0.1.0-rc.6` (`@deepseek-ai/cordis ^4.0.1`); última verificação em 2026-08-14 (Windows + Node 22).
-- As escritas de sessão duráveis (`/doublecheck on|off` → `doublecheck/state`, `/gate run` → `doublecheck/gate`) exigem a superfície de escrita `ignorable` do host (harness posterior ao rc.6): hosts rc.6 ignoram o options bag e o evento permanece required-on-read, então a troca fica em memória e o registro do portão vive apenas no resultado do comando + arquivo do workspace, até atualizar o harness.
-- O namespace de configurações `doublecheck.gate` registra apenas quando o serviço de configurações do harness está montado; profiles sem ele simplesmente não têm superfície de configurações.
-- A linha `plan mode:` de `/gate status` lê o serviço opcional `ctx.planMode`; profiles sem ele mostram `unknown`.
-
 ## Permissões e dados
 
-- **Lê**: apenas em processo o log de sessão (`tool/call` / `tool/result` / `tool/code-dispatch`, fontes `user/message` injetadas e os registros de veredito estrangeiros `autoReview/*`); o estado opcional do serviço de modo plano.
-- **Escreve**: `doublecheck-spec.md`, `doublecheck-report.md` e `gate-report.md` no workspace da sessão (caminhos configuráveis), via o seam `ctx.fs`; os eventos de sessão duráveis `doublecheck/state` e `doublecheck/gate`.
-- **Chamadas ao modelo**: as fases de consistência e revisão local do portão (um subagente cada por `/gate run`), a revisão adversária opcional (`modules.adversary`, off por padrão) e o workflow de verificação de `doublecheck_report` (on por padrão) iniciam subagentes; nada mais chama o modelo ou a rede.
-- **Nunca toca**: credenciais, variáveis de ambiente ou arquivos fora do workspace da sessão. Relatórios do portão contêm apenas contagens, ids e vereditos; segredos reconhecidos nos textos do revisor são redigidos antes do armazenamento ou exibição.
+- **Lê**: o registro de sessão (`tool/call` / `tool/result` / `tool/code-dispatch`, fontes `user/message` injetadas e os registros de veredicto alheios `autoReview/*`) somente em processo; o estado opcional do serviço de modo plano.
+- **Escreve**: `doublecheck-spec.md`, `doublecheck-report.md` e `gate-report.md` no workspace da sessão (caminhos configuráveis) por meio da interface `ctx.fs`; os eventos de sessão duráveis `doublecheck/state` e `doublecheck/gate`.
+- **Chamadas a modelo**: as fases de consistência e revisão local do portão (um subagente cada por `/gate run`), a revisão adversarial opcional e o fluxo de verificação de `doublecheck_report` iniciam execuções de subagente; nada mais chama um modelo ou a rede.
+- **Nunca toca**: credenciais, variáveis de ambiente ou qualquer arquivo fora do workspace da sessão. O manifesto do workshop declara apenas `filesystem:read` e `filesystem:write`. Os relatórios do portão carregam apenas contagens, ids e veredictos; segredos reconhecidos nos textos do revisor são redigidos antes de armazenar ou exibir.
 
-## Resolução de problemas
+## Limites de segurança
 
-| Sintoma | Causa e solução |
-|---|---|
-| Sem camada `# == dsh-doublecheck` no `--dump-config` | Falta o bundle patch ou uma linha está `disabled` — confira a ordem dos patches do profile e os ids das linhas. |
-| Os gates nunca reagem | Rode `/doublecheck status`: o interruptor da sessão pode estar desligado, ou todos os `modules.*` estão false. |
-| "Adversary review did not run: the subagents seam is not mounted" | Esta composição de profile não provê subagentes — monte um (composições spine trazem) ou desative `modules.adversary`. |
-| `doublecheck_report` mostra `verification: null` | O seam `workflowEngine` está ausente ou o run foi rejeitado/abortado — o relatório diz isso em vez de adivinhar. |
-| O relatório diz `unverified` | A verificação rodou mas nem toda dimensão do spec devolveu veredicto — rode de novo com `verify: true`; `proven` exige as seis. |
-| `/gate run` mostra `Review conclusion — WARN: dsh-auto-review is not installed` | Degradação esperada: a linha do engine não está neste profile. Instale o `dsh-auto-review`, ou defina `gate.review.engine: local` para pular a detecção. |
-| `/gate run` mostra `Implementation consistency — SKIP` | O seam `subagents` está ausente (ou o run expirou) — monte um provider de subagentes; o portão nunca falsifica um veredito. |
-| `/gate status` mostra `plan mode: unknown` | O profile não tem serviço de modo plano montado; a sugestão ainda aparece no relatório e no aviso de turno. |
-| O registro do portão não está no log da sessão | Este host rc.6 não carimba o marcador `ignorable` — o registro vive apenas no resultado do comando e no `gate-report.md`. |
+- **Visível ao modelo ⟺ registrado.** Cada lembrete, revisão e aviso de portão injetado viaja pelos canais padrão e cai no registro de sessão; os fatos duráveis spec/state/gate viajam por resultados de ferramenta ou membros de `SessionEventMap`.
+- **Falha fechado / falha em voz alta.** A configuração do guard e do portão é validada em `apply` (asserções lançam); uma interface de revisor ou adversário que não pode rodar se assenta como um aviso honesto "unavailable"/pulo em vez de um veredicto falso.
+- **Relatórios auditáveis.** Os relatórios de portão e entrega registram apenas contagens, ids e veredictos — sem conteúdos de arquivo ou texto de sessão — e os textos de achados produzidos pelo modelo passam por um redator de segredos antes de armazenar ou exibir.
+- **Sem rede própria.** O plugin não faz requisições de rede diretas; os subagentes de crítico e revisor viajam pela interface de subagentes do harness.
+- **Dependência fraca do dsh-auto-review.** Nunca é importado nem exigido; o portão dobra seus registros de veredicto duráveis e degrada para o revisor local, e nunca sintetiza solicitações de aprovação.
 
-## Configuração
+## Limitações conhecidas
 
-Sobrescreva qualquer linha **por id** no `cordis.patch.yml` do profile. Um patch substitui toda a config da linha — reescreva todas as chaves:
-
-```yaml
-- id: doublecheck-grill
-  config:
-    specFile: 'specs/doublecheck-spec.md'   # default: 'doublecheck-spec.md'
-    reportFile: 'specs/doublecheck-report.md'   # default: 'doublecheck-report.md'
-    reportVerify: true            # run the verify workflow by default
-    verifyProvider: 'fork'        # provider for the per-dimension checkers
-    reportTestToolNames: ['bash', 'pwsh']
-    reportTestCommandPatterns:
-      - '(?:^|[;&|]\s*)(?:(?:pnpm|npm|npx|yarn|bun)(?:\s+run)?\s+(?:test|vitest|jest|mocha)(?:\s|$))'
-      - '(?:^|[;&|]\s*)(?:(?:pytest|go\s+test|cargo\s+test|make\s+test|ctest)(?:\s|$))'
-      - '(?:^|[;&|]\s*)(?:node\s+--test(?:\s|$))'
-      - '(?:^|[;&|]\s*)(?:deno\s+test|uv\s+run\s+pytest)(?:\s|$)'
-    reportMutationTools: ['edit', 'write']
-    reportTestFilePatterns:
-      - '(^|[\\/])(tests?|__tests__|specs?)([\\/]|$)'
-      - '\\.(test|spec)\\.[A-Za-z0-9]+$'
-
-- id: doublecheck-guard
-  config:
-    intensity: warn
-    modules:
-      grill: true
-      tdd: true         # red/green evidence gates (v0.2)
-      adversary: true   # forked critic review (v0.3)
-    adversaryModel: null            # or e.g. 'deepseek-v4-pro' for a separate critic model
-    adversaryProvider: 'fork'       # subagent provider the critic runs on
-    adversaryMaxFindings: 5         # findings cap injected into the session
-    adversaryTools: ['read', 'glob', 'grep']   # critic tool allowlist (read-only)
-    adversaryTimeoutMs: 120000      # hard budget for one critic run
-    guardTools: ['edit', 'write']
-    vagueTaskMaxChars: 200
-    remindOnce: true
-    testToolNames: ['bash', 'pwsh']
-    testCommandPatterns:
-      - '(?:^|[;&|]\s*)(?:(?:pnpm|npm|npx|yarn|bun)(?:\s+run)?\s+(?:test|vitest|jest|mocha)(?:\s|$))'
-      - '(?:^|[;&|]\s*)(?:(?:pytest|go\s+test|cargo\s+test|make\s+test|ctest)(?:\s|$))'
-      - '(?:^|[;&|]\s*)(?:node\s+--test(?:\s|$))'
-      - '(?:^|[;&|]\s*)(?:deno\s+test|uv\s+run\s+pytest)(?:\s|$)'
-    testFilePatterns:
-      - '(^|[\\/])(tests?|__tests__|specs?)([\\/]|$)'
-      - '\\.(test|spec)\\.[A-Za-z0-9]+$'
-    gate:
-      enabled: true
-      planSuggestion: true
-      reportFile: 'gate-report.md'
-      requirements:
-        enabled: true
-        checklist:
-          - { id: goal, question: 'What outcome must the delivery produce?', specDimension: goal, required: true }
-          - { id: scope, question: 'What is in scope, and what is out of scope?', specDimension: scope, required: true }
-          - { id: acceptance, question: 'Which observable checks prove the work is done?', specDimension: acceptanceCriteria, required: true }
-          - { id: failureModes, question: 'What can go wrong, and what is the correct behavior in each case?', specDimension: failureModes, required: true }
-          - { id: priorities, question: 'What is traded when goals conflict; what is optional?', specDimension: priorities, required: true }
-          - { id: nonGoals, question: 'What does the user explicitly not want?', specDimension: nonGoals, required: true }
-        minConfirmed: 6
-        interrogateTool: 'ask_user_question'
-      tests:
-        enabled: true
-        requirePassingRun: true
-        allowFailingRuns: 0
-        requireCoverage: false
-        minCoveragePct: 80
-        coveragePattern: 'coverage[^\d]{0,40}(\d+(?:\.\d+)?)\s*%'
-      consistency:
-        enabled: true
-        provider: fork
-        model: null
-        tools: ['read', 'glob', 'grep']
-        timeoutMs: 120000
-        maxFindings: 5
-      review:
-        enabled: true
-        engine: auto          # auto = dsh-auto-review verdict records, else local
-        provider: fork
-        model: null
-        tools: ['read', 'glob', 'grep']
-        timeoutMs: 120000
-        maxFindings: 5
-```
-
-O `strict.patch.yml` incluído é exatamente esta linha guard com `intensity: block`, todos os módulos ligados e o requisito de cobertura do portão habilitado — aplique-o como camada de patch depois do bundle patch para o modo estrito sem editar um profile à mão.
-
-### `intensity`
-
-| Valor | Comportamento diante de um `edit`/`write` controlado pelo portão |
-|---|---|
-| `remind` (padrão) | A chamada prossegue; um lembrete viaja no contexto do resultado para a próxima requisição do modelo. |
-| `warn` | A chamada fica retida aguardando aprovação humana única pelo seam de aprovação (nega quando não há canal). |
-| `block` | A chamada é negada com feedback que orienta o modelo a corrigir a disciplina primeiro. |
-
-### Ajustes
-
-| Chave | Padrão | Significado |
-|---|---|---|
-| `modules.grill` | `true` | `false` desativa o portão grill. O interruptor dos skills/ferramentas grill é o flag `disabled` da linha deles. |
-| `modules.tdd` | `true` | `true` ativa os portões de evidência red/green (v0.2); ativado por padrão desde v0.5. |
-| `modules.adversary` | `false` | `true` ativa a revisão do crítico bifurcado no green (v0.3); usa o seam `ctx.subagents` — um seam ausente se resolve como um aviso «indisponível». |
-| `enableByDefault` | `true` | Interruptor mestre para sessões sem um registro `/doublecheck on|off`. |
-| `language` | `'en'` | Idioma da prosa injetada de lembrete/negação/revisão/portão (`en` / `zh`). |
-| `guardTools` | `['edit', 'write']` | Nomes de ferramentas de mutação que o guard vigia. |
-| `vagueTaskMaxChars` | `200` | Tarefas mais longas nunca são tratadas como vagas. Tarefas breves que citam arquivo, caminho, URL, palavra-chave com sublinhado ou palavra-chave hifenizada são concretas. |
-| `remindOnce` | `true` | Injetar o lembrete de cada portão no máximo uma vez por sessão — durável entre reinícios (dobrado do log). |
-| `testToolNames` | `['bash', 'pwsh']` | Nomes de ferramentas de shell que podem executar testes. |
-| `testCommandPatterns` | *(pnpm/npm/yarn/bun test, pytest, go/cargo/make test, node --test, deno test, uv run pytest)* | Expressões regulares com as quais um comando deve coincidir para contar como execução de teste. |
-| `testFilePatterns` | *(diretórios de teste, `*.test.*` / `*.spec.*`)* | Expressões regulares que identificam arquivos de teste — sempre editáveis, isentos do portão red. |
-| `adversaryModel` | `null` | Rota do modelo crítico; `null` = o modelo principal se autorrevisa. |
-| `adversaryProvider` | `'fork'` | Nome do provider de subagentes onde o crítico roda. |
-| `adversaryMaxFindings` | `5` | Teto de achados (1–20) injetados na sessão. |
-| `adversaryTools` | `['read', 'glob', 'grep']` | Allowlist de ferramentas do crítico; mantenha somente leitura. |
-| `adversaryTimeoutMs` | `120000` | Orçamento de tempo rígido para uma execução do crítico. |
-
-Configuração errada falha em voz alta: uma regex inválida, uma lista de nomes vazia ou duplicada, ou um teto de achados fora do intervalo lança erro no carregamento, em vez de não fazer nada em silêncio. Um crítico que não consegue rodar (seam ausente, falha do provider, timeout) se resolve como um aviso honesto «indisponível» na sessão.
-
-### Controles do relatório (linha grill)
-
-| Chave | Padrão | Significado |
-|---|---|---|
-| `reportFile` | `'doublecheck-report.md'` | Arquivo do workspace que recebe o markdown do relatório. |
-| `reportVerify` | `true` | Padrão para o flag `verify` da ferramenta. |
-| `verifyProvider` | `'fork'` | Provider de subagentes onde os verificadores por dimensão rodam. |
-| `verifyMode` | `'all'` | `all` = um verificador paralelo por dimensão; `single` = um verificador combinado (um subagente, mais barato). |
-| `reportTestToolNames` / `reportTestCommandPatterns` | *(same defaults as the guard row)* | Classificação de execuções de teste com escopo de relatório. |
-| `reportMutationTools` / `reportTestFilePatterns` | *(same defaults as the guard row)* | Classificação de edições de implementação com escopo de relatório. |
-
-Os controles de classificação do relatório são independentes dos do guard: a aplicação do portão e a dobra do relatório podem ser ajustados separadamente sem que um mude silenciosamente o outro. A verificação degrada honestamente: um seam `workflowEngine` ausente ou uma execução rejeitada deixa `verification: null` e o markdown diz isso.
-
-### Controles do portão (linha guard)
-
-| Chave | Padrão | Significado |
-|---|---|---|
-| `gate.enabled` | `true` | Interruptor mestre do painel do portão e do aviso vermelho no limite do turno. |
-| `gate.planSuggestion` | `true` | Anexa a sugestão de rechecagem em modo plano aos relatórios e painéis vermelhos. |
-| `gate.reportFile` | `'gate-report.md'` | Arquivo do workspace que recebe o relatório do portão. |
-| `gate.requirements.enabled` | `true` | `false` pula a fase de requisitos. |
-| `gate.requirements.checklist` | *(seis perguntas de dimensão do spec)* | A checklist plugável de perguntas-chave: `{ id, question, specDimension, required }`. `specDimension: null` renderiza como um aviso de confirmação manual; perguntas opcionais que falham são avisos, não luzes vermelhas. |
-| `gate.requirements.minConfirmed` | `6` | Mínimo de perguntas obrigatórias que devem passar (1..contagem obrigatória). |
-| `gate.requirements.interrogateTool` | `'ask_user_question'` | Nome da ferramenta cujas chamadas contam como evidência de interrogação. |
-| `gate.tests.enabled` | `true` | `false` pula a fase de evidência de testes. |
-| `gate.tests.requirePassingRun` | `true` | Uma última execução de teste que não passa (ou ausente) é uma luz vermelha. |
-| `gate.tests.allowFailingRuns` | `0` | Execuções que falham após o último green permitidas antes do vermelho. |
-| `gate.tests.requireCoverage` | `false` | `true` exige evidência de cobertura na saída dos testes. |
-| `gate.tests.minCoveragePct` | `80` | Percentual mínimo de cobertura (0–100). |
-| `gate.tests.coveragePattern` | `coverage…(\d+…)%` | Regex com um grupo de captura que analisa o percentual de cobertura (compilada sem diferenciar maiúsculas). |
-| `gate.consistency.enabled` | `true` | `false` pula a fase de mapeamento diff ↔ requisito. |
-| `gate.consistency.provider` / `.model` / `.tools` / `.timeoutMs` / `.maxFindings` | `fork` / `null` / `read,glob,grep` / `120000` / `5` | Os controles do revisor de consistência local (model `null` = modelo principal). |
-| `gate.review.enabled` | `true` | `false` pula a conclusão da revisão. |
-| `gate.review.engine` | `'auto'` | `auto` = registros de veredito do dsh-auto-review quando presentes, senão o revisor local; `local` = sempre o revisor local. |
-| `gate.review.provider` / `.model` / `.tools` / `.timeoutMs` / `.maxFindings` | *(same as consistency)* | Os controles do revisor de revisão local. |
-
-A configuração do portão é validada falhando em voz alta no carregamento (ids duplicados, dimensões de spec desconhecidas, limites fora do intervalo, regex inválidas, listas de ferramentas vazias lançam erro), e a checklist é exposta pelo namespace de configurações `doublecheck.gate` quando o serviço de configurações está montado. O portão nunca sintetiza pedidos de aprovação; os revisores locais são somente leitura por padrão.
-
-## Como funciona (pontos de extensão)
-
-| Contribuição | Mecanismo DSH |
-|---|---|
-| Skills empacotados | `ctx.skills.registerProvider()` — seam de capacidade de skills, `source: bundled` |
-| Ferramenta de catálogo/carga | `ctx.tools.register()` — `doublecheck_skills` |
-| Spec + arquivo no workspace | ferramenta `doublecheck_spec` + escrita opcional via `ctx.fs` |
-| Portão de requisitos | waterfall `tools/pre-execute` — `allow` / `ask` (seam de aprovação) / `deny` |
-| Portão red | waterfall `tools/pre-execute` — verificação dura da evidência de teste falho antes das edições de implementação |
-| Injeção de lembrete | waterfall `tools/post-execute` — `additionalContexts` → registrado como `user/message` |
-| Portão green | `agent/turn-stopping` serial — injeta um lembrete de conclusão quando as edições carecem de um teste que passa |
-| Revisão adversária | `ctx.subagents.start()` — forked critic with structured findings schema, injected at green; `warn`/`block` steer one round |
-| Relatório de entrega | `doublecheck_report` tool — session-log fold + workspace markdown |
-| Workflow de verificação | `ctx.workflowEngine.start()` — one parallel checker per spec dimension, structured checks |
-| Fases determinísticas do portão | folds puros do log da sessão — checklist de perguntas-chave contra o spec registrado; evidência de execução de teste/cobertura |
-| Fases de revisor do portão | `ctx.subagents.start()` — mapeador de consistência + revisor local, achados estruturados, ferramentas somente leitura |
-| Revisão do engine | folds duráveis `autoReview/verdict` / `autoReview/rejection` + sonda de presença `ctx.commands.list()` (dependência fraca, sem import) |
-| Sugestão de modo plano | prosa de relatório/painel + aviso de turno de uma vez por sessão; leitura de `ctx.planMode` para a linha de status (opcional) |
-| Comando `/gate` | `ctx.commands.register()` — `status|run|config`; `run` escreve o evento durável `doublecheck/gate` + `gate-report.md` |
-| Superfície de configurações | `ctx.settings.register('doublecheck.gate', schema, { expose: true, applies: 'restart' })` quando montado |
-| Estado durável | session log fold over `tool/call` + `tool/result` + `tool/code-dispatch` + injected structured sources + `doublecheck/state` + `doublecheck/gate`; model-visible ⟺ logged |
-| Comando de sessão | `ctx.commands.register()` — `/doublecheck status|report|on|off`; `on|off` escreve o evento de sessão durável `doublecheck/state` |
-| Projeção de sessão | registro `sessionProjections` — a visão `doublecheck` agora carrega `gateVerdict` + `gateRedCount` (stateVersion 2) |
-| Eventos internos | `doublecheck/spec`, `doublecheck/reminder`, `doublecheck/review`, `doublecheck/report`, `doublecheck/gate` (typed via declaration merging, `@mode emit`) |
-
-Sem mudanças no agent-loop. Todo registro é um `ctx.effect` / `ctx.on` / `register()` de serviço reversível.
-
-## O que o modelo vê
-
-- O skill `grill-requirements` entra no catálogo de skills da sessão e carrega pela ferramenta integrada `skill` (ou `doublecheck_skills`).
-- `ask_user_question` continua sendo a forma nativa do DSH de perguntar ao usuário; o skill só coreografa (e em headless sem provider degrada para perguntas em prosa).
-- Os lembretes chegam como contexto `{kind:'plugin'}`, então as UIs de transcrição os exibem como metadados de injeção.
-- A crítica do adversário chega da mesma forma depois que o crítico se estabelece, com achados marcados por severidade; sob `warn`/`block` o ciclo é direcionado uma rodada para que o modelo os responda.
-- `doublecheck_report` devolve o relatório consolidado como resultado de ferramenta (spec, cronologia de testes, revisão, verificação, veredito), então «comprovar a entrega» está a uma chamada de distância.
-- O aviso vermelho de portão no turno chega como contexto `{kind:'doublecheck-gate'}` — uma frase curta de declaração de papel mais a contagem de vermelhos e a sugestão de modo plano.
-- `/doublecheck` e `/gate` respondem direto na transcrição: `status` mostra o interruptor, os módulos, a intensidade, os fatos de etapa e o último veredito do portão; `report` imprime o relatório dobrado; `on|off` muda o interruptor da sessão; `/gate run` devolve o relatório do portão pronto para PR.
-
-## Comandos de sessão
-
-```
-/doublecheck status|report|on|off
-/gate status|run|config
-```
-
-- `/doublecheck status` — interruptor efetivo (o override durável vence o padrão da config), módulos configurados, intensidade de aplicação, os fatos de etapa dobrados (spec registrado, cor red/green, revisão em registro, contagem de edições) e o último veredito do portão.
-- `/doublecheck report` — dobra o relatório de entrega a partir do log da sessão na hora (sem workflow de verificação; `doublecheck_report` é dono desse caminho).
-- `/doublecheck on|off` — grava o evento durável `doublecheck/state` (sobrevive a reinício, retomada e bifurcação — o replay É o estado) e injeta um aviso de troca visível ao modelo.
-- `/gate status` — o progresso ao vivo da checklist: fases determinísticas dobram na hora, fases de revisor e o veredito mostram a última execução `doublecheck/gate`, mais o estado de modo plano.
-- `/gate run` — assenta a checklist completa de quatro fases (folds determinísticos + dois forks de revisor local em paralelo; os registros de veredito do engine quando presentes), grava o evento durável `doublecheck/gate` e `gate-report.md`, e devolve o markdown do relatório.
-- `/gate config` — renderiza a checklist efetiva, os limites e os controles do revisor.
-
-Todas as respostas do comando respeitam o ajuste `language` da linha guard; os documentos de relatório mantêm seus cabeçalhos estáveis em inglês e seus ids de auditoria.
-
-## Roadmap
-
-O ciclo de disciplina e o portão de entrega ambos embarcam: **grill → design → red → green → review → verify** (v0.1 → v0.6) mais o **portão de qualidade de quatro fases com a decisão de entregável/retrabalho** (v0.7). Fixtures de regressão com transcrições reais fixam as formas dos eventos duráveis (`tests/fixtures/`). Trabalho futuro: uma aba de configurações na Web UI e um selo de portão para a projeção `doublecheck`, formatação de relatório mais rica e a semeadura de spec entre sessões a partir do arquivo do workspace.
+- **Escritas duráveis no rc.6.** `/doublecheck on\|off` → `doublecheck/state` e `/gate run` → `doublecheck/gate` precisam da superfície de append `ignorable` do host (pós-rc.6); em hosts rc.6 a bolsa de opções é ignorada e o evento permanece de leitura obrigatória, então o interruptor fica em memória e o registro do portão vive apenas no resultado do comando + arquivo do workspace até o harness ser atualizado.
+- **Interfaces opcionais.** O namespace de configurações `doublecheck.gate` é registrado apenas quando o serviço de configurações está montado; a linha de modo plano de `/gate status` lê o `ctx.planMode` opcional (mostra `unknown` sem ele); a revisão adversarial precisa de `ctx.subagents`; a verificação precisa de `workflowEngine`.
+- **Degradação local.** `gate.review.engine: auto` degrada para o revisor local quando o dsh-auto-review está ausente ou não tem registros de veredicto nesta sessão — o relatório nomeia a razão em vez de inventar um veredicto.
 
 ## Desenvolvimento
 
 ```sh
-pnpm install --ignore-workspace
-pnpm run typecheck
-pnpm run lint
-pnpm run test
-pnpm run build
+pnpm install             # node ^22.19 || >=24
+pnpm run build           # tsc --noEmitOnError (lib/ is committed)
+pnpm run prepare         # tsc --noEmitOnError (git-install channel)
+pnpm run prepublishOnly  # build + full test suite
+pnpm run typecheck       # tsc --noEmit + tests tsconfig
+pnpm run lint            # eslint src tests
+pnpm test                # vitest run
+pnpm run test:coverage   # vitest run --coverage
+pnpm run pack:check      # build + pack the tarball
 ```
 
-## Agradecimentos
+## Tópicos
 
-Metodologia inspirada em [obra/superpowers](https://github.com/obra/superpowers) (disciplina de engenharia estilo TDD) e [TimothyVang/Grill-me](https://github.com/TimothyVang/Grill-me) (interrogar requisitos antes de implementar). Este pacote é uma implementação original: nenhum texto, prompt ou arquivo de nenhum dos dois projetos foi copiado.
+`dsh`, `dsh-plugin`, `deepseek-harness`, `engineering-discipline`, `requirements`, `guard`, `skill`, `quality-gate`, `delivery-gate`
 
 ## Contribuidores
 
-- [PerryLink](https://github.com/PerryLink) — autor e mantenedor: o ciclo de disciplina v0.1 → v0.7 e o portão de entrega, a documentação em cinco idiomas, o pipeline de CI/publicação e as submissões ao ecossistema ([awesome-dsh-plugin#451](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/451), [awesome-dsh-plugins#147](https://github.com/AdamPlatin123/awesome-dsh-plugins/pull/147), [awesome-deepseek-harness#179](https://github.com/0xsline/awesome-deepseek-harness/pull/179), [bruc3van/awesome-dsh-plugin#36](https://github.com/bruc3van/awesome-dsh-plugin/pull/36), [dsh-hub-workshop#13](https://github.com/omdsh-dev/dsh-hub-workshop/issues/13)/[#19](https://github.com/omdsh-dev/dsh-hub-workshop/pull/19)).
+- [@PerryLink](https://github.com/PerryLink) — criador e mantenedor: o ciclo de disciplina grill → design → red → green → review → verify, o portão de entrega de quatro fases, a documentação em cinco idiomas e o pipeline de CI/publicação.
 
-Issues, pull requests e Discussions são bem-vindos — os pontos de entrada estão no início deste documento.
+## PerryLink DSH Plugin Family
 
-## Família de Plugins DSH da PerryLink
+Este projeto é um dos [15 plugins do DeepSeek Harness](https://github.com/PerryLink) mantidos por [PerryLink](https://github.com/PerryLink). Se este ajuda você, os demais provavelmente também ajudarão:
 
-Este projeto é um dos [15 plugins de DeepSeek Harness](https://github.com/PerryLink) mantidos por [PerryLink](https://github.com/PerryLink). Se este ajuda você, os outros provavelmente também:
-
-| Plugin | Uma linha |
+| Plugin | One-liner |
 |---|---|
-| [dsh-mcp-panel](https://github.com/PerryLink/dsh-mcp-panel) | Painel de runtime MCP somente leitura: comando /mcp + aba de Configurações com status, ferramentas e erros |
-| **[dsh-doublecheck](https://github.com/PerryLink/dsh-doublecheck)** | Guard de disciplina de engenharia + portão de qualidade de entrega: grill de requisitos, portões de teste, revisão adversária, painel entregável/retrabalho do /gate |
-| [dsh-background-agents](https://github.com/PerryLink/dsh-background-agents) | Agentes filhos em segundo plano duráveis com sidebar na Web UI, mensagens e interrupção |
-| [dsh-lsp-actions](https://github.com/PerryLink/dsh-lsp-actions) | Diagnósticos, formatação, autocompletar, ações de código e renomear de LSP sobre language servers |
-| [dsh-output-styles](https://github.com/PerryLink/dsh-output-styles) | Troca de estilo de saída em runtime equivalente ao outputStyles do Claude Code |
-| [dsh-checkpoint-rewind](https://github.com/PerryLink/dsh-checkpoint-rewind) | Equivalente ao /rewind do Claude Code: snapshots, forks de sessão, restauração em um passo |
-| [dsh-permission-rules](https://github.com/PerryLink/dsh-permission-rules) | Regras de permissão declarativas allow/deny/ask estilo Claude Code com auditoria |
-| [dsh-auto-review](https://github.com/PerryLink/dsh-auto-review) | Auto-revisão de segundo modelo na cadeia de aprovação, fail-closed por padrão |
-| [dsh-memento](https://github.com/PerryLink/dsh-memento) | Memória entre sessões com aprovação: seam ctx.memory + SQLite + ferramenta de memória |
-| [dsh-skill-pack-security](https://github.com/PerryLink/dsh-skill-pack-security) | Pacote de skills de auditoria de segurança: varredura de segredos, revisão de dependências e cadeia de suprimentos |
-| [dsh-session-pin](https://github.com/PerryLink/dsh-session-pin) | Fixa sessões na sidebar web com ordenação durável |
-| [dsh-composer-history](https://github.com/PerryLink/dsh-composer-history) | Histórico de entrada estilo terminal para o compositor web: setas, busca Ctrl+R |
-| [dsh-github](https://github.com/PerryLink/dsh-github) | Integração de PR/issues do GitHub para o DSH, toda escrita sujeita a aprovação |
-| [dsh-plugin-guide](https://github.com/PerryLink/dsh-plugin-guide) | Base de conhecimento de desenvolvimento de plugins como skill de agente sob demanda |
-| [dsh-claude-move](https://github.com/PerryLink/dsh-claude-move) | Migra sessões, memória, skills e CLAUDE.md do Claude Code para o DSH |
+| [dsh-mcp-panel](https://github.com/PerryLink/dsh-mcp-panel) | Read-only MCP runtime panel: /mcp command + Settings tab with status, tools and errors |
+| **[dsh-doublecheck](https://github.com/PerryLink/dsh-doublecheck)** | Engineering-discipline guard + delivery quality gate: requirements grill, test gates, adversary review, /gate deliverable/rework panel |
+| [dsh-background-agents](https://github.com/PerryLink/dsh-background-agents) | Durable background child agents with a Web UI sidebar, messaging and interrupt |
+| [dsh-lsp-actions](https://github.com/PerryLink/dsh-lsp-actions) | LSP diagnostics, formatting, completion, code actions and rename over language servers |
+| [dsh-output-styles](https://github.com/PerryLink/dsh-output-styles) | Claude Code outputStyles-equivalent runtime style switching |
+| [dsh-checkpoint-rewind](https://github.com/PerryLink/dsh-checkpoint-rewind) | Claude Code /rewind-equivalent: snapshots, session forks, one-shot restore |
+| [dsh-permission-rules](https://github.com/PerryLink/dsh-permission-rules) | Claude Code-style declarative allow/deny/ask permission rules with audit |
+| [dsh-auto-review](https://github.com/PerryLink/dsh-auto-review) | Second-model auto-review on the approval chain, fail-closed by default |
+| [dsh-memento](https://github.com/PerryLink/dsh-memento) | Approval-gated cross-session memory: ctx.memory seam + SQLite + memory tool |
+| [dsh-skill-pack-security](https://github.com/PerryLink/dsh-skill-pack-security) | Security-audit skill pack: secret scan, dependency and supply-chain review |
+| [dsh-session-pin](https://github.com/PerryLink/dsh-session-pin) | Pin sessions in the Web sidebar with durable ordering |
+| [dsh-composer-history](https://github.com/PerryLink/dsh-composer-history) | Terminal-style input history for the web composer: arrows, Ctrl+R search |
+| [dsh-github](https://github.com/PerryLink/dsh-github) | GitHub PR/issues integration for DSH, every write gated by approval |
+| [dsh-plugin-guide](https://github.com/PerryLink/dsh-plugin-guide) | Plugin-development knowledge base as an on-demand agent skill |
+| [dsh-claude-move](https://github.com/PerryLink/dsh-claude-move) | Migrate Claude Code sessions, memory, skills and CLAUDE.md into DSH |
 
 ## Licença
 
-[Apache-2.0](LICENSE)
+[Apache License 2.0](LICENSE) © 2026 dsh-doublecheck contributors

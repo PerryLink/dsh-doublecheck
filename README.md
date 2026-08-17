@@ -1,74 +1,155 @@
+<div align="center">
+
 # dsh-doublecheck
 
-> **The delivery quality gate for DeepSeek Harness: grill the requirements, test the implementation, prove the delivery — then gate the handoff with a deliverable/rework decision.**
+**The delivery quality gate for DeepSeek Harness: grill the requirements, test the implementation, prove the delivery — then gate the handoff with a deliverable/rework decision.**
 
-[![version](https://img.shields.io/badge/version-0.7.0-blue)](https://github.com/PerryLink/dsh-doublecheck/releases)
-[![npm](https://img.shields.io/npm/v/dsh-doublecheck)](https://www.npmjs.com/package/dsh-doublecheck)
-[![downloads](https://img.shields.io/npm/dw/dsh-doublecheck)](https://www.npmjs.com/package/dsh-doublecheck)
-[![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
-[![topics](https://img.shields.io/badge/topics-dsh%20%7C%20dsh--plugin-22c55e)](https://github.com/topics/dsh-plugin)
-[![CI](https://img.shields.io/github/actions/workflow/status/PerryLink/dsh-doublecheck/ci.yml?branch=main)](https://github.com/PerryLink/dsh-doublecheck/actions/workflows/ci.yml)
+*Requirements get interrogated before the first edit; delivery is proven, never claimed.*
 
-An **engineering-discipline bundle and delivery quality gate panel** for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). Agents love to start coding; requirements hate being assumed. `dsh-doublecheck` installs a discipline loop that makes the agent **grill the requirements before the first edit, and prove the delivery instead of claiming it** — and a **delivery gate panel** that aggregates requirement interrogation, test evidence, diff↔requirement consistency, and a review conclusion into one **deliverable / rework required** decision, rendered as a PR-ready markdown report. Re-implemented natively on DSH's own extension points (skill registry, tool policy pipeline, approval seam, subagent and workflow seams, commands, session projections, settings namespace, plan mode), not on borrowed prompt files. Tested against DSH `0.1.0-rc.6`.
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![DSH plugin](https://img.shields.io/badge/dsh-plugin-✅-green)](https://github.com/topics/dsh-plugin)
+[![Node](https://img.shields.io/badge/node-%5E22.19%20%7C%7C%20%3E%3D24-brightgreen.svg)](#)
+[![CI](https://img.shields.io/github/actions/workflow/status/PerryLink/dsh-doublecheck/ci.yml?branch=main&label=CI)](https://github.com/PerryLink/dsh-doublecheck/actions)
+[![Version](https://img.shields.io/github/v/tag/PerryLink/dsh-doublecheck?label=version)](https://github.com/PerryLink/dsh-doublecheck/releases)
+[![npm version](https://img.shields.io/npm/v/dsh-doublecheck)](https://www.npmjs.com/package/dsh-doublecheck)
+[![npm downloads](https://img.shields.io/npm/dm/dsh-doublecheck)](https://www.npmjs.com/package/dsh-doublecheck)
 
-The methodology is inspired by [obra/superpowers](https://github.com/obra/superpowers) and [TimothyVang/Grill-me](https://github.com/TimothyVang/Grill-me). Every prompt, term, example, and file in this package is written from scratch — nothing is copied from either project.
+[English](README.md) · [简体中文](README.zh.md) · [Español](README.es.md) · [Português](README.pt.md) · [हिन्दी](README.hi.md)
 
-## Why
+</div>
 
-- Vague tasks produce wrong software. A brief request ("帮我做一个功能") hides six unsettled decisions; the agent currently guesses all of them and charges you for the guess.
-- Disciplined teams do this in humans: requirements review → failing test → passing test → self-review → delivery proof. Agents deserve the same loop, enforced by the harness, not by vibes.
-- Shipping needs a decision, not a vibe. The delivery gate turns the loop's evidence into a single **deliverable / rework required** verdict with red items and rework suggestions — the panel an evaluation platform pastes into its PR description.
+---
 
-## The discipline loop
+## Compatibility
 
-```
+| Surface | Status |
+|---|---|
+| Harness | DeepSeek Harness `0.1.0-rc.6` |
+| Node | `^22.19.0 \|\| >=24.0.0` |
+| Platforms | All (pure host; no native code, no direct network requests of its own) |
+| Model | Any (the guard itself never calls a model; the critic and reviewer phases run as harness subagents) |
+
+## What you get
+
+`dsh-doublecheck` installs two plugin rows that read and enforce from the same durable session log:
+
+1. **`doublecheck-grill`** — the requirements furnace: the bundled `grill-requirements` skill plus the model-facing `doublecheck_skills`, `doublecheck_spec`, and `doublecheck_report` tools and the per-dimension verification workflow.
+2. **`doublecheck-guard`** — the discipline guard: the grill gate, the red/green evidence gates, the adversary review, the `/doublecheck` and `/gate` commands, the `doublecheck.gate` settings namespace, and the four-phase delivery gate.
+
+Together they enforce the **discipline loop** — *grill → design → red → green → review → verify*:
+
+```text
 grill ──▶ design ──▶ red ──▶ green ──▶ review ──▶ verify
-  │         │
-  │      (v0.1)        (v0.2+)        (v0.3)         (v0.4)
-  │
-  └─ requirements furnace: six dimensions, consensus gate,
-     structured spec committed to the session and the workspace
+   │
+   └─ six requirement dimensions, consensus gate,
+      structured spec committed to the session + workspace
 ```
 
-| Stage | Meaning | Status |
+| Stage | Meaning |
+|---|---|
+| **grill** | Interrogate the six requirement dimensions; refuse to implement until consensus. |
+| **design** | The settled spec is committed via `doublecheck_spec`. |
+| **red** | A failing test run proves the gap before implementation edits. |
+| **green** | A passing test run after the edits closes the loop. |
+| **review** | A forked adversary critic audits the delivery against the spec. |
+| **verify** | `doublecheck_report` + a per-dimension verification workflow prove the delivery. |
+
+## Quick start
+
+```sh
+# 1. install the bundle into your profile
+dsh plugin --profile web add "github:PerryLink/dsh-doublecheck#main"
+
+# or from npm (published releases)
+dsh plugin --profile web add dsh-doublecheck
+
+# 2. restart and verify the row
+dsh --profile web --dump-config | grep -E -A3 'id: doublecheck-(grill|guard)'
+```
+
+Both rows (`doublecheck-grill` and `doublecheck-guard`) activate automatically with the profile.
+
+## Install & uninstall
+
+- **git channel** (latest `main`): `dsh plugin --profile web add "github:PerryLink/dsh-doublecheck#main"` — the `prepare` script builds with production dependencies only.
+- **npm channel** (published releases): `dsh plugin --profile web add dsh-doublecheck`.
+- **tarball channel**: `pnpm pack` in this repo, then `dsh plugin --profile web add ./dsh-doublecheck-<version>.tgz`.
+- **uninstall**: `dsh plugin --profile web remove dsh-doublecheck` (or remove the rows from the profile patch).
+
+For a zero-configuration strict mode (every gate on at `block` intensity, gate coverage required), apply the shipped overlay on top of the bundle patch: `dsh --profile web --patch ./node_modules/dsh-doublecheck/strict.patch.yml`.
+
+## Configuration
+
+All tunables are Schemastery `Config` fields (changeable from cordis.yml). An id-targeted override replaces the whole row — restate every key you need. `cordis.patch.yml` documents each key inline; Schema defaults are the single source of tuning defaults.
+
+| Key | Default | Meaning |
 |---|---|---|
-| **grill** | Interrogate the six requirement dimensions; refuse to implement until consensus. | ✅ v0.1 |
-| **design** | Spec committed via `doublecheck_spec`. | ✅ v0.1 |
-| **red** | A failing test run proves the gap; implementation edits need it on record. | ✅ v0.2 |
-| **green** | A passing test run after the edits closes the loop. | ✅ v0.2 |
-| **review** | A forked adversary critic audits the delivery against the spec. | ✅ v0.3 |
-| **verify** | `doublecheck_report` + a per-dimension verification workflow prove the delivery. | ✅ v0.4 |
+| `specFile` | `'doublecheck-spec.md'` | Workspace file for the committed spec markdown (grill row). |
+| `reportFile` | `'doublecheck-report.md'` | Workspace file for the delivery report (grill row). |
+| `reportVerify` | `true` | Run the verification workflow by default (grill row). |
+| `verifyProvider` | `'fork'` | Subagent provider for the per-dimension checkers (grill row). |
+| `verifyMode` | `'all'` | `all` = one parallel checker per dimension; `single` = one combined checker (grill row). |
+| `intensity` | `'remind'` | Enforcement strength of the grill, red/green, and review gates (`remind` / `warn` / `block`). |
+| `enableByDefault` | `true` | Master switch for sessions without a `/doublecheck on\|off` record. |
+| `language` | `'en'` | Injected reminder/deny/review/gate prose language (`en` / `zh`). |
+| `guardTools` | `['edit', 'write']` | Mutation tool names both gates watch. |
+| `vagueTaskMaxChars` | `200` | Longer tasks are never treated as vague. |
+| `remindOnce` | `true` | Inject each reminder at most once per session (durable across restarts). |
+| `testToolNames` | `['bash', 'pwsh']` | Shell tool names that can run tests. |
+| `testCommandPatterns` | *(pnpm/npm/yarn/bun test, pytest, go/cargo/make test, node --test, deno test, uv run pytest)* | Regexes a command must match to count as a test run. |
+| `testFilePatterns` | *(test dirs, `*.test.*` / `*.spec.*`)* | Regexes identifying test files — always editable, exempt from the red gate. |
+| `modules.grill` | `true` | Off disables the grill gate. |
+| `modules.tdd` | `true` | On enables the red/green evidence gates. |
+| `modules.adversary` | `false` | On enables the forked critic review at green. |
+| `adversaryModel` | `null` | Critic model route; `null` = main model self-reviews. |
+| `adversaryProvider` | `'fork'` | Subagent provider the critic runs on. |
+| `adversaryMaxFindings` | `5` | Findings cap (1–20) injected into the session. |
+| `adversaryTools` | `['read', 'glob', 'grep']` | Critic tool allowlist; keep it read-only. |
+| `adversaryTimeoutMs` | `120000` | Hard time budget for one critic run. |
+| `gate.enabled` | `true` | Master switch for the gate panel and the turn-boundary red notice. |
+| `gate.planSuggestion` | `true` | Append the plan-mode re-check suggestion to red reports. |
+| `gate.reportFile` | `'gate-report.md'` | Workspace file for the gate report. |
+| `gate.requirements.checklist` | *(six spec-dimension questions)* | Pluggable key-question checklist: `{ id, question, specDimension, required }`. |
+| `gate.requirements.minConfirmed` | `6` | Minimum required questions that must pass (1..required count). |
+| `gate.requirements.interrogateTool` | `'ask_user_question'` | Tool name whose calls count as interrogation evidence. |
+| `gate.tests.requirePassingRun` | `true` | A non-passing (or missing) latest test run is a red light. |
+| `gate.tests.allowFailingRuns` | `0` | Failing runs after the latest green allowed before red. |
+| `gate.tests.requireCoverage` | `false` | On requires coverage evidence in the test output. |
+| `gate.tests.minCoveragePct` | `80` | Minimum coverage percentage (0–100). |
+| `gate.consistency.*` | `provider: 'fork'`, `model: null`, `tools: ['read','glob','grep']`, `timeoutMs: 120000`, `maxFindings: 5` | The local consistency reviewer's knobs (`model: null` = main model). |
+| `gate.review.engine` | `'auto'` | `auto` = dsh-auto-review verdict records when present, else the local reviewer; `local` = always local. |
+| `gate.review.provider` | `'fork'` | The local review reviewer's provider (its `model`/`tools`/`timeoutMs`/`maxFindings` match `gate.consistency.*`). |
 
-## The delivery gate (v0.7)
+Misconfiguration fails loud at load: invalid regexes, empty or duplicated name lists, out-of-range thresholds, and duplicate checklist ids throw instead of silently doing nothing. `strict.patch.yml` is the all-gates-block overlay that restates the guard row at `intensity: block` with every module on and the coverage requirement enabled.
 
-The gate is the **productized front end of the loop**: it aggregates the session's durable evidence into a configurable four-phase checklist and outputs one binary decision. Every phase folds the session log alone (replay IS the state), so a gate run re-derives identically after resume or fork.
+## Tools & surfaces
 
-```mermaid
-flowchart TD
-    A["/gate run"] --> B["1. Requirements interrogation"]
-    B --> C["2. Test evidence"]
-    C --> D["3. Implementation consistency"]
-    D --> E["4. Review conclusion"]
-    E --> F{"any red item?"}
-    F -- yes --> G["VERDICT: rework required"]
-    F -- no --> H["VERDICT: deliverable"]
-    G --> I["suggest plan-mode re-check + /gate run again"]
-    H --> J["paste the report into the PR description"]
-```
+| Surface | Kind | Notes |
+|---|---|---|
+| `doublecheck_skills` | tool | Lists and loads the package's four bundled skills through the skill registry seam. |
+| `doublecheck_spec` | tool | Commits the grilled six-dimension spec to the session log and a workspace markdown copy. |
+| `doublecheck_report` | tool | Folds the discipline evidence into a delivery report (optional per-dimension verification workflow). |
+| `/doublecheck status\|report\|on\|off` | command | Switch, modules, intensity, stage facts, folded report, and the durable on/off override. |
+| `/gate status\|run\|config` | command | Live checklist progress, the settled deliverable/rework report, and the effective config. |
+| `grill-requirements`, `red-green-tdd`, `delivery-review`, `delivery-proof` | skill | Bundled discipline skills covering all six loop stages. |
+| `doublecheck.gate` | settings namespace | The pluggable checklist, exposed to settings-capable UIs (`expose: true`, `applies: restart`). |
+| `strict.patch.yml` | overlay | Every gate on at `block` intensity plus the coverage requirement, in one patch layer. |
+| `dsh-doublecheck/invariant` | companion row | Reports package-owned write-path contradictions through the host `invariants` registry. |
+
+## Gate phases
+
+The delivery gate aggregates the session's durable evidence into a configurable four-phase checklist and settles one **deliverable / rework required** decision. Every phase folds the session log alone (replay IS the state), so a run re-derives identically after resume or fork.
 
 | Phase | Checks | Evidence source | Model cost |
 |---|---|---|---|
-| **Requirements interrogation** | Configurable key-question checklist, confirmed item by item (six spec-dimension questions by default). | Committed `doublecheck_spec` + `ask_user_question` calls. | none |
-| **Test evidence** | Latest run color, failing runs after green, optional coverage threshold. | Shell test runs in the session log (`[exit code: N]`, coverage percentages). | none |
-| **Implementation consistency** | Diff ↔ requirement mapping: every edit must serve a spec dimension. | Local forked reviewer (structured findings, read-only tools). | one subagent |
-| **Review conclusion** | The delivery verdict. `engine: auto` consumes **dsh-auto-review**'s durable verdict records when present and degrades to the local reviewer otherwise; `engine: local` always uses the local reviewer. | `autoReview/verdict` / `autoReview/rejection` events, or the local forked reviewer. | one subagent (local) |
+| Requirements interrogation | Key-question checklist confirmed item by item (six spec-dimension questions by default) | Committed `doublecheck_spec` + `ask_user_question` calls | none |
+| Test evidence | Latest run color, failing runs after green, optional coverage threshold | Shell test runs in the session log (`[exit code: N]`, coverage percentages) | none |
+| Implementation consistency | Diff ↔ requirement mapping: every edit must serve a spec dimension | Local forked reviewer (structured findings, read-only tools) | one subagent |
+| Review conclusion | The delivery verdict; `engine: auto` consumes dsh-auto-review's durable verdict records when present, else the local reviewer | `autoReview/verdict` / `autoReview/rejection` events, or the local forked reviewer | one subagent (local) |
 
-- **Red lights** are failed checks: a missing spec, a failing latest test run, coverage below the minimum, an unmapped edit, a rejected engine call, blocker/major review findings. Each red item carries a rework suggestion.
-- **Warnings and skips never flip the decision**: a skipped review keeps the report honest ("not reviewed") without inventing a red light — fail-closed for claims, never for evidence.
-- **Plan mode & approvals**: a rework verdict suggests re-opening the work in plan mode (in the report banner, the `/gate status` panel, and the once-per-session turn notice). The discipline gates below keep their `warn`/`block` approval-chain enforcement; the gate itself is advisory.
-- **Audit-safe by construction**: reports record counts, ids, and verdicts only — no file contents or session text. Model-produced finding texts pass a secret redactor (cloud keys, tokens, private-key blocks, password assignments, long hex/base64 runs) before they are stored or shown. The settled state rides the durable `doublecheck/gate` session event and the workspace `gate-report.md`.
+Red lights are failed checks (a missing spec, a failing latest run, coverage below minimum, an unmapped edit, blocker/major findings) — each carries a rework suggestion. Warnings and skips never flip the decision. The gate integrates [dsh-auto-review](https://github.com/PerryLink/dsh-auto-review) as a weak dependency: `review.engine: auto` folds its verdict records when present and degrades to the local reviewer otherwise; the gate never synthesizes approval requests.
 
-### Example report
+## Example report
 
 `/gate run` returns this markdown — paste it into a PR description:
 
@@ -107,348 +188,48 @@ flowchart TD
 - counts, ids, and verdicts only: no file contents or session text are embedded, and recognized secrets are redacted.
 ````
 
-### Weak dependency on dsh-auto-review
-
-The gate integrates with [dsh-auto-review](https://github.com/PerryLink/dsh-auto-review) as **"use the engine when it is there"**, never as a hard dependency:
-
-- `review.engine: auto` (default) folds the engine's durable verdict records (`autoReview/verdict` / `autoReview/rejection`) from the session log — the engine's real conclusions about this session's approval-chain reviews. Rejected or high-risk calls become red items.
-- No records (the engine is not installed, or nothing triggered it this session) → the phase degrades to the local forked reviewer and names the reason on a warning check: `dsh-auto-review is not installed` / `dsh-auto-review is installed but has no verdict records in this session`.
-- The gate **never synthesizes approval requests**: that chain may reach a human. The engine's own records are the evidence; `engine: local` skips it entirely.
-
-### Settings surface
-
-The pluggable checklist is Schema-validated config (`gate.*` in the guard row) and is additionally registered as the **`doublecheck.gate` settings namespace** (`expose: true`, `applies: restart`) when the harness settings service is mounted — so settings-capable UIs can read and edit the checklist without hand-editing a profile.
-
-## Features
-
-- 🔥 **`grill-requirements` skill** — a bundled Agent-Skills-format skill that interrogates the task across six dimensions (**goal, scope, acceptance criteria, failure modes, priorities, non-goals**) using DSH's native `ask_user_question` UI, refuses to write code until consensus, and records the contract.
-- 🧰 **Stage skills for the whole loop** — `red-green-tdd` (write the failing test, run red, implement, run green), `delivery-review` (adversarial self-review against the spec once green), and `delivery-proof` (consolidate the evidence into the delivery report and pass the delivery gate before claiming completion) join `grill-requirements`, so all six stages have model guidance, not just the first.
-- 📜 **`doublecheck_spec` tool** — commits the grilled spec to the session log and writes a markdown copy to the workspace, so the contract survives the conversation. Empty or whitespace-only dimensions are rejected at the commit (v0.6): the grill must settle all six before the spec counts.
-- 🔄 **Task-change re-grill** — a committed spec covers its own task: a new direct-user request after the latest spec commit reopens the grill gate for that follow-up instead of silently inheriting the old contract.
-- 🛡️ **Discipline guard** — a soft gate on the tool policy pipeline. Vague task + no spec + heading for `edit`/`write` → **remind**, **hold for human approval**, or **block**, depending on `intensity`.
-- 🟥🟩 **Red/green evidence gates** (`modules.tdd`) — hard checks over the session log: an implementation edit requires a **failing test run on record** since the last passing run (writing test files is always allowed — that is how the red step happens), and a turn that ends with edits but no passing run gets a green reminder injected. Custom guard tools work out of the box: the gates read both `file_path` and `path` argument keys, and a call that names no file at all is not treated as an implementation edit.
-- 👁️ **Adversary review** (`modules.adversary`) — once the delivery reaches green, a forked critic subagent (DSH's native subagent seam, default `fork` provider) audits the session against the committed spec with an adversarial stance and returns structured findings, sorted blocker-first. `remind` injects the critique; `warn`/`block` additionally steer one round to make the model answer the findings. `adversaryModel` routes the critic to a separate model; the critic's tool allowlist is read-only by default. Findings ride the durable `doublecheck-review` message source. The review re-arms after the critic settles: implementation edits after the latest review record trigger another round, and cancelling the turn aborts the in-flight critic.
-- 🚦 **Delivery quality gate** (v0.7) — the configurable four-phase checklist above: requirements interrogation (key questions confirmed item by item), test evidence (run color, failing cases, coverage threshold), implementation consistency (diff ↔ requirement mapping by a local reviewer), and the review conclusion (dsh-auto-review verdict records with an honest local degrade). One **deliverable / rework required** decision, red items with rework suggestions, a plan-mode re-check suggestion on red, a turn-boundary red notice (short, once per session), and the PR-ready markdown report.
-- ⌨️ **`/gate` session command** — `status` renders the live checklist progress (deterministic phases fold on the spot; reviewer phases show the latest run), `run` settles the full gate and returns the report, `config` renders the effective checklist and thresholds.
-- 🌐 **Fully localized model surface** — every model-visible string the package injects or answers with (reminders, deny/ask feedback, review steering, gate notices, switch notices, `/doublecheck` and `/gate` replies, and the reviewer task prompts) honors `language: 'en' | 'zh'`; the workspace spec/report/gate documents keep their stable English headings and audit ids.
-- 📊 **Doublecheck report + verification workflow** (`doublecheck_report`, v0.4) — consolidates the session's discipline evidence (spec, red/green timeline, review findings, edits) into a delivery report with a derived verdict (`grill → draft → red → green → objections/verified → proven/challenged/unverified`), written to the workspace. With `verify`, per-dimension checkers run through DSH's workflow seam (`verifyMode: all` fans out one parallel checker per dimension; `single` runs one combined checker) and their verdicts fold into the report — `proven` requires a verdict for every dimension.
-- 🚦 **Delivery gate** — at the turn boundary, a delivery that reached green with no `doublecheck_report` on record gets a report-expected reminder before completion claims; a successful report advances the stage fold to `verify`.
-- 🔁 **Durable state** — every model-visible artifact (spec, reminders, deny feedback, review findings, gate runs, the `/doublecheck on|off` switch) lands in the session log; gate decisions derive from the log alone (`tool/call` + `tool/result`, including Code Mode sub-dispatches), so resumed and forked sessions enforce identically. `remindOnce` is durable too: a session that already received a reminder never gets it twice, even after a restart. The switch fold rides an incremental snapshot, so long sessions stay O(new events) per tool call.
-- ⌨️ **`/doublecheck` session command** — `status` reports the effective switch, the configured modules, the enforcement intensity, the folded stage facts, and the latest gate verdict; `report` folds the delivery report on the spot; `on|off` writes the durable `doublecheck/state` override and injects a switch notice.
-- 📚 **`doublecheck_skills` tool** — lists and loads the package's skills through the official skill registry seam.
-- 🔒 **Strict overlay** — `strict.patch.yml` turns every gate on at `block` intensity and enables the coverage requirement (80%) in one patch layer (ships with the package).
-- 🧩 **Standalone invariant companion** — the `dsh-doublecheck/invariant` row is a real subpath export: it reports package-owned write-path contradictions (spec/report/review/gate shape and verdict consistency) through the host `invariants` registry without loading the guard.
-
-## Demo
-
-A real headless run with `intensity: block` and every gate enabled, transcript recorded from the durable session log:
-
-```sh
-dsh --profile demo headless "把这个项目里最慢的代码直接改快，别问我任何问题，直接改文件。"
-```
-
-1. **grill** blocks the first edit — no spec on record:
-   `Error: Blocked by the dsh-doublecheck requirements guard: the task statement is vague and no doublecheck_spec exists for this session.`
-2. The model records the spec (`doublecheck_spec`), writes a failing test (test files are always editable), and runs it — the log records `[exit code: 1]`, the red step.
-3. Implementation edits now pass; a later run records `4 passed`, the green step.
-4. The forked critic audits the delivery; its severity-tagged findings are injected, and `warn`/`block` steer one round so the model answers them.
-5. `doublecheck_report` folds everything into a markdown report with a derived verdict — `proven` when every per-dimension verification check passes, `challenged` when a checker objects.
-6. **`/gate run`** settles the four-phase checklist into the **deliverable / rework required** decision; a red verdict lists the red items with rework suggestions and suggests a plan-mode re-check.
-
-## Install
-
-```sh
-dsh plugin --profile <name> add dsh-doublecheck
-dsh --profile <name> --dump-config   # expect a "# == dsh-doublecheck" layer
-```
-
-Both plugin rows activate automatically with the profile. Tarball installs work too:
-
-```sh
-pnpm pack
-dsh plugin --profile <name> add ./dsh-doublecheck-0.7.0.tgz
-```
-
-Git installs need no npm:
-
-```sh
-dsh plugin --profile <name> add "github:PerryLink/dsh-doublecheck#v0.7.0"
-```
-
-For a zero-configuration strict mode (every gate on, `block` intensity, gate coverage required), apply the shipped overlay on top of the bundle patch:
-
-```sh
-dsh --profile <name> --patch ./node_modules/dsh-doublecheck/strict.patch.yml
-```
-
-## Uninstall
-
-```sh
-dsh plugin --profile <name> remove dsh-doublecheck
-```
-
-To keep the package installed but disable one row, override it by id with `disabled: true` in the profile's `cordis.patch.yml` (`doublecheck-grill` / `doublecheck-guard`).
-
-## Compatibility
-
-- Verified against the `0.1.0-rc.6` peers (`@deepseek-ai/cordis ^4.0.1`); last verified 2026-08-14 on Windows with Node 22.
-- The durable session writes (`/doublecheck on|off` → `doublecheck/state`, `/gate run` → `doublecheck/gate`) need the host's `ignorable` append surface (post-rc.6 harness): on rc.6 hosts the options bag is ignored and the event stays required-on-read, so the switch stays in-memory and the gate record lives in the command result + workspace file only, until the harness is upgraded.
-- The `doublecheck.gate` settings namespace registers only when the harness settings service is mounted; profiles without it simply have no settings surface.
-- The `plan mode:` line of `/gate status` reads the optional `ctx.planMode` service; profiles without it show `unknown`.
-
 ## Permissions & data
 
 - **Reads**: the session log (`tool/call` / `tool/result` / `tool/code-dispatch`, injected `user/message` sources, and the foreign `autoReview/*` verdict records) in-process only; the optional plan-mode service state.
-- **Writes**: `doublecheck-spec.md`, `doublecheck-report.md`, and `gate-report.md` in the session workspace (paths configurable), through the `ctx.fs` seam; the durable `doublecheck/state` and `doublecheck/gate` session events.
-- **Model calls**: the gate's consistency and local-review phases (one subagent each per `/gate run`), the optional adversary review (`modules.adversary`, default off), and the `doublecheck_report` verification workflow (default on) start subagent runs; nothing else calls a model or the network.
-- **Never touched**: credentials, environment variables, or any file outside the session workspace. Gate reports contain counts, ids, and verdicts only; recognized secrets in reviewer texts are redacted before storage or display.
+- **Writes**: `doublecheck-spec.md`, `doublecheck-report.md`, and `gate-report.md` in the session workspace (paths configurable) through the `ctx.fs` seam; the durable `doublecheck/state` and `doublecheck/gate` session events.
+- **Model calls**: the gate's consistency and local-review phases (one subagent each per `/gate run`), the optional adversary review, and the `doublecheck_report` verification workflow start subagent runs; nothing else calls a model or the network.
+- **Never touched**: credentials, environment variables, or any file outside the session workspace. The workshop manifest declares `filesystem:read` and `filesystem:write` only. Gate reports carry counts, ids, and verdicts only; recognized secrets in reviewer texts are redacted before storage or display.
 
-## Troubleshooting
+## Security boundaries
 
-| Symptom | Cause and fix |
-|---|---|
-| No `# == dsh-doublecheck` layer in `--dump-config` | The bundle patch is missing or a row is `disabled` — check the profile patch order and row ids. |
-| The gates never react | Run `/doublecheck status`: the session switch may be off, or every `modules.*` entry is false in the guard row. |
-| "Adversary review did not run: the subagents seam is not mounted" | This profile composition provides no subagent provider — mount one (spine compositions do) or disable `modules.adversary`. |
-| `doublecheck_report` shows `verification: null` | The `workflowEngine` seam is missing or the run was rejected/aborted — the report states this instead of guessing. |
-| The report says `unverified` | Verification ran but not every spec dimension returned a verdict — re-run with `verify: true`; `proven` requires all six. |
-| `/gate run` shows `Review conclusion — WARN: dsh-auto-review is not installed` | Expected degrade: the engine row is not in this profile. Install `dsh-auto-review`, or set `gate.review.engine: local` to skip the detection. |
-| `/gate run` shows `Implementation consistency — SKIP` | The `subagents` seam is missing (or the run timed out) — mount a subagent provider; the gate never fakes a verdict. |
-| `/gate status` shows `plan mode: unknown` | The profile has no plan-mode service mounted; the suggestion still appears in the report and the turn notice. |
-| The gate record is not in the session log | This rc.6 host does not stamp the `ignorable` marker — the record lives in the command result and `gate-report.md` only. |
+- **Model-visible ⟺ logged.** Every injected reminder, review, and gate notice rides the standard channels and lands in the session log; the durable spec/state/gate facts ride tool results or `SessionEventMap` members.
+- **Fail closed / fail loud.** Guard and gate config are validated in `apply` (assertions throw); a reviewer or adversary seam that cannot run settles as an honest "unavailable"/skip notice instead of a fake verdict.
+- **Audit-safe reports.** Gate and delivery reports record counts, ids, and verdicts only — no file contents or session text — and model-produced finding texts pass a secret redactor before storage or display.
+- **No network of its own.** The plugin makes no direct network requests; the critic and reviewer subagents ride the harness subagent seam.
+- **Weak dependency on dsh-auto-review.** It is never imported or hard-required; the gate folds its durable verdict records and degrades to the local reviewer, and never synthesizes approval requests.
 
-## Configure
+## Known limitations
 
-Override any row **by id** in the profile's `cordis.patch.yml`. A patch replaces the row's whole config — restate every key:
+- **Durable writes on rc.6.** `/doublecheck on\|off` → `doublecheck/state` and `/gate run` → `doublecheck/gate` need the host's `ignorable` append surface (post-rc.6); on rc.6 hosts the options bag is ignored and the event stays required-on-read, so the switch stays in-memory and the gate record lives in the command result + workspace file only until the harness is upgraded.
+- **Optional seams.** The `doublecheck.gate` settings namespace registers only when the settings service is mounted; the `/gate status` plan-mode line reads the optional `ctx.planMode` (shows `unknown` without it); the adversary review needs `ctx.subagents`; verification needs `workflowEngine`.
+- **Local degrade.** `gate.review.engine: auto` degrades to the local reviewer when dsh-auto-review is absent or has no verdict records this session — the report names the reason instead of inventing a verdict.
 
-```yaml
-- id: doublecheck-grill
-  config:
-    specFile: 'specs/doublecheck-spec.md'   # default: 'doublecheck-spec.md'
-    reportFile: 'specs/doublecheck-report.md'   # default: 'doublecheck-report.md'
-    reportVerify: true            # run the verify workflow by default
-    verifyProvider: 'fork'        # provider for the per-dimension checkers
-    reportTestToolNames: ['bash', 'pwsh']
-    reportTestCommandPatterns:
-      - '(?:^|[;&|]\s*)(?:(?:pnpm|npm|npx|yarn|bun)(?:\s+run)?\s+(?:test|vitest|jest|mocha)(?:\s|$))'
-      - '(?:^|[;&|]\s*)(?:(?:pytest|go\s+test|cargo\s+test|make\s+test|ctest)(?:\s|$))'
-      - '(?:^|[;&|]\s*)(?:node\s+--test(?:\s|$))'
-      - '(?:^|[;&|]\s*)(?:deno\s+test|uv\s+run\s+pytest)(?:\s|$)'
-    reportMutationTools: ['edit', 'write']
-    reportTestFilePatterns:
-      - '(^|[\\/])(tests?|__tests__|specs?)([\\/]|$)'
-      - '\\.(test|spec)\\.[A-Za-z0-9]+$'
-
-- id: doublecheck-guard
-  config:
-    intensity: warn
-    modules:
-      grill: true
-      tdd: true         # red/green evidence gates (v0.2)
-      adversary: true   # forked critic review (v0.3)
-    adversaryModel: null            # or e.g. 'deepseek-v4-pro' for a separate critic model
-    adversaryProvider: 'fork'       # subagent provider the critic runs on
-    adversaryMaxFindings: 5         # findings cap injected into the session
-    adversaryTools: ['read', 'glob', 'grep']   # critic tool allowlist (read-only)
-    adversaryTimeoutMs: 120000      # hard budget for one critic run
-    guardTools: ['edit', 'write']
-    vagueTaskMaxChars: 200
-    remindOnce: true
-    testToolNames: ['bash', 'pwsh']
-    testCommandPatterns:
-      - '(?:^|[;&|]\s*)(?:(?:pnpm|npm|npx|yarn|bun)(?:\s+run)?\s+(?:test|vitest|jest|mocha)(?:\s|$))'
-      - '(?:^|[;&|]\s*)(?:(?:pytest|go\s+test|cargo\s+test|make\s+test|ctest)(?:\s|$))'
-      - '(?:^|[;&|]\s*)(?:node\s+--test(?:\s|$))'
-      - '(?:^|[;&|]\s*)(?:deno\s+test|uv\s+run\s+pytest)(?:\s|$)'
-    testFilePatterns:
-      - '(^|[\\/])(tests?|__tests__|specs?)([\\/]|$)'
-      - '\\.(test|spec)\\.[A-Za-z0-9]+$'
-    gate:
-      enabled: true
-      planSuggestion: true
-      reportFile: 'gate-report.md'
-      requirements:
-        enabled: true
-        checklist:
-          - { id: goal, question: 'What outcome must the delivery produce?', specDimension: goal, required: true }
-          - { id: scope, question: 'What is in scope, and what is out of scope?', specDimension: scope, required: true }
-          - { id: acceptance, question: 'Which observable checks prove the work is done?', specDimension: acceptanceCriteria, required: true }
-          - { id: failureModes, question: 'What can go wrong, and what is the correct behavior in each case?', specDimension: failureModes, required: true }
-          - { id: priorities, question: 'What is traded when goals conflict; what is optional?', specDimension: priorities, required: true }
-          - { id: nonGoals, question: 'What does the user explicitly not want?', specDimension: nonGoals, required: true }
-        minConfirmed: 6
-        interrogateTool: 'ask_user_question'
-      tests:
-        enabled: true
-        requirePassingRun: true
-        allowFailingRuns: 0
-        requireCoverage: false
-        minCoveragePct: 80
-        coveragePattern: 'coverage[^\d]{0,40}(\d+(?:\.\d+)?)\s*%'
-      consistency:
-        enabled: true
-        provider: fork
-        model: null
-        tools: ['read', 'glob', 'grep']
-        timeoutMs: 120000
-        maxFindings: 5
-      review:
-        enabled: true
-        engine: auto          # auto = dsh-auto-review verdict records, else local
-        provider: fork
-        model: null
-        tools: ['read', 'glob', 'grep']
-        timeoutMs: 120000
-        maxFindings: 5
-```
-
-The shipped `strict.patch.yml` is exactly this guard row at `intensity: block` with every module on and the gate coverage requirement enabled — apply it as a patch layer after the bundle patch for strict mode without hand-editing a profile.
-
-### `intensity`
-
-| Value | Behavior on a gated `edit`/`write` |
-|---|---|
-| `remind` (default) | Call proceeds; a reminder rides the result context into the next model request. |
-| `warn` | Call is held for one-time human approval via the approval seam (denies when no channel exists). |
-| `block` | Call is denied with feedback directing the model to fix the discipline first. |
-
-### Tuning
-
-| Key | Default | Meaning |
-|---|---|---|
-| `modules.grill` | `true` | Off disables the grill gate. The grill skill/tools switch is their row's `disabled` flag. |
-| `modules.tdd` | `true` | On enables the red/green evidence gates (v0.2); enabled by default since v0.5. |
-| `modules.adversary` | `false` | On enables the forked critic review at green (v0.3); uses the `ctx.subagents` seam — a missing seam settles as an "unavailable" notice. |
-| `enableByDefault` | `true` | Master switch for sessions without a `/doublecheck on|off` record. |
-| `language` | `'en'` | Injected reminder/deny/review/gate prose language (`en` / `zh`). |
-| `guardTools` | `['edit', 'write']` | Mutation tool names both gates watch. |
-| `vagueTaskMaxChars` | `200` | Longer tasks are never treated as vague. Brief tasks naming a file, path, URL, an underscore keyword, or a hyphenated keyword are concrete. |
-| `remindOnce` | `true` | Inject each gate's reminder at most once per session — durable across restarts (folded from the log). |
-| `testToolNames` | `['bash', 'pwsh']` | Shell tool names that can run tests. |
-| `testCommandPatterns` | *(pnpm/npm/yarn/bun test, pytest, go/cargo/make test, node --test, deno test, uv run pytest)* | Regexes a command must match to count as a test run. |
-| `testFilePatterns` | *(test dirs, `*.test.*` / `*.spec.*`)* | Regexes identifying test files — always editable, exempt from the red gate. |
-| `adversaryModel` | `null` | Critic model route; `null` = main model self-reviews. |
-| `adversaryProvider` | `'fork'` | Subagent provider name the critic runs on. |
-| `adversaryMaxFindings` | `5` | Findings cap (1–20) injected into the session. |
-| `adversaryTools` | `['read', 'glob', 'grep']` | Critic tool allowlist; keep it read-only. |
-| `adversaryTimeoutMs` | `120000` | Hard time budget for one critic run. |
-
-Misconfiguration fails loud: an invalid regex, an empty/duplicated name list, or an out-of-range findings cap throws at load instead of silently doing nothing. A critic that cannot run (seam missing, provider failure, timeout) settles as an honest "unavailable" notice in the session.
-
-### Report knobs (grill row)
-
-| Key | Default | Meaning |
-|---|---|---|
-| `reportFile` | `'doublecheck-report.md'` | Workspace file receiving the report markdown. |
-| `reportVerify` | `true` | Default for the tool's `verify` flag. |
-| `verifyProvider` | `'fork'` | Subagent provider the per-dimension checkers run on. |
-| `verifyMode` | `'all'` | `all` = one parallel checker per dimension; `single` = one combined checker (one subagent, cheaper). |
-| `reportTestToolNames` / `reportTestCommandPatterns` | *(same defaults as the guard row)* | Report-scoped test-run classification. |
-| `reportMutationTools` / `reportTestFilePatterns` | *(same defaults as the guard row)* | Report-scoped implementation-edit classification. |
-
-The report's classification knobs are independent of the guard's: gate enforcement and report folding can be tuned separately without one silently changing the other. Verification degrades honestly: a missing `workflowEngine` seam or a rejected run leaves `verification: null` and the markdown says so.
-
-### Gate knobs (guard row)
-
-| Key | Default | Meaning |
-|---|---|---|
-| `gate.enabled` | `true` | Master switch for the gate panel and the turn-boundary red notice. |
-| `gate.planSuggestion` | `true` | Append the plan-mode re-check suggestion to red reports and panels. |
-| `gate.reportFile` | `'gate-report.md'` | Workspace file receiving the gate report. |
-| `gate.requirements.enabled` | `true` | Off skips the requirements phase. |
-| `gate.requirements.checklist` | *(six spec-dimension questions)* | The pluggable key-question checklist: `{ id, question, specDimension, required }`. `specDimension: null` renders as a manual-confirm warning; failed optional questions are warnings, not red lights. |
-| `gate.requirements.minConfirmed` | `6` | Minimum required questions that must pass (1..required count). |
-| `gate.requirements.interrogateTool` | `'ask_user_question'` | Tool name whose calls count as interrogation evidence. |
-| `gate.tests.enabled` | `true` | Off skips the test-evidence phase. |
-| `gate.tests.requirePassingRun` | `true` | A non-passing (or missing) latest test run is a red light. |
-| `gate.tests.allowFailingRuns` | `0` | Failing runs after the latest green allowed before red. |
-| `gate.tests.requireCoverage` | `false` | On requires coverage evidence in the test output. |
-| `gate.tests.minCoveragePct` | `80` | Minimum coverage percentage (0–100). |
-| `gate.tests.coveragePattern` | `coverage…(\d+…)%` | Regex with one capture group parsing the coverage percentage (compiled case-insensitively). |
-| `gate.consistency.enabled` | `true` | Off skips the diff ↔ requirement mapping phase. |
-| `gate.consistency.provider` / `.model` / `.tools` / `.timeoutMs` / `.maxFindings` | `fork` / `null` / `read,glob,grep` / `120000` / `5` | The local consistency reviewer's knobs (model `null` = main model). |
-| `gate.review.enabled` | `true` | Off skips the review conclusion. |
-| `gate.review.engine` | `'auto'` | `auto` = dsh-auto-review verdict records when present, else the local reviewer; `local` = always the local reviewer. |
-| `gate.review.provider` / `.model` / `.tools` / `.timeoutMs` / `.maxFindings` | *(same as consistency)* | The local review reviewer's knobs. |
-
-Gate configuration is validated fail-loud at load (duplicate ids, unknown spec dimensions, out-of-range thresholds, invalid regexes, empty tool lists throw), and the checklist is exposed through the `doublecheck.gate` settings namespace when the settings service is mounted. The gate never synthesizes approval requests; the local reviewers are read-only by default.
-
-## How it works (extension points)
-
-| Contribution | DSH mechanism |
-|---|---|
-| Bundled skills | `ctx.skills.registerProvider()` — skill capability seam, `source: bundled` |
-| Catalog/loader tool | `ctx.tools.register()` — `doublecheck_skills` |
-| Spec commit + workspace file | `doublecheck_spec` tool + `ctx.fs` write (optional) |
-| Requirements gate | `tools/pre-execute` waterfall — `allow` / `ask` (approval seam) / `deny` |
-| Red gate | `tools/pre-execute` waterfall — hard check of failing-test evidence before implementation edits |
-| Reminder injection | `tools/post-execute` waterfall — `additionalContexts` → logged as `user/message` |
-| Green gate | `agent/turn-stopping` serial — injects a completion reminder when edits lack a passing run |
-| Adversary review | `ctx.subagents.start()` — forked critic with structured findings schema, injected at green; `warn`/`block` steer one round |
-| Delivery report | `doublecheck_report` tool — session-log fold + workspace markdown |
-| Verification workflow | `ctx.workflowEngine.start()` — one parallel checker per spec dimension, structured checks |
-| Gate deterministic phases | pure session-log folds — key-question checklist vs the committed spec; test-run/coverage evidence |
-| Gate reviewer phases | `ctx.subagents.start()` — consistency mapper + local reviewer, structured findings, read-only tools |
-| Engine review | durable `autoReview/verdict` / `autoReview/rejection` folds + `ctx.commands.list()` presence probe (weak dependency, no import) |
-| Plan-mode suggestion | report/panel prose + once-per-session turn notice; `ctx.planMode` read for the status line (optional) |
-| `/gate` command | `ctx.commands.register()` — `status|run|config`; `run` writes the durable `doublecheck/gate` event + `gate-report.md` |
-| Settings surface | `ctx.settings.register('doublecheck.gate', schema, { expose: true, applies: 'restart' })` when mounted |
-| Durable state | session log fold over `tool/call` + `tool/result` + `tool/code-dispatch` + injected structured sources + `doublecheck/state` + `doublecheck/gate`; model-visible ⟺ logged |
-| Session command | `ctx.commands.register()` — `/doublecheck status|report|on|off`; `on|off` writes the durable `doublecheck/state` session event |
-| Session projection | `sessionProjections` registry — `doublecheck` view now carries `gateVerdict` + `gateRedCount` (stateVersion 2) |
-| Internal events | `doublecheck/spec`, `doublecheck/reminder`, `doublecheck/review`, `doublecheck/report`, `doublecheck/gate` (typed via declaration merging, `@mode emit`) |
-
-No agent-loop changes. Every registration is a reversible `ctx.effect` / `ctx.on` / service `register()`.
-
-## What the model sees
-
-- The `grill-requirements` skill joins the session skill catalog and loads through the built-in `skill` tool (or `doublecheck_skills`).
-- `ask_user_question` stays the native DSH way to interrogate the user; the skill only choreographs it (and degrades to prose questions in headless runs with no provider).
-- Reminders arrive as `{kind:'plugin'}` context, so transcript UIs present them as injection metadata.
-- The adversary critique arrives the same way after the critic settles, with severity-tagged findings; under `warn`/`block` the loop is steered one round so the model answers them.
-- `doublecheck_report` returns the consolidated report as a tool result (spec, test timeline, review, verification, verdict), so "prove the delivery" is one call away.
-- The gate-red turn notice arrives as `{kind:'doublecheck-gate'}` context — one short role-statement sentence plus the red count and the plan-mode suggestion.
-- `/doublecheck` and `/gate` answer in the transcript directly: `status` shows the switch, modules, intensity, stage facts, and the latest gate verdict; `report` prints the folded report; `on|off` flips the session switch; `/gate run` returns the PR-ready gate report.
-
-## Session commands
-
-```
-/doublecheck status|report|on|off
-/gate status|run|config
-```
-
-- `/doublecheck status` — effective switch (durable override beats the config default), configured modules, enforcement intensity, the folded stage facts (spec committed, red/green color, review on record, edit count), and the latest gate verdict.
-- `/doublecheck report` — folds the delivery report from the session log on the spot (no verification workflow; `doublecheck_report` owns that path).
-- `/doublecheck on|off` — writes the durable `doublecheck/state` event (survives restart, resume, and fork — replay IS the state) and injects a model-visible switch notice.
-- `/gate status` — the live checklist progress: deterministic phases fold on the spot, reviewer phases and the verdict show the latest `doublecheck/gate` run, plus the plan-mode state.
-- `/gate run` — settles the full four-phase checklist (deterministic folds + two local reviewer forks in parallel; the engine's verdict records when present), writes the durable `doublecheck/gate` event and `gate-report.md`, and returns the report markdown.
-- `/gate config` — renders the effective checklist, thresholds, and reviewer knobs.
-
-All command replies honor the guard row's `language` setting; the report documents keep their stable English headings and audit ids.
-
-## Roadmap
-
-The discipline loop and the delivery gate both ship: **grill → design → red → green → review → verify** (v0.1 → v0.6) plus the **four-phase quality gate with the deliverable/rework decision** (v0.7). Real-transcript regression fixtures pin the durable event shapes (`tests/fixtures/`). Future work: a Web-UI settings tab and gate badge for the `doublecheck` projection, richer report formatting, and cross-session spec seeding from the workspace file.
-
-## Develop
+## Development
 
 ```sh
-pnpm install --ignore-workspace
-pnpm run typecheck
-pnpm run lint
-pnpm run test
-pnpm run build
+pnpm install             # node ^22.19 || >=24
+pnpm run build           # tsc --noEmitOnError (lib/ is committed)
+pnpm run prepare         # tsc --noEmitOnError (git-install channel)
+pnpm run prepublishOnly  # build + full test suite
+pnpm run typecheck       # tsc --noEmit + tests tsconfig
+pnpm run lint            # eslint src tests
+pnpm test                # vitest run
+pnpm run test:coverage   # vitest run --coverage
+pnpm run pack:check      # build + pack the tarball
 ```
 
-## Acknowledgments
+## Topics
 
-Methodology inspired by [obra/superpowers](https://github.com/obra/superpowers) (TDD-style engineering discipline) and [TimothyVang/Grill-me](https://github.com/TimothyVang/Grill-me) (interrogating requirements before implementation). This package is an original implementation: no text, prompt, or file from either project is copied.
+`dsh`, `dsh-plugin`, `deepseek-harness`, `engineering-discipline`, `requirements`, `guard`, `skill`, `quality-gate`, `delivery-gate`
 
 ## Contributors
 
-- [PerryLink](https://github.com/PerryLink) — author & maintainer: the v0.1 → v0.7 discipline loop and delivery gate, the five-language docs, the CI/release pipeline, and the ecosystem submissions ([awesome-dsh-plugin#451](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/451), [awesome-dsh-plugins#147](https://github.com/AdamPlatin123/awesome-dsh-plugins/pull/147), [awesome-deepseek-harness#179](https://github.com/0xsline/awesome-deepseek-harness/pull/179), [bruc3van/awesome-dsh-plugin#36](https://github.com/bruc3van/awesome-dsh-plugin/pull/36), [dsh-hub-workshop#13](https://github.com/omdsh-dev/dsh-hub-workshop/issues/13)/[#19](https://github.com/omdsh-dev/dsh-hub-workshop/pull/19)).
-
-Issues, pull requests, and Discussions are all welcome — entry points are at the top of this document.
+- [@PerryLink](https://github.com/PerryLink) — creator and maintainer: the grill → design → red → green → review → verify discipline loop, the four-phase delivery gate, the five-language docs, and the CI/release pipeline.
 
 ## PerryLink DSH Plugin Family
 
@@ -474,4 +255,4 @@ This project is one of the [15 DeepSeek Harness plugins](https://github.com/Perr
 
 ## License
 
-[Apache-2.0](LICENSE)
+[Apache License 2.0](LICENSE) © 2026 dsh-doublecheck contributors
