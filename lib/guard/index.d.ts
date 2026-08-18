@@ -29,11 +29,11 @@
 import type { Context } from '@deepseek-ai/cordis';
 import type { SessionEvent } from '@deepseek-ai/dsh-session';
 import type Schema from '@deepseek-ai/schemastery';
-import { type DisciplineState } from '../domain/stages.ts';
-import type { GuardIntensity } from '../events.ts';
-import { type ProseLanguage } from './prose.ts';
-import { type GateConfig } from './gate.ts';
-import { type GateVerdict } from '../domain/gate.ts';
+import { type DisciplineState } from '../domain/stages.js';
+import type { GuardIntensity } from '../events.js';
+import { type ProseLanguage } from './prose.js';
+import { type GateConfig } from './gate.js';
+import { type GateVerdict } from '../domain/gate.js';
 export declare const name = "doublecheck-guard";
 export declare const inject: string[];
 /**

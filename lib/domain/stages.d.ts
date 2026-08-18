@@ -15,7 +15,7 @@
  * @module dsh-doublecheck/domain/stages
  */
 import type { SessionEvent } from '@deepseek-ai/dsh-session';
-import { type TestRunDetection } from './evidence.ts';
+import { type TestRunDetection } from './evidence.js';
 /** The discipline stages, in execution order. */
 export type DisciplineStage = 'grill' | 'design' | 'red' | 'green' | 'review' | 'verify';
 /** All discipline stages in order. */

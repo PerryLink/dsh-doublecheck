@@ -6,13 +6,13 @@
  *
  * @module dsh-doublecheck
  */
-export type { GrilledSpec, GuardIntensity, GuardGate, GuardVerdict } from './events.ts';
-export * from './domain/stages.ts';
-export * from './domain/evidence.ts';
-export * from './domain/vagueness.ts';
-export * from './domain/vocabulary.ts';
-export * from './domain/report.ts';
-export * from './domain/gate.ts';
-export { renderSpecMarkdown } from './grill/index.ts';
-export { BundledSkillProvider, parseSkillAsset, PROVIDER_NAME } from './grill/provider.ts';
-export type * from './types.ts';
+export type { GrilledSpec, GuardIntensity, GuardGate, GuardVerdict } from './events.js';
+export * from './domain/stages.js';
+export * from './domain/evidence.js';
+export * from './domain/vagueness.js';
+export * from './domain/vocabulary.js';
+export * from './domain/report.js';
+export * from './domain/gate.js';
+export { renderSpecMarkdown } from './grill/index.js';
+export { BundledSkillProvider, parseSkillAsset, PROVIDER_NAME } from './grill/provider.js';
+export type * from './types.js';

@@ -27,8 +27,8 @@
  */
 import type { SessionEvent } from '@deepseek-ai/dsh-session';
 import type { ObjectJsonSchema } from '@deepseek-ai/dsh-tools';
-import { type TestRunDetection } from './evidence.ts';
-import { type GrilledSpec, type ReviewFinding } from './vocabulary.ts';
+import { type TestRunDetection } from './evidence.js';
+import { type GrilledSpec, type ReviewFinding } from './vocabulary.js';
 /** The four gate phases, in checklist order. */
 export type GatePhase = 'requirements' | 'tests' | 'consistency' | 'review';
 /** All gate phases in checklist order. */

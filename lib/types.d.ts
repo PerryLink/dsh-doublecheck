@@ -7,8 +7,8 @@
  * @module dsh-doublecheck/types
  */
 import { z as zod } from 'zod';
-import type { DisciplineStage, TestColor } from './domain/stages.ts';
-import type { GateVerdict } from './domain/gate.ts';
+import type { DisciplineStage, TestColor } from './domain/stages.js';
+import type { GateVerdict } from './domain/gate.js';
 /** The whole wire value of the `doublecheck` session projection. */
 export interface DoublecheckView {
     /** The last discipline stage reached on durable evidence. */

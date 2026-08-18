@@ -16,8 +16,8 @@ import type { Context } from '@deepseek-ai/cordis';
 import type { Agent } from '@deepseek-ai/dsh-agent';
 import type { UserMessage } from '@deepseek-ai/dsh-llm';
 import type { ObjectJsonSchema } from '@deepseek-ai/dsh-tools';
-import type { ReviewFinding, ReviewVerdict } from '../domain/vocabulary.ts';
-import { type GuardProse, type ProseLanguage } from './prose.ts';
+import type { ReviewFinding, ReviewVerdict } from '../domain/vocabulary.js';
+import { type GuardProse, type ProseLanguage } from './prose.js';
 /** The adversary knobs the review runner reads. */
 export interface AdversaryConfig {
     adversaryProvider: string;

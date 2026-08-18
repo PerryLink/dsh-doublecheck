@@ -16,8 +16,8 @@
 import type { CommandInvocation, CommandResult } from '@deepseek-ai/dsh-commands';
 import { Session } from '@deepseek-ai/dsh-session';
 import type { SessionEvent } from '@deepseek-ai/dsh-session';
-import type { TestRunDetection } from '../domain/evidence.ts';
-import type { Config, Snapshot } from './index.ts';
+import type { TestRunDetection } from '../domain/evidence.js';
+import type { Config, Snapshot } from './index.js';
 export declare function hostStampsIgnorable(): boolean;
 /**
  * The session's doublecheck master switch: the last `doublecheck/state` event,

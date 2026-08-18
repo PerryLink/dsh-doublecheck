@@ -14,10 +14,10 @@
  */
 import type { Agent } from '@deepseek-ai/dsh-agent';
 import type { Session, SessionEventMap } from '@deepseek-ai/dsh-session';
-import type { GrilledSpec, ReviewFinding, ReviewVerdict, ReportVerdict, VerifyCheck } from './domain/vocabulary.ts';
-import type { GateState, GateVerdict } from './domain/gate.ts';
-export type { GrilledSpec, ReviewFinding, ReviewVerdict, ReportVerdict, VerifyCheck } from './domain/vocabulary.ts';
-export type { GateState } from './domain/gate.ts';
+import type { GrilledSpec, ReviewFinding, ReviewVerdict, ReportVerdict, VerifyCheck } from './domain/vocabulary.js';
+import type { GateState, GateVerdict } from './domain/gate.js';
+export type { GrilledSpec, ReviewFinding, ReviewVerdict, ReportVerdict, VerifyCheck } from './domain/vocabulary.js';
+export type { GateState } from './domain/gate.js';
 /** Guard enforcement strength. */
 export type GuardIntensity = 'remind' | 'warn' | 'block';
 /** Which discipline gate produced a guard reaction. */

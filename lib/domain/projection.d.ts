@@ -11,10 +11,10 @@
  * @module dsh-doublecheck/domain/projection
  */
 import type { SessionEvent } from '@deepseek-ai/dsh-session';
-import { type TestRunDetection } from './evidence.ts';
-import { type DisciplineStage, type TestColor } from './stages.ts';
-import { type GateVerdict } from './gate.ts';
-import type { DoublecheckView } from '../types.ts';
+import { type TestRunDetection } from './evidence.js';
+import { type DisciplineStage, type TestColor } from './stages.js';
+import { type GateVerdict } from './gate.js';
+import type { DoublecheckView } from '../types.js';
 /** The projection unit's plain-JSON fold state. */
 export interface DoublecheckProjectionState {
     /** The last discipline stage a successful call or test run reached. */

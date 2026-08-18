@@ -14,7 +14,7 @@
  */
 import type { Context } from '@deepseek-ai/cordis';
 import type Schema from '@deepseek-ai/schemastery';
-import type { GrilledSpec } from '../events.ts';
+import type { GrilledSpec } from '../events.js';
 export declare const name = "doublecheck-grill";
 export declare const inject: string[];
 /** Grill module configuration. */

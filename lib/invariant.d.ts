@@ -23,7 +23,7 @@
  * @module dsh-doublecheck/invariant
  */
 import type { Context } from '@deepseek-ai/cordis';
-import type { TestRunDetection } from './domain/evidence.ts';
+import type { TestRunDetection } from './domain/evidence.js';
 /** Full npm package name owning the reported failures. */
 export declare const PACKAGE_NAME = "dsh-doublecheck";
 /** A package-attributed invariant failure reported by the host registry. */

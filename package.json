@@ -51,13 +51,17 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc --noEmitOnError",
-    "prepare": "tsc --noEmitOnError",
-    "prepublishOnly": "tsc --noEmitOnError && pnpm run test",
+    "build": "tsc --noEmitOnError && node scripts/fix-dts.mjs",
+    "prepare": "tsc --noEmitOnError && node scripts/fix-dts.mjs",
+    "prepublishOnly": "tsc --noEmitOnError && node scripts/fix-dts.mjs && pnpm run test",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.tests.json",
     "lint": "eslint src tests",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "verify:skills": "node scripts/verify-skills.mjs",
+    "check:readmes": "node scripts/check-readme-sync.mjs",
+    "verify:self-contained": "node scripts/verify-self-contained.mjs",
+    "verify:artifacts": "node scripts/verify-artifacts.mjs",
     "pack:check": "pnpm run build && pnpm pack"
   },
   "keywords": [
@@ -137,6 +141,7 @@
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/cordis-plugin-loader": "1.0.2",
     "@deepseek-ai/dsh-agent": "0.1.0-rc.6",
     "@deepseek-ai/dsh-commands": "0.1.0-rc.6",
     "@deepseek-ai/dsh-fs": "0.1.0-rc.6",

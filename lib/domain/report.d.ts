@@ -14,8 +14,8 @@
 import type { SessionEvent } from '@deepseek-ai/dsh-session';
 import type { ObjectJsonSchema } from '@deepseek-ai/dsh-tools';
 import type { WorkflowMeta } from '@deepseek-ai/dsh-workflow';
-import { type TestRunDetection } from './evidence.ts';
-import { type GrilledSpec, type ReportVerdict, type ReviewFinding, type ReviewVerdict, type VerifyCheck } from './vocabulary.ts';
+import { type TestRunDetection } from './evidence.js';
+import { type GrilledSpec, type ReportVerdict, type ReviewFinding, type ReviewVerdict, type VerifyCheck } from './vocabulary.js';
 /** One timeline row of the report fold, in log order. */
 export interface ReportTimelineEntry {
     /** The evidence kind this row records. */

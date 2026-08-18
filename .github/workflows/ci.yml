@@ -38,11 +38,23 @@ jobs:
       - name: Test
         run: pnpm run test
 
+      - name: Skill-pack layout verification
+        run: pnpm run verify:skills
+
       - name: Coverage
         run: pnpm run test:coverage
 
+      - name: README sync (five languages)
+        run: pnpm run check:readmes
+
       - name: Build
         run: pnpm run build
+
+      - name: Verify self-contained dependency specs
+        run: pnpm run verify:self-contained
+
+      - name: Verify built artifacts
+        run: pnpm run verify:artifacts
 
       - name: Pack smoke
         run: pnpm run pack:check
