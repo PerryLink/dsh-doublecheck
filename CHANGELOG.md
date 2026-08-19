@@ -2,6 +2,12 @@
 
 All notable changes to dsh-doublecheck are recorded here, newest first.
 
+## v0.7.1 — 2026-08-19
+
+### Fixed
+
+- **Invariant companion survives hot-reload**: the guard's inline invariant registration now holds the host registry's disposer through the inject scope's `ctx.effect` (the registry binds its own effect to the service context, so the returned disposer is the only unregistration path). Disposing the guard fiber — config hot-reload, profile disable — unregisters the companion and its `doublecheck/*` listeners; remounting re-registers cleanly instead of throwing `package "dsh-doublecheck" is already registered`. Regression covered by a dispose-and-remount lifecycle test against a duplicate-strict registry.
+
 ## v0.7.0 — 2026-08-16
 
 The delivery quality gate release: the discipline loop grows a productized front panel that aggregates the session's durable evidence into one **deliverable / rework required** decision.
