@@ -142,6 +142,61 @@ describe('fiber disposal', () => {
 })
 
 // ---------------------------------------------------------------------------
+// HMR regression: the inline invariant companion must unregister on dispose —
+// the host registry binds its own effect to the service context and throws on
+// a duplicate package name, so the returned disposer is the only clean path
+// ---------------------------------------------------------------------------
+
+describe('invariant companion disposal', () => {
+  /** A duplicate-strict stand-in for the host invariant registry. */
+  function fakeInvariantRegistry() {
+    const registrations = new Set<string>()
+    return {
+      registrations,
+      register(packageName: string, _installer: unknown): () => void {
+        if (registrations.has(packageName)) throw new Error(`package "${packageName}" is already registered`)
+        registrations.add(packageName)
+        return () => { registrations.delete(packageName) }
+      },
+    }
+  }
+
+  /** Wait out the secondary inject scope's asynchronous activation. */
+  async function untilSettled(expectation: () => boolean): Promise<void> {
+    for (let i = 0; i < 50 && !expectation(); i++) {
+      await new Promise(resolve => setTimeout(resolve, 0))
+    }
+  }
+
+  it('guard: unregisters the invariant companion on dispose and re-registers cleanly on remount', async () => {
+    const registry = fakeInvariantRegistry()
+    const ctx = new Context()
+    try {
+      await ctx.plugin(SessionStore)
+      ctx.provide('systemPrompt', { tools: () => () => undefined, section: () => () => undefined } as never)
+      await ctx.plugin(ToolRuntime)
+      await ctx.plugin(CommandRuntime)
+      ctx.provide('invariants', registry as never)
+      const fiber = await ctx.plugin(guardModule)
+      await untilSettled(() => registry.registrations.has('dsh-doublecheck'))
+      expect(registry.registrations.has('dsh-doublecheck')).toBe(true)
+
+      await fiber.dispose()
+      expect(registry.registrations.has('dsh-doublecheck')).toBe(false)
+
+      // A remount (config hot-reload) must not trip the duplicate guard.
+      const remounted = await ctx.plugin(guardModule)
+      await untilSettled(() => registry.registrations.has('dsh-doublecheck'))
+      expect(registry.registrations.has('dsh-doublecheck')).toBe(true)
+      await remounted.dispose()
+      expect(registry.registrations.has('dsh-doublecheck')).toBe(false)
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
 // U4: the Schemastery schema rejects invalid config before apply ever runs
 // ---------------------------------------------------------------------------
 
