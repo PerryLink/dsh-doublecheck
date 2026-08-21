@@ -2,6 +2,12 @@
 
 All notable changes to dsh-doublecheck are recorded here, newest first.
 
+## v0.7.2 — 2026-08-21
+
+### Changed
+
+- **rc8 compatibility release**: every `@deepseek-ai/dsh-*` dependency moves to the `0.1.0-rc.8` wave — devDependencies pin exactly `0.1.0-rc.8`, peerDependencies declare `>=0.1.0-rc.8 <0.2.0`, the CI and compat workflow pins and the `minimumReleaseAgeExclude` list follow, and the workshop manifest's `dshVersions` plus the five READMEs document the `0.1.0-rc.8` harness baseline. No behavior change.
+
 ## v0.7.1 — 2026-08-19
 
 ### Fixed

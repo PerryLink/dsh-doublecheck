@@ -24,7 +24,7 @@
 
 | सतह | स्थिति |
 |---|---|
-| Harness | DeepSeek Harness `0.1.0-rc.6` |
+| Harness | DeepSeek Harness `0.1.0-rc.8` |
 | Node | `^22.19.0 \|\| >=24.0.0` |
 | प्लेटफ़ॉर्म | सभी (शुद्ध host; कोई नेटिव कोड नहीं, स्वयं का कोई सीधा नेटवर्क अनुरोध नहीं) |
 | मॉडल | कोई भी (guard स्वयं कभी मॉडल नहीं बुलाता; critic और reviewer चरण harness subagent के रूप में चलते हैं) |
@@ -205,7 +205,7 @@ dsh --profile web --dump-config | grep -E -A3 'id: doublecheck-(grill|guard)'
 
 ## ज्ञात सीमाएँ
 
-- **rc.6 पर टिकाऊ लेखन।** `/doublecheck on\|off` → `doublecheck/state` और `/gate run` → `doublecheck/gate` को host की `ignorable` append सतह (rc.6 के बाद) चाहिए; rc.6 host पर विकल्प बैग अनदेखा होता है और इवेंट आवश्यक-पढ़ने बना रहता है, इसलिए स्विच स्मृति में रहता है और द्वार रिकॉर्ड केवल कमांड परिणाम + कार्यक्षेत्र फ़ाइल में रहता है, जब तक harness उन्नत नहीं होता।
+- **टिकाऊ लेखन।** `/doublecheck on\|off` → `doublecheck/state` और `/gate run` → `doublecheck/gate` को host की `ignorable` append सतह (rc.6 के बाद) चाहिए, जो हर समर्थित host (≥ `0.1.0-rc.8`) प्रदान करता है।
 - **वैकल्पिक इंटरफ़ेस।** `doublecheck.gate` सेटिंग्स नेमस्पेस केवल तब पंजीकृत होता है जब सेटिंग्स सेवा माउंट हो; `/gate status` की प्लान-मोड पंक्ति वैकल्पिक `ctx.planMode` पढ़ती है (इसके बिना `unknown` दिखाती है); प्रतिकूल समीक्षा को `ctx.subagents` चाहिए; सत्यापन को `workflowEngine` चाहिए।
 - **स्थानीय अवनति।** जब dsh-auto-review अनुपस्थित हो या इस सत्र में उसके कोई निर्णय रिकॉर्ड न हों, तो `gate.review.engine: auto` स्थानीय समीक्षक पर घट जाता है — रिपोर्ट निर्णय गढ़ने के बजाय कारण बताती है।
 

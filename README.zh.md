@@ -24,7 +24,7 @@
 
 | 方面 | 状态 |
 |---|---|
-| Harness | DeepSeek Harness `0.1.0-rc.6` |
+| Harness | DeepSeek Harness `0.1.0-rc.8` |
 | Node | `^22.19.0 \|\| >=24.0.0` |
 | 平台 | 全部（纯宿主；无原生代码，自身无直接网络请求） |
 | 模型 | 任意（守卫本身从不调用模型；评审与批评阶段作为宿主 subagent 运行） |
@@ -205,7 +205,7 @@ dsh --profile web --dump-config | grep -E -A3 'id: doublecheck-(grill|guard)'
 
 ## 已知限制
 
-- **rc.6 上的持久写入。** `/doublecheck on\|off` → `doublecheck/state` 与 `/gate run` → `doublecheck/gate` 需要宿主的 `ignorable` 追加接口（rc.6 之后）；在 rc.6 宿主上选项包被忽略，事件保持必需读取，因此开关停留在内存中，门禁记录只存在于命令结果 + 工作区文件，直到升级宿主。
+- **持久写入。** `/doublecheck on\|off` → `doublecheck/state` 与 `/gate run` → `doublecheck/gate` 需要宿主的 `ignorable` 追加接口（rc.6 之后），受支持宿主（≥ `0.1.0-rc.8`）均具备该接口。
 - **可选接口。** `doublecheck.gate` 设置命名空间仅在挂载设置服务时注册；`/gate status` 的计划模式行读取可选的 `ctx.planMode`（没有则显示 `unknown`）；对抗式评审需要 `ctx.subagents`；验证需要 `workflowEngine`。
 - **本地降级。** 当 dsh-auto-review 缺失或本会话没有裁决记录时，`gate.review.engine: auto` 会降级到本地评审者——报告会写明原因，而不是捏造裁决。
 
