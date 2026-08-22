@@ -2,6 +2,13 @@
 
 All notable changes to dsh-doublecheck are recorded here, newest first.
 
+## v0.7.3 — 2026-08-22
+
+### Changed
+
+- **rc2 compatibility release**: every `@deepseek-ai/dsh-*` devDependency pins exactly `0.1.1-rc.2`, the CI and compat workflow pins and the `minimumReleaseAgeExclude` list follow, and the workshop manifest's `dshVersions` plus the five READMEs document the `0.1.1-rc.2` harness baseline.
+- **Session-projection rc2 contract**: the `doublecheck` projection now registers the rc2 shape — `stateSchema` (a new plain-JSON state schema covering the fold bookkeeping fields) plus `wire: { viewSchema, view }` for the client-visible payload — and merges `doublecheck` into both `SessionProjectionStateMap` (host state) and `SessionProjectionMap` (client view). `@deepseek-ai/dsh-session-projection` peerDependency raises to `>=0.1.1-rc.2 <0.2.0` because the `wire`/`stateSchema` registration is rc2-only.
+
 ## v0.7.2 — 2026-08-21
 
 ### Changed

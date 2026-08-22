@@ -24,7 +24,7 @@
 
 | Superficie | Estado |
 |---|---|
-| Harness | DeepSeek Harness `0.1.0-rc.8` |
+| Harness | DeepSeek Harness `0.1.1-rc.2` |
 | Node | `^22.19.0 \|\| >=24.0.0` |
 | Plataformas | Todas (host puro; sin código nativo, sin solicitudes de red directas propias) |
 | Modelo | Cualquiera (el guard nunca llama a un modelo; las fases de crítico y revisor se ejecutan como subagentes del harness) |
@@ -205,7 +205,7 @@ Las luces rojas son comprobaciones fallidas (un spec ausente, una última ejecuc
 
 ## Limitaciones conocidas
 
-- **Escrituras durables.** `/doublecheck on\|off` → `doublecheck/state` y `/gate run` → `doublecheck/gate` necesitan la superficie de append `ignorable` del host (post-rc.6), que todo host compatible (≥ `0.1.0-rc.8`) proporciona.
+- **Escrituras durables.** `/doublecheck on\|off` → `doublecheck/state` y `/gate run` → `doublecheck/gate` necesitan la superficie de append `ignorable` del host (post-rc.6), que todo host compatible (≥ `0.1.1-rc.2`) proporciona.
 - **Interfaces opcionales.** El espacio de ajustes `doublecheck.gate` se registra solo cuando el servicio de ajustes está montado; la línea de modo plan de `/gate status` lee el `ctx.planMode` opcional (muestra `unknown` sin él); la revisión adversarial necesita `ctx.subagents`; la verificación necesita `workflowEngine`.
 - **Degradación local.** `gate.review.engine: auto` degrada al revisor local cuando dsh-auto-review está ausente o no tiene registros de veredicto en esta sesión — el informe nombra la razón en lugar de inventar un veredicto.
 

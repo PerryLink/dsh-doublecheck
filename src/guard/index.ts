@@ -67,7 +67,7 @@ import {
   viewDoublecheck,
   type DoublecheckProjectionState,
 } from '../domain/projection.ts'
-import { doublecheckViewSchema, type DoublecheckView } from '../types.ts'
+import { doublecheckStateSchema, doublecheckViewSchema, type DoublecheckView } from '../types.ts'
 import { installInvariant, PACKAGE_NAME, type InvariantRegistry } from '../invariant.ts'
 import { doublecheckHandler, hostStampsIgnorable } from './command.ts'
 
@@ -634,20 +634,23 @@ export function apply(ctx: Context, config: Config): void {
     const registry = projectionCtx.get('sessionProjections') as {
       register(definition: {
         key: 'doublecheck'
-        schema: { parse(value: unknown): DoublecheckView }
+        stateSchema: { parse(value: unknown): DoublecheckProjectionState }
         init(): DoublecheckProjectionState
         apply(state: DoublecheckProjectionState, event: SessionEvent): DoublecheckProjectionState
-        view(state: DoublecheckProjectionState): DoublecheckView
+        wire: { viewSchema: { parse(value: unknown): DoublecheckView }; view(state: DoublecheckProjectionState): DoublecheckView }
         stateVersion: number
       }): () => void
     } | undefined
     if (registry === undefined) return
     registry.register({
       key: 'doublecheck',
-      schema: doublecheckViewSchema,
+      stateSchema: doublecheckStateSchema,
       init: emptyDoublecheckState,
       apply: (state, event) => applyDoublecheckEvent(state, event, detection),
-      view: viewDoublecheck,
+      wire: {
+        viewSchema: doublecheckViewSchema,
+        view: viewDoublecheck,
+      },
       stateVersion: 2,
     })
   })

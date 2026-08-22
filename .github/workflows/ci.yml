@@ -84,7 +84,7 @@ jobs:
         run: pnpm pack
 
       - name: Install the DSH CLI
-        run: npm install --global @deepseek-ai/dsh@0.1.0-rc.8
+        run: npm install --global @deepseek-ai/dsh@0.1.1-rc.2
 
       - name: Assemble a scratch profile with the packed bundle
         run: |

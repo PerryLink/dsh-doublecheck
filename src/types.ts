@@ -10,8 +10,10 @@
 import { z as zod } from 'zod'
 import type { DisciplineStage, TestColor } from './domain/stages.ts'
 import type { GateVerdict } from './domain/gate.ts'
+import type { DoublecheckProjectionState } from './domain/projection.ts'
 // Type-only side effect: pulls the projection package into the program so the
-// `SessionProjectionMap` augmentation below merges into the real table.
+// `SessionProjectionMap` / `SessionProjectionStateMap` augmentations below
+// merge into the real tables.
 import type {} from '@deepseek-ai/dsh-session-projection'
 
 /** The whole wire value of the `doublecheck` session projection. */
@@ -46,7 +48,24 @@ export const doublecheckViewSchema = zod.object({
   gateRedCount: zod.number(),
 })
 
+/** Validates the persisted `doublecheck` projection state before it seeds a fold. */
+export const doublecheckStateSchema = zod.object({
+  stage: zod.union([zod.literal('grill'), zod.literal('design'), zod.literal('red'), zod.literal('green'), zod.literal('review'), zod.literal('verify')]),
+  color: zod.union([zod.literal('none'), zod.literal('red'), zod.literal('green')]),
+  hasSpec: zod.boolean(),
+  specGoal: zod.string(),
+  reviewed: zod.boolean(),
+  editCount: zod.number(),
+  gateVerdict: zod.union([zod.literal('none'), zod.literal('deliverable'), zod.literal('rework')]),
+  gateRedCount: zod.number(),
+  pendingSpecCalls: zod.record(zod.string(), zod.string()),
+  pendingTestCalls: zod.record(zod.string(), zod.string()),
+})
+
 declare module '@deepseek-ai/dsh-session-projection/types' {
+  interface SessionProjectionStateMap {
+    doublecheck: DoublecheckProjectionState
+  }
   interface SessionProjectionMap {
     doublecheck: DoublecheckView
   }
