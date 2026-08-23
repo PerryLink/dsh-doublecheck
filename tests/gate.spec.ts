@@ -10,15 +10,18 @@ import { compileDetection, type TestRunDetection } from '../src/domain/evidence.
 import {
   countRedChecks,
   DEFAULT_COVERAGE_PATTERN,
+  DEFAULT_EVAL_REPORTS_CONFIG,
   DEFAULT_GATE_QUESTIONS,
   deriveGateVerdict,
   evaluateConsistency,
+  evaluateEvalEvidence,
   evaluateRequirements,
   evaluateReview,
   evaluateTests,
   foldAutoReviewEvidence,
   foldRequirementsEvidence,
   foldTestEvidence,
+  parseEvalReport,
   redactSecrets,
   renderGateReportMarkdown,
   type GateState,
@@ -199,6 +202,38 @@ describe('gate domain folds', () => {
     expect(local.result.status).toBe('fail')
   })
 
+  it('parses a dsh-eval report structurally and rejects malformed documents', () => {
+    const parsed = parseEvalReport({
+      suite: 'regression-suite',
+      finishedAt: 1750000000000,
+      summary: { total: 3, pass: 2, fail: 1, error: 0, cancelled: 0 },
+    })
+    expect(parsed).toMatchObject({ suite: 'regression-suite', total: 3, pass: 2, fail: 1, error: 0, cancelled: 0 })
+    expect(parsed?.finishedAt).toBe(new Date(1750000000000).toISOString())
+
+    expect(parseEvalReport(null)).toBeNull()
+    expect(parseEvalReport({})).toBeNull()
+    expect(parseEvalReport({ summary: { total: '3', pass: 3, fail: 0, error: 0, cancelled: 0 } })).toBeNull()
+    expect(parseEvalReport({ summary: { total: 3, pass: 3, fail: 0, error: 0, cancelled: 0 } })).toMatchObject({ suite: 'dsh-eval' })
+  })
+
+  it('evaluates the dsh-eval evidence check: pass, fail, skip, and required-missing', () => {
+    const passing = evaluateEvalEvidence({ suite: 's', total: 3, pass: 3, fail: 0, error: 0, cancelled: 0, finishedAt: '' }, DEFAULT_EVAL_REPORTS_CONFIG, '')
+    expect(passing.status).toBe('pass')
+
+    const failing = evaluateEvalEvidence({ suite: 's', total: 3, pass: 1, fail: 1, error: 1, cancelled: 0, finishedAt: '' }, DEFAULT_EVAL_REPORTS_CONFIG, '')
+    expect(failing.status).toBe('fail')
+    expect(failing.summary).toContain('1 failed, 1 errored, 0 cancelled of 3 cases')
+
+    const skipped = evaluateEvalEvidence(null, DEFAULT_EVAL_REPORTS_CONFIG, 'the filesystem seam is not mounted')
+    expect(skipped.status).toBe('skip')
+    expect(skipped.summary).toContain('the filesystem seam is not mounted')
+
+    const requiredMissing = evaluateEvalEvidence(null, { ...DEFAULT_EVAL_REPORTS_CONFIG, required: true }, 'no report')
+    expect(requiredMissing.status).toBe('fail')
+    expect(requiredMissing.suggestion).toContain('dsh-eval')
+  })
+
   it('derives the binary verdict and counts red items', () => {
     const requirements = evaluateRequirements(
       foldRequirementsEvidence([], 'ask_user_question'),
@@ -282,6 +317,8 @@ interface GateSetupOptions {
   extraCommands?: string[]
   /** Fail the reviewer starts (seam missing). */
   noSubagents?: boolean
+  /** Serve this dsh-eval report JSON through a fake fs seam (enables the fold). */
+  evalReport?: string
 }
 
 async function setup(config: guardModule.Config = fullConfig(), options: GateSetupOptions = {}) {
@@ -335,6 +372,22 @@ async function setup(config: guardModule.Config = fullConfig(), options: GateSet
       }
     }
     await ctx.plugin(FakeSubagents)
+  }
+  if (options.evalReport !== undefined) {
+    class FakeFs extends Service {
+      constructor(childCtx: Context) {
+        super(childCtx, 'fs')
+      }
+
+      async resolve() {
+        return { key: 'report-target' }
+      }
+
+      async readText() {
+        return options.evalReport!
+      }
+    }
+    await ctx.plugin(FakeFs)
   }
   await ctx.plugin(guardModule, config)
   return { ctx, registered, starts }
@@ -441,6 +494,88 @@ describe('/gate command', () => {
     expect(result.kind).toBe('success')
     expect(result.text).toContain('Implementation consistency — SKIP')
     expect(result.text).toContain('the subagents seam is not mounted')
+  })
+
+  it('run folds the dsh-eval report into the tests phase when eval evidence is enabled', async () => {
+    const base = guardModule.Config(fullConfig())
+    const config: guardModule.Config = {
+      ...fullConfig(),
+      gate: {
+        ...base.gate,
+        tests: { ...base.gate.tests, evalReports: { enabled: true, dir: '.eval-reports', file: 'report.json', required: false } },
+      },
+    }
+    const report = JSON.stringify({
+      suite: 'regression-suite',
+      finishedAt: 1750000000000,
+      summary: { total: 3, pass: 3, fail: 0, error: 0, cancelled: 0 },
+    })
+    const { registered } = await setup(config, { reviews: [[]], evalReport: report })
+    const handler = gateCommand(registered).handler
+    const session = fakeSession(deliveredSession())
+    const result = (await handler({ agent: fakeAgent(session), rawInput: 'run', signal })) as { kind: string; text: string }
+    expect(result.text).toContain('dsh-eval evidence (prompt regression / stress / fairness)')
+    expect(result.text).toContain('3/3 cases passed')
+    expect(result.text).toContain('**Verdict: deliverable**')
+  })
+
+  it('run turns a failing dsh-eval report red and a missing required report red', async () => {
+    const base = guardModule.Config(fullConfig())
+    const failing = JSON.stringify({
+      suite: 'stress-suite',
+      finishedAt: 1750000000000,
+      summary: { total: 2, pass: 0, fail: 1, error: 1, cancelled: 0 },
+    })
+    const configFailing: guardModule.Config = {
+      ...fullConfig(),
+      gate: {
+        ...base.gate,
+        tests: { ...base.gate.tests, evalReports: { enabled: true, dir: '.eval-reports', file: 'report.json', required: false } },
+      },
+    }
+    const runFailing = await setup(configFailing, { reviews: [[]], evalReport: failing })
+    const resultFailing = (await gateCommand(runFailing.registered).handler({
+      agent: fakeAgent(fakeSession(deliveredSession())), rawInput: 'run', signal,
+    })) as { kind: string; text: string }
+    expect(resultFailing.text).toContain('1 failed, 1 errored, 0 cancelled of 2 cases')
+    expect(resultFailing.text).toContain('**Verdict: rework required**')
+
+    const configRequired: guardModule.Config = {
+      ...fullConfig(),
+      gate: {
+        ...base.gate,
+        tests: { ...base.gate.tests, evalReports: { enabled: true, dir: '.eval-reports', file: 'report.json', required: true } },
+      },
+    }
+    const runRequired = await setup(configRequired, { reviews: [[]] })
+    const resultRequired = (await gateCommand(runRequired.registered).handler({
+      agent: fakeAgent(fakeSession(deliveredSession())), rawInput: 'run', signal,
+    })) as { kind: string; text: string }
+    expect(resultRequired.text).toContain('no dsh-eval report found')
+    expect(resultRequired.text).toContain('**Verdict: rework required**')
+  })
+
+  it('run degrades an unreadable or non-report dsh-eval file to a skip', async () => {
+    const base = guardModule.Config(fullConfig())
+    const config: guardModule.Config = {
+      ...fullConfig(),
+      gate: {
+        ...base.gate,
+        tests: { ...base.gate.tests, evalReports: { enabled: true, dir: '.eval-reports', file: 'report.json', required: false } },
+      },
+    }
+    const malformed = await setup(config, { reviews: [[]], evalReport: '{ not json' })
+    const resultMalformed = (await gateCommand(malformed.registered).handler({
+      agent: fakeAgent(fakeSession(deliveredSession())), rawInput: 'run', signal,
+    })) as { kind: string; text: string }
+    expect(resultMalformed.text).toContain('no dsh-eval report found')
+    expect(resultMalformed.text).toContain('cannot read')
+
+    const wrongShape = await setup(config, { reviews: [[]], evalReport: JSON.stringify({ hello: 'world' }) })
+    const resultShape = (await gateCommand(wrongShape.registered).handler({
+      agent: fakeAgent(fakeSession(deliveredSession())), rawInput: 'run', signal,
+    })) as { kind: string; text: string }
+    expect(resultShape.text).toContain('is not a dsh-eval report')
   })
 
   it('config renders the pluggable checklist and thresholds', async () => {

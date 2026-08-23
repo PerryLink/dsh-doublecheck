@@ -156,6 +156,19 @@ export interface TestsGateConfig {
     /** Minimum coverage percentage when coverage is required. */
     minCoveragePct: number;
 }
+/** The dsh-eval evidence sub-config of the tests phase (weak dependency). */
+export interface EvalReportsConfig {
+    /** Off keeps the tests phase purely session-log-derived (default). */
+    enabled: boolean;
+    /** Workspace-relative directory holding the engine's report file. */
+    dir: string;
+    /** Report file name inside {@link dir}. */
+    file: string;
+    /** A missing report is a red light exactly when true (a skip otherwise). */
+    required: boolean;
+}
+/** Default eval-evidence sub-config: off, so the gate never reads files by default. */
+export declare const DEFAULT_EVAL_REPORTS_CONFIG: EvalReportsConfig;
 /**
  * Evaluate the tests phase: the latest run color, the open red window, and
  * (optionally) the coverage percentage. Deterministic — no model calls.
@@ -164,6 +177,54 @@ export interface TestsGateConfig {
  * @returns the settled phase result.
  */
 export declare function evaluateTests(evidence: TestEvidence, config: TestsGateConfig): GatePhaseResult;
+/** The dsh-eval report evidence folded from one report file (counts only). */
+export interface EvalReportEvidence {
+    /** The suite name, or `dsh-eval` when the report omits it. */
+    suite: string;
+    /** Total cases in the suite. */
+    total: number;
+    /** Cases that passed. */
+    pass: number;
+    /** Cases that failed an assertion. */
+    fail: number;
+    /** Cases that errored before settling. */
+    error: number;
+    /** Cases cancelled. */
+    cancelled: number;
+    /** ISO finish timestamp, or '' when the report omits it. */
+    finishedAt: string;
+}
+/**
+ * Parse a dsh-eval `report.json` (the dsh-auto-review eval engine's machine
+ * report) into audit-safe counts. Structural and tolerant: the engine is a
+ * foreign weak dependency, so a malformed or unrelated file yields null
+ * instead of throwing. No case text or assertion detail is read — only the
+ * suite name, the five summary counts, and the finish timestamp.
+ * @param raw - the parsed JSON document.
+ * @returns the folded evidence, or null when the document is not a dsh-eval report.
+ */
+export declare function parseEvalReport(raw: unknown): EvalReportEvidence | null;
+/**
+ * Evaluate the dsh-eval evidence check: a present report whose suite passed
+ * every case is a pass, a report with failing/erroring/cancelled cases is a
+ * red light, and a missing report is a skip (the weak dependency) — or a red
+ * light when `required` is set. Audit-safe: counts and the suite name only.
+ * @param evidence - the folded report, or null when none was readable.
+ * @param config - the eval-evidence sub-config.
+ * @param reason - why the report was unreadable (for the skip/red notice).
+ * @returns the eval-evidence check.
+ */
+export declare function evaluateEvalEvidence(evidence: EvalReportEvidence | null, config: EvalReportsConfig, reason: string): GateCheck;
+/**
+ * Attach the eval-evidence check to a settled tests phase (the file fold is
+ * async and lives in the guard row, so the domain exposes the merge).
+ * @param result - the settled tests-phase result.
+ * @param evidence - the folded report, or null.
+ * @param config - the eval-evidence sub-config.
+ * @param reason - why the report was unreadable.
+ * @returns the tests-phase result with the eval check appended.
+ */
+export declare function attachEvalChecks(result: GatePhaseResult, evidence: EvalReportEvidence | null, config: EvalReportsConfig, reason: string): GatePhaseResult;
 /** The structured output the consistency and local review subagents must satisfy. */
 export declare const GATE_FINDINGS_SCHEMA: ObjectJsonSchema;
 /**

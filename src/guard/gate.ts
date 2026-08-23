@@ -37,8 +37,10 @@ import type Schema from '@deepseek-ai/schemastery'
 import type { TestRunDetection } from '../domain/evidence.ts'
 import type { GateAppend } from '../events.ts'
 import {
+  attachEvalChecks,
   countRedChecks,
   DEFAULT_COVERAGE_PATTERN,
+  DEFAULT_EVAL_REPORTS_CONFIG,
   DEFAULT_GATE_QUESTIONS,
   deriveGateVerdict,
   evaluateConsistency,
@@ -49,9 +51,12 @@ import {
   foldRequirementsEvidence,
   foldTestEvidence,
   GATE_FINDINGS_SCHEMA,
+  parseEvalReport,
   renderGateReportMarkdown,
   renderPhaseMarkdown,
   skippedPhase,
+  type EvalReportEvidence,
+  type EvalReportsConfig,
   type GatePhase,
   type GatePhaseResult,
   type GateQuestion,
@@ -109,6 +114,8 @@ export interface GateConfig {
     minCoveragePct: number
     /** Regex (one capture group) parsing a coverage percentage from test output. */
     coveragePattern: string
+    /** The dsh-eval (dsh-auto-review eval engine) report fold. */
+    evalReports: EvalReportsConfig
   }
   /** The implementation-consistency phase (local forked reviewer). */
   consistency: GateReviewerConfig
@@ -137,6 +144,7 @@ export const DEFAULT_GATE_CONFIG: GateConfig = {
     requireCoverage: false,
     minCoveragePct: 80,
     coveragePattern: DEFAULT_COVERAGE_PATTERN,
+    evalReports: { ...DEFAULT_EVAL_REPORTS_CONFIG },
   },
   consistency: {
     enabled: true,
@@ -183,7 +191,13 @@ export const GateConfigSchema: Schema<GateConfig> = z.object({
     requireCoverage: z.boolean().default(false),
     minCoveragePct: z.number().default(80),
     coveragePattern: z.string().min(1).default(DEFAULT_COVERAGE_PATTERN),
-  }).default({ ...DEFAULT_GATE_CONFIG.tests }),
+    evalReports: z.object({
+      enabled: z.boolean().default(false),
+      dir: z.string().min(1).default('.eval-reports'),
+      file: z.string().min(1).default('report.json'),
+      required: z.boolean().default(false),
+    }).default({ ...DEFAULT_EVAL_REPORTS_CONFIG }),
+  }).default({ ...DEFAULT_GATE_CONFIG.tests, evalReports: { ...DEFAULT_EVAL_REPORTS_CONFIG } }),
   consistency: z.object({
     enabled: z.boolean().default(true),
     provider: z.string().min(1).default('fork'),
@@ -269,6 +283,12 @@ export function validateGateConfig(gate: GateConfig): void {
     new RegExp(gate.tests.coveragePattern, 'i')
   } catch {
     throw new Error(`dsh-doublecheck: invalid gate.tests.coveragePattern "${gate.tests.coveragePattern}"`)
+  }
+  if (gate.tests.evalReports.dir.trim() === '') {
+    throw new Error('dsh-doublecheck: gate.tests.evalReports.dir must not be empty')
+  }
+  if (gate.tests.evalReports.file.trim() === '') {
+    throw new Error('dsh-doublecheck: gate.tests.evalReports.file must not be empty')
   }
   for (const [label, reviewer] of [['consistency', gate.consistency], ['review', gate.review]] as const) {
     if (!Number.isInteger(reviewer.maxFindings) || reviewer.maxFindings < 1 || reviewer.maxFindings > 20) {
@@ -418,9 +438,16 @@ export async function runGate(
       { checklist: config.requirements.checklist, minConfirmed: config.requirements.minConfirmed },
     )
     : skippedPhase('requirements')
-  const tests: GatePhaseResult = config.tests.enabled
+  let tests: GatePhaseResult = config.tests.enabled
     ? evaluateTests(foldTestEvidence(events, detection, coverageRegex), config.tests)
     : skippedPhase('tests')
+  if (config.tests.enabled && config.tests.evalReports.enabled) {
+    // Weak dependency on dsh-auto-review's eval engine: fold its report file
+    // (prompt-regression / stress / fairness suites) into the tests phase.
+    // A missing or malformed report settles as skip/red, never a throw.
+    const read = await readEvalEvidence(ctx, config.tests.evalReports, agent, signal)
+    tests = attachEvalChecks(tests, read.evidence, config.tests.evalReports, read.reason)
+  }
 
   const prose = PROSE[language]
   const consistencyTask = language === 'zh' ? CONSISTENCY_TASK_ZH : CONSISTENCY_TASK_EN
@@ -517,6 +544,48 @@ async function writeGateFile(
   } catch (error) {
     signal.throwIfAborted()
     ctx.logger.debug(`dsh-doublecheck: gate report file write skipped: ${String(error)}`)
+  }
+}
+
+/** The settled dsh-eval report fold: evidence when the file parsed, else an honest reason. */
+interface EvalRead {
+  evidence: EvalReportEvidence | null
+  reason: string
+}
+
+/**
+ * Read and fold the dsh-eval report through the filesystem seam. A missing
+ * seam, a missing file, malformed JSON, or a wrong document shape all settle
+ * as `evidence: null` with a reason — never a throw (the weak dependency).
+ * @param ctx - plugin context carrying the fs seam.
+ * @param evalConfig - the eval-evidence sub-config.
+ * @param agent - the gated agent (its session cwd anchors the path).
+ * @param signal - the caller's cancellation signal.
+ * @returns the fold.
+ */
+async function readEvalEvidence(
+  ctx: Context,
+  evalConfig: EvalReportsConfig,
+  agent: Agent,
+  signal: AbortSignal,
+): Promise<EvalRead> {
+  const fs = ctx.get('fs')
+  if (fs === undefined) return { evidence: null, reason: 'the filesystem seam is not mounted' }
+  const dir = evalConfig.dir.replace(/\/+$/, '')
+  const reportPath = dir === '' || dir === '.' ? evalConfig.file : `${dir}/${evalConfig.file}`
+  let target
+  try {
+    target = await fs.resolve(reportPath, {
+      ...agent.session.header.cwd !== undefined ? { cwd: agent.session.header.cwd } : {},
+      signal,
+    })
+    const text = await fs.readText(target, signal)
+    const evidence = parseEvalReport(JSON.parse(text))
+    if (evidence === null) return { evidence: null, reason: `"${reportPath}" is not a dsh-eval report` }
+    return { evidence, reason: '' }
+  } catch (error) {
+    signal.throwIfAborted()
+    return { evidence: null, reason: `cannot read "${reportPath}": ${String(error)}` }
   }
 }
 
@@ -694,6 +763,7 @@ export function renderGateConfigMarkdown(config: GateConfig): string {
     `- require coverage: ${config.tests.requireCoverage}`,
     `- minimum coverage: ${config.tests.minCoveragePct}%`,
     `- coverage pattern: \`${config.tests.coveragePattern}\``,
+    `- dsh-eval evidence: ${config.tests.evalReports.enabled ? `on (\`${config.tests.evalReports.dir}/${config.tests.evalReports.file}\`, required: ${config.tests.evalReports.required})` : 'off'}`,
     '',
     '## Implementation consistency',
     '',

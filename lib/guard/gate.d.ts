@@ -29,7 +29,7 @@ import type { CommandInvocation, CommandResult } from '@deepseek-ai/dsh-commands
 import type { UserMessage } from '@deepseek-ai/dsh-llm';
 import type Schema from '@deepseek-ai/schemastery';
 import type { TestRunDetection } from '../domain/evidence.js';
-import { type GateQuestion, type GateState, type GateVerdict } from '../domain/gate.js';
+import { type EvalReportsConfig, type GateQuestion, type GateState, type GateVerdict } from '../domain/gate.js';
 import type { GuardProse, ProseLanguage } from './prose.js';
 /** The reviewer knobs shared by the consistency and review phases. */
 export interface GateReviewerConfig {
@@ -76,6 +76,8 @@ export interface GateConfig {
         minCoveragePct: number;
         /** Regex (one capture group) parsing a coverage percentage from test output. */
         coveragePattern: string;
+        /** The dsh-eval (dsh-auto-review eval engine) report fold. */
+        evalReports: EvalReportsConfig;
     };
     /** The implementation-consistency phase (local forked reviewer). */
     consistency: GateReviewerConfig;

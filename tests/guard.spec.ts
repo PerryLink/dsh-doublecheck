@@ -194,6 +194,12 @@ describe('doublecheck-guard', () => {
           requireCoverage: false,
           minCoveragePct: 80,
           coveragePattern: 'coverage[^\\d]{0,40}(\\d+(?:\\.\\d+)?)\\s*%',
+          evalReports: {
+            enabled: false,
+            dir: '.eval-reports',
+            file: 'report.json',
+            required: false,
+          },
         },
         consistency: {
           enabled: true,
