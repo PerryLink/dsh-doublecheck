@@ -2,6 +2,12 @@
 
 All notable changes to dsh-doublecheck are recorded here, newest first.
 
+## [Unreleased]
+
+### Added
+
+- **dsh-eval evidence in the test-evidence phase**: the new `gate.tests.evalReports.*` config block (weak dependency, `enabled: false` by default) folds the dsh-auto-review eval engine's `dsh-eval` report file — its prompt-regression / stress / fairness suites — into the gate's test evidence as one audit-safe counts check. A present report whose suite passed every case is a pass; a report with failing/erroring/cancelled cases is a red light with a rework suggestion; a missing or malformed report degrades to an honest skip (or a red light when `required: true`). The folded counts ride the durable `doublecheck/gate` record, so a settled run still replays even though the source file is not part of the session log.
+
 ## v0.7.3 — 2026-08-22
 
 ### Changed

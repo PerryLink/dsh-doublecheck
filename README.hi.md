@@ -116,6 +116,10 @@ dsh --profile web --dump-config | grep -E -A3 'id: doublecheck-(grill|guard)'
 | `gate.tests.allowFailingRuns` | `0` | नवीनतम हरे के बाद लाल से पहले अनुमत असफल रन। |
 | `gate.tests.requireCoverage` | `false` | चालू करने पर परीक्षण आउटपुट में कवरेज साक्ष्य आवश्यक। |
 | `gate.tests.minCoveragePct` | `80` | न्यूनतम कवरेज प्रतिशत (0–100)। |
+| `gate.tests.evalReports.enabled` | `false` | चालू करने पर dsh-eval रिपोर्ट (dsh-auto-review का मूल्यांकन इंजन) परीक्षण साक्ष्य में मोड़ी जाती है। |
+| `gate.tests.evalReports.dir` | `'.eval-reports'` | इंजन की रिपोर्ट रखने वाली कार्यक्षेत्र-सापेक्ष निर्देशिका। |
+| `gate.tests.evalReports.file` | `'report.json'` | निर्देशिका के भीतर रिपोर्ट फ़ाइल का नाम। |
+| `gate.tests.evalReports.required` | `false` | true होने पर अनुपस्थित रिपोर्ट लाल बत्ती होती है (अन्यथा छोड़ दी जाती है)। |
 | `gate.consistency.*` | `provider: 'fork'`, `model: null`, `tools: ['read','glob','grep']`, `timeoutMs: 120000`, `maxFindings: 5` | स्थानीय संगति समीक्षक के नॉब (`model: null` = मुख्य मॉडल)। |
 | `gate.review.engine` | `'auto'` | `auto` = उपस्थित होने पर dsh-auto-review के निर्णय रिकॉर्ड, अन्यथा स्थानीय समीक्षक; `local` = हमेशा स्थानीय। |
 | `gate.review.provider` | `'fork'` | स्थानीय समीक्षा समीक्षक का प्रदाता (इसके `model`/`tools`/`timeoutMs`/`maxFindings` `gate.consistency.*` से मेल खाते हैं)। |
@@ -143,11 +147,11 @@ dsh --profile web --dump-config | grep -E -A3 'id: doublecheck-(grill|guard)'
 | चरण | जाँचें | साक्ष्य स्रोत | मॉडल लागत |
 |---|---|---|---|
 | आवश्यकता पूछताछ | मुख्य-प्रश्न सूची एक-एक करके पुष्ट (डिफ़ॉल्ट रूप से छह spec-आयाम प्रश्न) | प्रतिबद्ध `doublecheck_spec` + `ask_user_question` कॉलें | कोई नहीं |
-| परीक्षण साक्ष्य | नवीनतम रन रंग, हरे के बाद असफल रन, वैकल्पिक कवरेज थ्रेशोल्ड | सत्र लॉग में शेल परीक्षण रन (`[exit code: N]`, कवरेज प्रतिशत) | कोई नहीं |
+| परीक्षण साक्ष्य | नवीनतम रन रंग, हरे के बाद असफल रन, वैकल्पिक कवरेज थ्रेशोल्ड, वैकल्पिक dsh-eval रिपोर्ट | सत्र लॉग में शेल परीक्षण रन (`[exit code: N]`, कवरेज प्रतिशत); `gate.tests.evalReports.enabled` होने पर dsh-eval रिपोर्ट फ़ाइल | कोई नहीं |
 | कार्यान्वयन संगति | diff ↔ आवश्यकता मैपिंग: हर एडिट को किसी spec आयाम की सेवा करनी चाहिए | स्थानीय फ़ोर्क समीक्षक (संरचित निष्कर्ष, केवल-पढ़ने वाले उपकरण) | एक subagent |
 | समीक्षा निष्कर्ष | डिलीवरी निर्णय; `engine: auto` उपस्थित होने पर dsh-auto-review के टिकाऊ निर्णय रिकॉर्ड का उपभोग करता है, अन्यथा स्थानीय समीक्षक | `autoReview/verdict` / `autoReview/rejection` इवेंट, या स्थानीय फ़ोर्क समीक्षक | एक subagent (स्थानीय) |
 
-लाल बत्तियाँ असफल जाँचें हैं (अनुपस्थित spec, असफल नवीनतम रन, न्यूनतम से कम कवरेज, अनमैप एडिट, blocker/major निष्कर्ष) — हर एक पुनः-कार्य सुझाव रखता है। चेतावनियाँ और छोड़े जाने कभी निर्णय नहीं बदलते। द्वार [dsh-auto-review](https://github.com/PerryLink/dsh-auto-review) को कमज़ोर निर्भरता के रूप में एकीकृत करता है: `review.engine: auto` उपस्थित होने पर उसके निर्णय रिकॉर्ड मोड़ता है और अन्यथा स्थानीय समीक्षक पर घट जाता है; द्वार कभी अनुमोदन अनुरोध संश्लेषित नहीं करता।
+लाल बत्तियाँ असफल जाँचें हैं (अनुपस्थित spec, असफल नवीनतम रन, न्यूनतम से कम कवरेज, अनमैप एडिट, blocker/major निष्कर्ष) — हर एक पुनः-कार्य सुझाव रखता है। चेतावनियाँ और छोड़े जाने कभी निर्णय नहीं बदलते। द्वार [dsh-auto-review](https://github.com/PerryLink/dsh-auto-review) को कमज़ोर निर्भरता के रूप में एकीकृत करता है: `review.engine: auto` उपस्थित होने पर उसके निर्णय रिकॉर्ड मोड़ता है और अन्यथा स्थानीय समीक्षक पर घट जाता है; `gate.tests.evalReports.enabled` उसके मूल्यांकन इंजन की dsh-eval रिपोर्ट (prompt-regression / stress / fairness सूट) परीक्षण साक्ष्य में मोड़ता है और रिपोर्ट न होने पर ईमानदारी से छोड़ देता है। द्वार कभी अनुमोदन अनुरोध संश्लेषित नहीं करता।
 
 ## उदाहरण रिपोर्ट
 
@@ -208,6 +212,7 @@ dsh --profile web --dump-config | grep -E -A3 'id: doublecheck-(grill|guard)'
 - **टिकाऊ लेखन।** `/doublecheck on\|off` → `doublecheck/state` और `/gate run` → `doublecheck/gate` को host की `ignorable` append सतह (rc.6 के बाद) चाहिए, जो हर समर्थित host (≥ `0.1.1-rc.2`) प्रदान करता है।
 - **वैकल्पिक इंटरफ़ेस।** `doublecheck.gate` सेटिंग्स नेमस्पेस केवल तब पंजीकृत होता है जब सेटिंग्स सेवा माउंट हो; `/gate status` की प्लान-मोड पंक्ति वैकल्पिक `ctx.planMode` पढ़ती है (इसके बिना `unknown` दिखाती है); प्रतिकूल समीक्षा को `ctx.subagents` चाहिए; सत्यापन को `workflowEngine` चाहिए।
 - **स्थानीय अवनति।** जब dsh-auto-review अनुपस्थित हो या इस सत्र में उसके कोई निर्णय रिकॉर्ड न हों, तो `gate.review.engine: auto` स्थानीय समीक्षक पर घट जाता है — रिपोर्ट निर्णय गढ़ने के बजाय कारण बताती है।
+- **dsh-eval साक्ष्य फ़ाइल-आधारित है।** dsh-auto-review का मूल्यांकन इंजन (`dsh-eval`) अपने prompt-regression / stress / fairness परिणाम कार्यक्षेत्र रिपोर्ट फ़ाइल में लिखता है, सत्र लॉग में नहीं। `gate.tests.evalReports.enabled` उस फ़ाइल को मोड़ता है (डिफ़ॉल्ट रूप से बंद; अनुपस्थित होने पर छोड़ देता है) और मोड़ी गई गणनाएँ टिकाऊ `doublecheck/gate` रिकॉर्ड पर चलती हैं, ताकि तयशुदा रन फिर भी रीप्ले हो सके।
 
 ## विकास
 

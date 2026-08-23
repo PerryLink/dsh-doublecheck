@@ -116,6 +116,10 @@ Todos los ajustes son campos `Config` de Schemastery (modificables desde cordis.
 | `gate.tests.allowFailingRuns` | `0` | Ejecuciones fallidas tras el último verde permitidas antes del rojo. |
 | `gate.tests.requireCoverage` | `false` | Encendido exige evidencia de cobertura en la salida de prueba. |
 | `gate.tests.minCoveragePct` | `80` | Porcentaje mínimo de cobertura (0–100). |
+| `gate.tests.evalReports.enabled` | `false` | Encendido pliega el informe dsh-eval (el motor de evaluación de dsh-auto-review) en la evidencia de prueba. |
+| `gate.tests.evalReports.dir` | `'.eval-reports'` | Directorio relativo al espacio de trabajo que contiene el informe del motor. |
+| `gate.tests.evalReports.file` | `'report.json'` | Nombre del archivo de informe dentro del directorio. |
+| `gate.tests.evalReports.required` | `false` | Un informe ausente es una luz roja exactamente cuando es true (un salto en caso contrario). |
 | `gate.consistency.*` | `provider: 'fork'`, `model: null`, `tools: ['read','glob','grep']`, `timeoutMs: 120000`, `maxFindings: 5` | Ajustes del revisor local de consistencia (`model: null` = modelo principal). |
 | `gate.review.engine` | `'auto'` | `auto` = registros de veredicto de dsh-auto-review cuando están presentes, si no el revisor local; `local` = siempre local. |
 | `gate.review.provider` | `'fork'` | Proveedor del revisor local de revisión (su `model`/`tools`/`timeoutMs`/`maxFindings` coinciden con `gate.consistency.*`). |
@@ -143,11 +147,11 @@ La puerta de entrega agrega la evidencia durable de la sesión en una lista conf
 | Fase | Comprobaciones | Fuente de evidencia | Costo de modelo |
 |---|---|---|---|
 | Interrogatorio de requisitos | Lista de preguntas clave confirmadas una a una (seis preguntas de dimensión de spec por defecto) | `doublecheck_spec` confirmado + llamadas `ask_user_question` | ninguno |
-| Evidencia de prueba | Color de la última ejecución, ejecuciones fallidas tras el verde, umbral de cobertura opcional | Ejecuciones de prueba shell en el registro de sesión (`[exit code: N]`, porcentajes de cobertura) | ninguno |
+| Evidencia de prueba | Color de la última ejecución, ejecuciones fallidas tras el verde, umbral de cobertura opcional, informe dsh-eval opcional | Ejecuciones de prueba shell en el registro de sesión (`[exit code: N]`, porcentajes de cobertura); el archivo de informe dsh-eval cuando `gate.tests.evalReports.enabled` | ninguno |
 | Consistencia de implementación | Mapeo diff ↔ requisito: cada edición debe servir a una dimensión de spec | Revisor bifurcado local (hallazgos estructurados, herramientas de solo lectura) | un subagente |
 | Conclusión de revisión | El veredicto de entrega; `engine: auto` consume los registros de veredicto durables de dsh-auto-review cuando están presentes, si no el revisor local | Eventos `autoReview/verdict` / `autoReview/rejection`, o el revisor bifurcado local | un subagente (local) |
 
-Las luces rojas son comprobaciones fallidas (un spec ausente, una última ejecución fallida, cobertura bajo el mínimo, una edición sin mapear, hallazgos blocker/major) — cada una lleva una sugerencia de retrabajo. Las advertencias y los saltos nunca invierten la decisión. La puerta integra [dsh-auto-review](https://github.com/PerryLink/dsh-auto-review) como dependencia débil: `review.engine: auto` pliega sus registros de veredicto cuando están presentes y degrada al revisor local en caso contrario; la puerta nunca sintetiza solicitudes de aprobación.
+Las luces rojas son comprobaciones fallidas (un spec ausente, una última ejecución fallida, cobertura bajo el mínimo, una edición sin mapear, hallazgos blocker/major) — cada una lleva una sugerencia de retrabajo. Las advertencias y los saltos nunca invierten la decisión. La puerta integra [dsh-auto-review](https://github.com/PerryLink/dsh-auto-review) como dependencia débil: `review.engine: auto` pliega sus registros de veredicto cuando están presentes y degrada al revisor local en caso contrario; `gate.tests.evalReports.enabled` pliega el informe dsh-eval de su motor de evaluación (suites de regresión de prompt / estrés / equidad) en la evidencia de prueba y salta honestamente cuando no existe informe. La puerta nunca sintetiza solicitudes de aprobación.
 
 ## Informe de ejemplo
 
@@ -208,6 +212,7 @@ Las luces rojas son comprobaciones fallidas (un spec ausente, una última ejecuc
 - **Escrituras durables.** `/doublecheck on\|off` → `doublecheck/state` y `/gate run` → `doublecheck/gate` necesitan la superficie de append `ignorable` del host (post-rc.6), que todo host compatible (≥ `0.1.1-rc.2`) proporciona.
 - **Interfaces opcionales.** El espacio de ajustes `doublecheck.gate` se registra solo cuando el servicio de ajustes está montado; la línea de modo plan de `/gate status` lee el `ctx.planMode` opcional (muestra `unknown` sin él); la revisión adversarial necesita `ctx.subagents`; la verificación necesita `workflowEngine`.
 - **Degradación local.** `gate.review.engine: auto` degrada al revisor local cuando dsh-auto-review está ausente o no tiene registros de veredicto en esta sesión — el informe nombra la razón en lugar de inventar un veredicto.
+- **La evidencia dsh-eval se basa en archivos.** El motor de evaluación de dsh-auto-review (`dsh-eval`) escribe sus resultados de regresión de prompt / estrés / equidad en un archivo de informe del espacio de trabajo, no en el registro de sesión. `gate.tests.evalReports.enabled` pliega ese archivo (desactivado por defecto; salta cuando está ausente) y los recuentos pliegados viajan en el registro duradero `doublecheck/gate` para que una ejecución asentada siga siendo reproducible.
 
 ## Desarrollo
 

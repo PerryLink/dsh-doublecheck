@@ -116,6 +116,10 @@ dsh --profile web --dump-config | grep -E -A3 'id: doublecheck-(grill|guard)'
 | `gate.tests.allowFailingRuns` | `0` | 最近一次绿色之后允许的失败运行次数，超过则红灯。 |
 | `gate.tests.requireCoverage` | `false` | 开启则要求在测试输出中有覆盖率证据。 |
 | `gate.tests.minCoveragePct` | `80` | 最低覆盖率百分比（0–100）。 |
+| `gate.tests.evalReports.enabled` | `false` | 开启则把 dsh-eval 报告（dsh-auto-review 的评测引擎）并入测试证据。 |
+| `gate.tests.evalReports.dir` | `'.eval-reports'` | 存放引擎报告的工作区相对目录。 |
+| `gate.tests.evalReports.file` | `'report.json'` | 目录内的报告文件名。 |
+| `gate.tests.evalReports.required` | `false` | 为 true 时缺失报告即为红灯（否则跳过）。 |
 | `gate.consistency.*` | `provider: 'fork'`、`model: null`、`tools: ['read','glob','grep']`、`timeoutMs: 120000`、`maxFindings: 5` | 本地一致性评审者的旋钮（`model: null` = 主模型）。 |
 | `gate.review.engine` | `'auto'` | `auto` = 存在时使用 dsh-auto-review 的裁决记录，否则使用本地评审者；`local` = 始终使用本地评审者。 |
 | `gate.review.provider` | `'fork'` | 本地评审评审者的提供者（其 `model`/`tools`/`timeoutMs`/`maxFindings` 与 `gate.consistency.*` 相同）。 |
@@ -143,11 +147,11 @@ dsh --profile web --dump-config | grep -E -A3 'id: doublecheck-(grill|guard)'
 | 阶段 | 检查 | 证据来源 | 模型成本 |
 |---|---|---|---|
 | 需求询问 | 逐项确认的关键问题清单（默认六个 spec 维度问题） | 已提交的 `doublecheck_spec` + `ask_user_question` 调用 | 无 |
-| 测试证据 | 最近运行颜色、绿色后的失败运行、可选覆盖率阈值 | 会话日志中的 shell 测试运行（`[exit code: N]`、覆盖率百分比） | 无 |
+| 测试证据 | 最近运行颜色、绿色后的失败运行、可选覆盖率阈值、可选 dsh-eval 报告 | 会话日志中的 shell 测试运行（`[exit code: N]`、覆盖率百分比）；开启 `gate.tests.evalReports.enabled` 时的 dsh-eval 报告文件 | 无 |
 | 实现一致性 | 差异 ↔ 需求映射：每次改动都必须服务于某个 spec 维度 | 本地分叉评审者（结构化发现、只读工具） | 一个 subagent |
 | 评审结论 | 交付裁决；`engine: auto` 在存在时消费 dsh-auto-review 的持久裁决记录，否则使用本地评审者 | `autoReview/verdict` / `autoReview/rejection` 事件，或本地分叉评审者 | 一个 subagent（本地） |
 
-红灯是失败的检查（缺失 spec、最近运行失败、覆盖率低于下限、未映射的改动、blocker/major 发现）——每一项都附带返工建议。警告与跳过永远不会翻转裁决。门禁将 [dsh-auto-review](https://github.com/PerryLink/dsh-auto-review) 作为弱依赖集成：`review.engine: auto` 在存在时折叠其裁决记录，否则降级到本地评审者；门禁从不合成审批请求。
+红灯是失败的检查（缺失 spec、最近运行失败、覆盖率低于下限、未映射的改动、blocker/major 发现）——每一项都附带返工建议。警告与跳过永远不会翻转裁决。门禁将 [dsh-auto-review](https://github.com/PerryLink/dsh-auto-review) 作为弱依赖集成：`review.engine: auto` 在存在时折叠其裁决记录，否则降级到本地评审者；`gate.tests.evalReports.enabled` 把其评测引擎的 dsh-eval 报告（prompt 回归 / 压测 / 公平性套件）并入测试证据，并在报告不存在时如实跳过。门禁从不合成审批请求。
 
 ## 示例报告
 
@@ -208,6 +212,7 @@ dsh --profile web --dump-config | grep -E -A3 'id: doublecheck-(grill|guard)'
 - **持久写入。** `/doublecheck on\|off` → `doublecheck/state` 与 `/gate run` → `doublecheck/gate` 需要宿主的 `ignorable` 追加接口（rc.6 之后），受支持宿主（≥ `0.1.1-rc.2`）均具备该接口。
 - **可选接口。** `doublecheck.gate` 设置命名空间仅在挂载设置服务时注册；`/gate status` 的计划模式行读取可选的 `ctx.planMode`（没有则显示 `unknown`）；对抗式评审需要 `ctx.subagents`；验证需要 `workflowEngine`。
 - **本地降级。** 当 dsh-auto-review 缺失或本会话没有裁决记录时，`gate.review.engine: auto` 会降级到本地评审者——报告会写明原因，而不是捏造裁决。
+- **dsh-eval 证据基于文件。** dsh-auto-review 评测引擎（`dsh-eval`）把其 prompt 回归 / 压测 / 公平性结果写入工作区报告文件，而非会话日志。`gate.tests.evalReports.enabled` 折叠该文件（默认关闭；缺失时跳过），折叠出的计数随持久 `doublecheck/gate` 记录保存，使已定的运行仍可重放。
 
 ## 开发
 
