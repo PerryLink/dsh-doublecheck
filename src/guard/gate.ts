@@ -26,7 +26,6 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import type { FsTarget } from '@deepseek-ai/dsh-fs'
 import type { CommandInvocation, CommandResult } from '@deepseek-ai/dsh-commands'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { MessageSource, UserMessage } from '@deepseek-ai/dsh-llm'
@@ -52,6 +51,7 @@ import {
   foldTestEvidence,
   GATE_FINDINGS_SCHEMA,
   parseEvalReport,
+  renderGateReportJson,
   renderGateReportMarkdown,
   renderPhaseMarkdown,
   skippedPhase,
@@ -534,17 +534,29 @@ async function writeGateFile(
 ): Promise<void> {
   const fs = ctx.get('fs')
   if (fs === undefined) return
-  let target: FsTarget
   try {
-    target = await fs.resolve(filePath, {
+    const markdownTarget = await fs.resolve(filePath, {
       ...agent.session.header.cwd !== undefined ? { cwd: agent.session.header.cwd } : {},
       signal,
     })
-    await fs.writeText(target, renderGateReportMarkdown(state, true), undefined, signal)
+    await fs.writeText(markdownTarget, renderGateReportMarkdown(state, true), undefined, signal)
+    // The headless CI copy: the same settled state as JSON, for the
+    // `doublecheck-gate` CLI (PR comment / status checks). Additive output —
+    // the markdown report and the four-phase runner are unchanged.
+    const ciTarget = await fs.resolve(ciReportPath(filePath), {
+      ...agent.session.header.cwd !== undefined ? { cwd: agent.session.header.cwd } : {},
+      signal,
+    })
+    await fs.writeText(ciTarget, renderGateReportJson(state), undefined, signal)
   } catch (error) {
     signal.throwIfAborted()
     ctx.logger.debug(`dsh-doublecheck: gate report file write skipped: ${String(error)}`)
   }
+}
+
+/** Derive the JSON CI-report path from the markdown report path. */
+function ciReportPath(filePath: string): string {
+  return filePath.endsWith('.md') ? `${filePath.slice(0, -3)}.json` : `${filePath}.json`
 }
 
 /** The settled dsh-eval report fold: evidence when the file parsed, else an honest reason. */

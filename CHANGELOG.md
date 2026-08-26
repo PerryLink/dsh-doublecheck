@@ -2,6 +2,12 @@
 
 All notable changes to dsh-doublecheck are recorded here, newest first.
 
+## [Unreleased]
+
+### Added
+
+- **Headless CI gate report (JSON/SARIF).** `/gate run` now also writes a `gate-report.json` next to `gate-report.md` — the same settled `GateState` as lossless JSON. The new `doublecheck-gate` CLI serializes that state to JSON or SARIF 2.1.0 for GitHub Actions PR comments/status checks (`doublecheck-gate --format json|sarif --input gate-report.json`), exiting `0` on `deliverable` and `1` on `rework`. The CLI never re-runs the four-phase gate or the evidence folds — it only serializes the already-settled state.
+
 ## [0.8.0] - 2026-08-23
 
 ### Added

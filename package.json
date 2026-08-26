@@ -14,6 +14,9 @@
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
+  "bin": {
+    "doublecheck-gate": "lib/ci.js"
+  },
   "exports": {
     ".": {
       "types": "./lib/index.d.ts",

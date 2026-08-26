@@ -19,13 +19,14 @@ const required = [
   'lib/guard/index.js',
   'lib/guard/index.d.ts',
   'lib/invariant.js',
+  'lib/ci.js',
   'cordis.patch.yml',
 ]
 for (const rel of required) {
   if (!existsSync(path.join(root, rel))) throw new Error(`missing artifact: ${rel}`)
 }
 
-for (const rel of ['lib/index.js', 'lib/grill/index.js', 'lib/guard/index.js']) {
+for (const rel of ['lib/index.js', 'lib/grill/index.js', 'lib/guard/index.js', 'lib/ci.js']) {
   execFileSync(process.execPath, ['--check', path.join(root, rel)], { stdio: 'inherit' })
 }
 

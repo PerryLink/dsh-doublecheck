@@ -193,10 +193,23 @@ Red lights are failed checks (a missing spec, a failing latest run, coverage bel
 - counts, ids, and verdicts only: no file contents or session text are embedded, and recognized secrets are redacted.
 ````
 
+## CI output
+
+`/gate run` also writes a `gate-report.json` (the same settled state as lossless JSON, next to `gate-report.md`). The `doublecheck-gate` CLI turns that file into machine-readable output for GitHub Actions:
+
+```sh
+# JSON (PR comment / status payload)
+doublecheck-gate --format json --input gate-report.json
+# SARIF 2.1.0 (code-scanning upload / status check)
+doublecheck-gate --format sarif < gate-report.json
+```
+
+The CLI only serializes the already-settled `GateState` — it never re-runs the four-phase gate or the evidence folds. Its exit code maps the verdict: `0` = deliverable, `1` = rework, `2` = usage/parse error.
+
 ## Permissions & data
 
 - **Reads**: the session log (`tool/call` / `tool/result` / `tool/code-dispatch`, injected `user/message` sources, and the foreign `autoReview/*` verdict records) in-process only; the optional plan-mode service state.
-- **Writes**: `doublecheck-spec.md`, `doublecheck-report.md`, and `gate-report.md` in the session workspace (paths configurable) through the `ctx.fs` seam; the durable `doublecheck/state` and `doublecheck/gate` session events.
+- **Writes**: `doublecheck-spec.md`, `doublecheck-report.md`, `gate-report.md`, and `gate-report.json` in the session workspace (paths configurable) through the `ctx.fs` seam; the durable `doublecheck/state` and `doublecheck/gate` session events.
 - **Model calls**: the gate's consistency and local-review phases (one subagent each per `/gate run`), the optional adversary review, and the `doublecheck_report` verification workflow start subagent runs; nothing else calls a model or the network.
 - **Never touched**: credentials, environment variables, or any file outside the session workspace. The workshop manifest declares `filesystem:read` and `filesystem:write` only. Gate reports carry counts, ids, and verdicts only; recognized secrets in reviewer texts are redacted before storage or display.
 

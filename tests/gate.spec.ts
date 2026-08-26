@@ -23,7 +23,9 @@ import {
   foldTestEvidence,
   parseEvalReport,
   redactSecrets,
+  renderGateReportJson,
   renderGateReportMarkdown,
+  renderGateReportSarif,
   type GateState,
 } from '../src/domain/gate.ts'
 import type { ReviewFinding } from '../src/domain/vocabulary.ts'
@@ -278,6 +280,58 @@ describe('gate domain folds', () => {
     expect(markdown).toContain('Re-open the work in plan mode')
     expect(markdown).toContain('## Audit')
     expect(markdown).toContain('review engine: local')
+  })
+
+  it('renders headless CI JSON with the verdict, phases, and red-check count', () => {
+    const requirements = evaluateRequirements(
+      foldRequirementsEvidence([], 'ask_user_question'),
+      { checklist: DEFAULT_GATE_QUESTIONS, minConfirmed: 6 },
+    )
+    const tests = evaluateTests(foldTestEvidence([], detection(), coverageRegex()), { requirePassingRun: true, allowFailingRuns: 0, requireCoverage: false, minCoveragePct: 80 })
+    const consistency = evaluateConsistency([], '')
+    const review = evaluateReview(null, [], '', 'local').result
+    const state: GateState = {
+      verdict: deriveGateVerdict([requirements, tests, consistency, review]),
+      phases: { requirements, tests, consistency, review },
+      reviewEngine: 'local',
+      at: '2026-08-14T00:00:00.000Z',
+    }
+    const json = JSON.parse(renderGateReportJson(state)) as {
+      tool: string
+      verdict: string
+      deliverable: boolean
+      redChecks: number
+      phases: Array<{ phase: string; checks: Array<{ id: string }> }>
+    }
+    expect(json.tool).toBe('dsh-doublecheck')
+    expect(json.verdict).toBe('rework')
+    expect(json.deliverable).toBe(false)
+    expect(json.redChecks).toBeGreaterThan(0)
+    expect(json.phases.map(phase => phase.phase)).toEqual(['requirements', 'tests', 'consistency', 'review'])
+  })
+
+  it('renders a SARIF 2.1.0 document with failing checks as error results', () => {
+    const requirements = evaluateRequirements(
+      foldRequirementsEvidence([], 'ask_user_question'),
+      { checklist: DEFAULT_GATE_QUESTIONS, minConfirmed: 6 },
+    )
+    const tests = evaluateTests(foldTestEvidence([], detection(), coverageRegex()), { requirePassingRun: true, allowFailingRuns: 0, requireCoverage: false, minCoveragePct: 80 })
+    const consistency = evaluateConsistency([], '')
+    const review = evaluateReview(null, [], '', 'local').result
+    const state: GateState = {
+      verdict: deriveGateVerdict([requirements, tests, consistency, review]),
+      phases: { requirements, tests, consistency, review },
+      reviewEngine: 'local',
+      at: '2026-08-14T00:00:00.000Z',
+    }
+    const sarif = JSON.parse(renderGateReportSarif(state)) as {
+      version: string
+      runs: Array<{ tool: { driver: { name: string } }; results: Array<{ ruleId: string; level: string }> }>
+    }
+    expect(sarif.version).toBe('2.1.0')
+    expect(sarif.runs[0].tool.driver.name).toBe('dsh-doublecheck')
+    expect(sarif.runs[0].results.some(result => result.level === 'error')).toBe(true)
+    expect(sarif.runs[0].results.every(result => result.ruleId.startsWith('doublecheck/'))).toBe(true)
   })
 })
 

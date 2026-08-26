@@ -322,3 +322,50 @@ export declare function renderGateReportMarkdown(state: GateState, planSuggestio
 export declare function renderPhaseMarkdown(result: GatePhaseResult): string[];
 /** Human-readable phase headings (stable English audit ids). */
 export declare function phaseLabel(phase: GatePhase): string;
+/**
+ * The machine-readable CI report derived from a settled gate state. Lossless
+ * JSON over the same counts/ids/verdicts the markdown report carries — no
+ * session text or file contents — so a GH Actions step can consume it for a
+ * PR comment or status check. The four-phase runner and the evidence folds
+ * are unchanged; this is a pure serialization of their settled output.
+ */
+export interface CiReport {
+    readonly schemaVersion: 1;
+    readonly tool: 'dsh-doublecheck';
+    readonly verdict: GateVerdict;
+    /** Convenience boolean: true when the delivery may proceed. */
+    readonly deliverable: boolean;
+    readonly reviewEngine: GateReviewEngine;
+    readonly at: string;
+    /** Number of failing (red) checks across enabled phases. */
+    readonly redChecks: number;
+    readonly phases: Array<{
+        readonly phase: GatePhase;
+        readonly enabled: boolean;
+        readonly status: GateCheckStatus;
+        readonly checks: Array<{
+            readonly id: string;
+            readonly label: string;
+            readonly status: GateCheckStatus;
+            readonly summary: string;
+            readonly suggestion: string;
+        }>;
+    }>;
+}
+/** Build the JSON-safe CI report from a settled gate state. */
+export declare function buildCiReport(state: GateState): CiReport;
+/**
+ * Render the settled gate state as headless JSON for CI (`--ci` output).
+ * @param state - the settled gate state.
+ * @returns the pretty-printed JSON report.
+ */
+export declare function renderGateReportJson(state: GateState): string;
+/**
+ * Render the settled gate state as a SARIF 2.1.0 document for CI
+ * (GitHub code-scanning / status checks). Each failing check is an `error`
+ * result and each warning is a `warning` result; passing/skipped/pending
+ * checks are declared as rules but produce no result.
+ * @param state - the settled gate state.
+ * @returns the pretty-printed SARIF document.
+ */
+export declare function renderGateReportSarif(state: GateState): string;

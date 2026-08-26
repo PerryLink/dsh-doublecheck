@@ -930,3 +930,119 @@ export function phaseLabel(phase: GatePhase): string {
     case 'review': return 'Review conclusion'
   }
 }
+
+/**
+ * The machine-readable CI report derived from a settled gate state. Lossless
+ * JSON over the same counts/ids/verdicts the markdown report carries — no
+ * session text or file contents — so a GH Actions step can consume it for a
+ * PR comment or status check. The four-phase runner and the evidence folds
+ * are unchanged; this is a pure serialization of their settled output.
+ */
+export interface CiReport {
+  readonly schemaVersion: 1
+  readonly tool: 'dsh-doublecheck'
+  readonly verdict: GateVerdict
+  /** Convenience boolean: true when the delivery may proceed. */
+  readonly deliverable: boolean
+  readonly reviewEngine: GateReviewEngine
+  readonly at: string
+  /** Number of failing (red) checks across enabled phases. */
+  readonly redChecks: number
+  readonly phases: Array<{
+    readonly phase: GatePhase
+    readonly enabled: boolean
+    readonly status: GateCheckStatus
+    readonly checks: Array<{
+      readonly id: string
+      readonly label: string
+      readonly status: GateCheckStatus
+      readonly summary: string
+      readonly suggestion: string
+    }>
+  }>
+}
+
+/** Build the JSON-safe CI report from a settled gate state. */
+export function buildCiReport(state: GateState): CiReport {
+  return {
+    schemaVersion: 1,
+    tool: 'dsh-doublecheck',
+    verdict: state.verdict,
+    deliverable: state.verdict === 'deliverable',
+    reviewEngine: state.reviewEngine,
+    at: state.at,
+    redChecks: countRedChecks(Object.values(state.phases)),
+    phases: GATE_PHASES.map(phase => {
+      const result = state.phases[phase]
+      return {
+        phase,
+        enabled: result?.enabled ?? false,
+        status: result?.status ?? 'pending',
+        checks: (result?.checks ?? []).map(check => ({
+          id: check.id,
+          label: check.label,
+          status: check.status,
+          summary: check.summary,
+          suggestion: check.suggestion,
+        })),
+      }
+    }),
+  }
+}
+
+/**
+ * Render the settled gate state as headless JSON for CI (`--ci` output).
+ * @param state - the settled gate state.
+ * @returns the pretty-printed JSON report.
+ */
+export function renderGateReportJson(state: GateState): string {
+  return JSON.stringify(buildCiReport(state), null, 2)
+}
+
+/**
+ * Render the settled gate state as a SARIF 2.1.0 document for CI
+ * (GitHub code-scanning / status checks). Each failing check is an `error`
+ * result and each warning is a `warning` result; passing/skipped/pending
+ * checks are declared as rules but produce no result.
+ * @param state - the settled gate state.
+ * @returns the pretty-printed SARIF document.
+ */
+export function renderGateReportSarif(state: GateState): string {
+  const rules: Array<{ id: string; shortDescription: { text: string } }> = []
+  const results: Array<{ ruleId: string; level: 'error' | 'warning'; message: { text: string } }> = []
+  for (const phase of GATE_PHASES) {
+    const result = state.phases[phase]
+    if (result === undefined || !result.enabled) continue
+    for (const check of result.checks) {
+      const ruleId = `doublecheck/${phase}/${check.id}`
+      rules.push({ id: ruleId, shortDescription: { text: `${phaseLabel(phase)} — ${check.label}` } })
+      if (check.status === 'pass' || check.status === 'skip' || check.status === 'pending') continue
+      results.push({
+        ruleId,
+        level: check.status === 'fail' ? 'error' : 'warning',
+        message: { text: check.suggestion !== '' ? `${check.summary} — rework: ${check.suggestion}` : check.summary },
+      })
+    }
+  }
+  const sarif = {
+    version: '2.1.0',
+    $schema: 'https://json.schemastore.org/sarif-2.1.0.json',
+    runs: [{
+      tool: {
+        driver: {
+          name: 'dsh-doublecheck',
+          informationUri: 'https://github.com/PerryLink/dsh-doublecheck',
+          rules,
+        },
+      },
+      properties: {
+        verdict: state.verdict,
+        deliverable: state.verdict === 'deliverable',
+        reviewEngine: state.reviewEngine,
+        at: state.at,
+      },
+      results,
+    }],
+  }
+  return JSON.stringify(sarif, null, 2)
+}
