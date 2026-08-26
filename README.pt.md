@@ -192,6 +192,19 @@ As luzes vermelhas são verificações que falharam (um spec ausente, uma últim
 - counts, ids, and verdicts only: no file contents or session text are embedded, and recognized secrets are redacted.
 ````
 
+## Saída do CI
+
+`/gate run` também grava um `gate-report.json` (o mesmo estado assentado que o JSON sem perda, ao lado de `gate-report.md`). O CLI `doublecheck-gate` converte esse arquivo em saída legível por máquina para o GitHub Actions:
+
+```sh
+# JSON (comentário de PR / payload de status)
+doublecheck-gate --format json --input gate-report.json
+# SARIF 2.1.0 (upload de code-scanning / verificação de status)
+doublecheck-gate --format sarif < gate-report.json
+```
+
+O CLI apenas serializa o `GateState` já assentado — nunca reexecuta a porta de quatro fases nem as dobras de evidência. Seu código de saída mapeia o veredicto: `0` = entregável, `1` = retrabalho, `2` = erro de uso/análise.
+
 ## Permissões e dados
 
 - **Lê**: o registro de sessão (`tool/call` / `tool/result` / `tool/code-dispatch`, fontes `user/message` injetadas e os registros de veredicto alheios `autoReview/*`) somente em processo; o estado opcional do serviço de modo plano.

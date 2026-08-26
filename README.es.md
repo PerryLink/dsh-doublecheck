@@ -192,6 +192,19 @@ Las luces rojas son comprobaciones fallidas (un spec ausente, una última ejecuc
 - counts, ids, and verdicts only: no file contents or session text are embedded, and recognized secrets are redacted.
 ````
 
+## Salida de CI
+
+`/gate run` también escribe un `gate-report.json` (el mismo estado asentado que el JSON sin pérdida, junto a `gate-report.md`). El CLI `doublecheck-gate` convierte ese archivo en salida legible por máquina para GitHub Actions:
+
+```sh
+# JSON (comentario de PR / payload de estado)
+doublecheck-gate --format json --input gate-report.json
+# SARIF 2.1.0 (subida de code-scanning / verificación de estado)
+doublecheck-gate --format sarif < gate-report.json
+```
+
+El CLI solo serializa el `GateState` ya asentado — nunca vuelve a ejecutar la puerta de cuatro fases ni los pliegues de evidencia. Su código de salida mapea el veredicto: `0` = entregable, `1` = retrabajo, `2` = error de uso/análisis.
+
 ## Permisos y datos
 
 - **Lee**: el registro de sesión (`tool/call` / `tool/result` / `tool/code-dispatch`, fuentes `user/message` inyectadas y los registros de veredicto ajenos `autoReview/*`) solo en proceso; el estado opcional del servicio de modo plan.

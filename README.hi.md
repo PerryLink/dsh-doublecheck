@@ -192,6 +192,19 @@ dsh --profile web --dump-config | grep -E -A3 'id: doublecheck-(grill|guard)'
 - counts, ids, and verdicts only: no file contents or session text are embedded, and recognized secrets are redacted.
 ````
 
+## CI आउटपुट
+
+`/gate run` एक `gate-report.json` भी लिखता है (दोषरहित JSON जैसी ही स्थापित स्थिति, `gate-report.md` के पास)। `doublecheck-gate` CLI उस फ़ाइल को GitHub Actions के लिए मशीन-पठनीय आउटपुट में बदलता है:
+
+```sh
+# JSON (PR टिप्पणी / स्थिति पेलोड)
+doublecheck-gate --format json --input gate-report.json
+# SARIF 2.1.0 (code-scanning अपलोड / स्थिति जाँच)
+doublecheck-gate --format sarif < gate-report.json
+```
+
+CLI केवल पहले से स्थापित `GateState` को क्रमबद्ध करता है — यह कभी चार-चरणीय द्वार या साक्ष्य तहों को दोबारा नहीं चलाता। इसका निकास कोड निर्णय को मैप करता है: `0` = डिलीवर करने योग्य, `1` = पुनः कार्य, `2` = उपयोग/पार्स त्रुटि।
+
 ## अनुमतियाँ और डेटा
 
 - **पढ़ता है**: सत्र लॉग (`tool/call` / `tool/result` / `tool/code-dispatch`, इंजेक्ट किए गए `user/message` स्रोत, और बाहरी `autoReview/*` निर्णय रिकॉर्ड) केवल प्रक्रिया के भीतर; वैकल्पिक प्लान-मोड सेवा स्थिति।

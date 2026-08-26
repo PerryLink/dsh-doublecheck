@@ -192,6 +192,19 @@ dsh --profile web --dump-config | grep -E -A3 'id: doublecheck-(grill|guard)'
 - counts, ids, and verdicts only: no file contents or session text are embedded, and recognized secrets are redacted.
 ````
 
+## CI 输出
+
+`/gate run` 还会写一个 `gate-report.json`（与无损 JSON 相同的已定状态，位于 `gate-report.md` 旁边）。`doublecheck-gate` CLI 把该文件转成可供 GitHub Actions 使用的机器可读输出：
+
+```sh
+# JSON（PR 评论 / 状态载荷）
+doublecheck-gate --format json --input gate-report.json
+# SARIF 2.1.0（code-scanning 上传 / 状态检查）
+doublecheck-gate --format sarif < gate-report.json
+```
+
+CLI 只序列化已定的 `GateState` —— 它从不重新运行四阶段门禁或证据折叠。其退出码映射裁决：`0` = 可交付，`1` = 返工，`2` = 用法/解析错误。
+
 ## 权限与数据
 
 - **读取**：仅进程内读取会话日志（`tool/call` / `tool/result` / `tool/code-dispatch`、注入的 `user/message` 来源，以及外部的 `autoReview/*` 裁决记录）；可选的计划模式服务状态。
