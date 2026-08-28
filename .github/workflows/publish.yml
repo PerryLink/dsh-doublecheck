@@ -9,6 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -45,8 +46,7 @@ jobs:
           if npm view "dsh-doublecheck@${version}" version >/dev/null 2>&1; then
             echo "dsh-doublecheck@${version} is already published; skipping npm publish"
           else
-            npm publish
-          fi
+            npm publish --provenance
 
   release:
     needs: publish
