@@ -1,6 +1,7 @@
 <div align="center">
 
 # dsh-doublecheck
+- **Canal 1024 store**: `npm i -g dsh1024` una vez, luego `dsh1024 plugin --profile web add dsh-doublecheck` (cuenta para el ranking de instalaciones de [deepseek1024.com](https://deepseek1024.com)).
 
 **La puerta de calidad de entrega para DeepSeek Harness: interroga los requisitos, prueba la implementación, demuestra la entrega — y controla el traspaso con una decisión de entregable / rehacer.**
 

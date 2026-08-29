@@ -1,6 +1,7 @@
 <div align="center">
 
 # dsh-doublecheck
+- **1024 商店渠道**：先 `npm i -g dsh1024`，再 `dsh1024 plugin --profile web add dsh-doublecheck`（计入 [deepseek1024.com](https://deepseek1024.com) 安装排行）。
 
 **DeepSeek Harness 的交付质量门禁：先拷问需求，再测试实现，最后证明交付——并用「可交付 / 需要返工」的裁决来把关交接。**
 
