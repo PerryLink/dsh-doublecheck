@@ -47,6 +47,7 @@ jobs:
             echo "dsh-doublecheck@${version} is already published; skipping npm publish"
           else
             npm publish --provenance
+          fi
 
   release:
     needs: publish
