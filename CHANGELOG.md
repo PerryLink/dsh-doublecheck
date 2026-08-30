@@ -2,6 +2,13 @@
 
 All notable changes to dsh-doublecheck are recorded here, newest first.
 
+## [Unreleased]
+
+### Fixed
+
+- Tests no longer import the `CallId` brand from `@deepseek-ai/dsh-llm` (renamed to `ToolCallId` on host master): the call-id brand is now derived from the `dsh-tools` execution contract, staying green on both the published rc line and the 0.1.2-alpha.1 checkout.
+- Docs now state the 0.1.2-alpha.1 reality for the durable `doublecheck/state` / `doublecheck/gate` writes: the host removed the `ignorable` envelope, so the probe fails safe and the switch degrades to process-local. Behavior unchanged.
+
 ## [0.9.0] - 2026-08-26
 
 ### Added

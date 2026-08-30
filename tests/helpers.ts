@@ -3,9 +3,10 @@
  * @module dsh-doublecheck/tests/helpers
  */
 
-import { createUserMessage, CallId } from '@deepseek-ai/dsh-llm'
+import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
 import type { Agent } from '@deepseek-ai/dsh-agent'
+import { CallId } from './call-id.ts'
 
 let nextSeq = 0
 

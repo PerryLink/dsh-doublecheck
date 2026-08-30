@@ -37,7 +37,9 @@ declare module '@deepseek-ai/dsh-session' {
      * false, all discipline gates (grill, tdd, adversary) defer to the human
      * chain for this session, surviving restart and restore. The event rides
      * the envelope's `ignorable: true` marker so hosts that do not know the
-     * type still load the log.
+     * type still load the log. On hosts without the marker surface (rc.6/rc.8)
+     * or that removed it (0.1.2-alpha.1), the command layer skips this write
+     * and keeps the switch process-local.
      */
     'doublecheck/state': { enabled: boolean }
     /**
@@ -45,7 +47,8 @@ declare module '@deepseek-ai/dsh-session' {
      * state (checklist statuses, red items, verdict, engine, timestamp).
      * Audit-safe by construction — counts, ids, and verdicts only — and the
      * replayable source the `/gate status` panel and the turn-boundary red
-     * notice re-derive from. Rides `ignorable: true` like the state switch.
+     * notice re-derive from. Rides `ignorable: true` like the state switch
+     * (same marker-surface caveat).
      */
     'doublecheck/gate': GateState
   }
@@ -54,7 +57,8 @@ declare module '@deepseek-ai/dsh-session' {
 /**
  * `Session.append` narrowed to the `doublecheck/state` event. The options bag
  * carries `ignorable: true`; rc.6 hosts ignore it (same event), post-rc.6
- * hosts stamp the marker.
+ * hosts through 0.1.1-rc.2 stamp the marker, and 0.1.2-alpha.1 removed the
+ * envelope — so the command layer never calls this append there.
  */
 export interface StateAppend {
   (type: 'doublecheck/state', data: SessionEventMap['doublecheck/state'], options: { ignorable: true }): void
@@ -62,7 +66,8 @@ export interface StateAppend {
 
 /**
  * `Session.append` narrowed to the `doublecheck/gate` event, with the same
- * `ignorable: true` envelope marker as the state switch.
+ * `ignorable: true` envelope marker (and marker-surface caveat) as the state
+ * switch.
  */
 export interface GateAppend {
   (type: 'doublecheck/gate', data: SessionEventMap['doublecheck/gate'], options: { ignorable: true }): void

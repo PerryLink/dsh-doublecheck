@@ -28,9 +28,12 @@ import type { Config, Snapshot } from './index.ts'
 /**
  * Whether this host's `Session.append` stamps the `ignorable` envelope marker.
  * Detected once per process on a detached probe session: hosts without the
- * surface (rc.6) accept and ignore the options bag, and writing the durable
- * state event unmarked would make the session log unreadable to first-party
- * readers — so the switch command falls back to in-memory switching there.
+ * surface (rc.6/rc.8) accept and ignore the options bag, 0.1.2-alpha.1
+ * removed the ignorable envelope entirely (42dc2a46c2) and would refuse the
+ * unknown type on restore, and writing the durable state event unmarked would
+ * make the session log unreadable to first-party readers — so the switch
+ * command falls back to in-memory switching on any host where the probe does
+ * not come back stamped.
  * @returns true when a `doublecheck/state` append comes back with the marker.
  */
 let ignorableCapability: boolean | undefined
