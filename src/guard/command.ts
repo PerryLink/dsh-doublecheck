@@ -30,7 +30,10 @@ import type { Config, Snapshot } from './index.ts'
  * Detected once per process on a detached probe session: hosts without the
  * surface (rc.6/rc.8) accept and ignore the options bag, 0.1.2-alpha.1
  * removed the ignorable envelope entirely (42dc2a46c2) and would refuse the
- * unknown type on restore, and writing the durable state event unmarked would
+ * unknown type on restore, and 0.1.2-alpha.2 restores the envelope field
+ * for stored-log read compatibility only — its append third argument is a
+ * `SurfaceIntent` for surface events, so it still cannot stamp the marker.
+ * Writing the durable state event unmarked would
  * make the session log unreadable to first-party readers — so the switch
  * command falls back to in-memory switching on any host where the probe does
  * not come back stamped.
