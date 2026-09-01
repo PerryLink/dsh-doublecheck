@@ -223,8 +223,8 @@ CLI 只序列化已定的 `GateState` —— 它从不重新运行四阶段门�
 
 ## 已知限制
 
-- **持久写入。** `/doublecheck on\|off` → `doublecheck/state` 与 `/gate run` → `doublecheck/gate` 需要宿主的 `ignorable` 追加接口（rc.6 之后至 `0.1.1-rc.2`）。在无此接口的宿主上（rc.6/rc.8，以及移除该信封的 `0.1.2-alpha.1`——`0.1.2-alpha.2` 仅恢复存量日志读取兼容字段、仍无法盖章），写入被跳过、开关保持进程内状态。
-0.1.2-alpha.2（2026-08-31 已适配）：会话信封保留 ignorable 字段但仅用于存量日志读取兼容——Session.append 仍无法盖章，门控行为不变。
+- **持久写入。** `/doublecheck on\|off` → `doublecheck/state` 与 `/gate run` → `doublecheck/gate` 需要宿主的 `ignorable` 追加接口（rc.6 之后至 `0.1.1-rc.2`）。在无此接口的宿主上（rc.6/rc.8，以及移除该信封的 `0.1.2-alpha.1`——`0.1.2-alpha.3` 仅恢复存量日志读取兼容字段、仍无法盖章），写入被跳过、开关保持进程内状态。
+0.1.2-alpha.3（2026-09-01 已适配）：会话信封保留 ignorable 字段但仅用于存量日志读取兼容——Session.append 仍无法盖章，门控行为不变。
 - **可选接口。** `doublecheck.gate` 设置命名空间仅在挂载设置服务时注册；`/gate status` 的计划模式行读取可选的 `ctx.planMode`（没有则显示 `unknown`）；对抗式评审需要 `ctx.subagents`；验证需要 `workflowEngine`。
 - **本地降级。** 当 dsh-auto-review 缺失或本会话没有裁决记录时，`gate.review.engine: auto` 会降级到本地评审者——报告会写明原因，而不是捏造裁决。
 - **dsh-eval 证据基于文件。** dsh-auto-review 评测引擎（`dsh-eval`）把其 prompt 回归 / 压测 / 公平性结果写入工作区报告文件，而非会话日志。`gate.tests.evalReports.enabled` 折叠该文件（默认关闭；缺失时跳过），折叠出的计数随持久 `doublecheck/gate` 记录保存，使已定的运行仍可重放。
