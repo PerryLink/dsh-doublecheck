@@ -223,7 +223,7 @@ El CLI solo serializa el `GateState` ya asentado — nunca vuelve a ejecutar la 
 
 ## Limitaciones conocidas
 
-- **Escrituras durables.** `/doublecheck on\|off` → `doublecheck/state` y `/gate run` → `doublecheck/gate` necesitan la superficie de append `ignorable` del host (post-rc.6 hasta `0.1.1-rc.2`). En hosts sin esa superficie (rc.6/rc.8 y `0.1.2-alpha.2`, que eliminó el sobre), las escrituras se omiten y el interruptor queda en proceso.
+- **Escrituras durables.** `/doublecheck on\|off` → `doublecheck/state` y `/gate run` → `doublecheck/gate` necesitan la superficie de append `ignorable` del host (post-rc.6 hasta `0.1.1-rc.2`). En hosts sin esa superficie (rc.6/rc.8 y `0.1.2-alpha.1`, que eliminó el sobre — `0.1.2-alpha.2` restaura el campo solo para compatibilidad de lectura de logs almacenados y aún no puede estamparlo), las escrituras se omiten y el interruptor queda en proceso.
 0.1.2-alpha.2 (adaptado el 2026-08-31): el sobre de sesión conserva su campo ignorable solo para compatibilidad de lectura de logs almacenados - Session.append aún no puede estamparlo, por lo que el comportamiento de la puerta no cambia.
 - **Interfaces opcionales.** El espacio de ajustes `doublecheck.gate` se registra solo cuando el servicio de ajustes está montado; la línea de modo plan de `/gate status` lee el `ctx.planMode` opcional (muestra `unknown` sin él); la revisión adversarial necesita `ctx.subagents`; la verificación necesita `workflowEngine`.
 - **Degradación local.** `gate.review.engine: auto` degrada al revisor local cuando dsh-auto-review está ausente o no tiene registros de veredicto en esta sesión — el informe nombra la razón en lugar de inventar un veredicto.
