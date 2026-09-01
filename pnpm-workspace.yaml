@@ -54,3 +54,4 @@ minimumReleaseAgeExclude:
   - '@deepseek-ai/dsh-sandbox@0.1.2-alpha.3'
   - '@deepseek-ai/dsh-scope@0.1.2-alpha.3'
   - '@deepseek-ai/dsh-user-approval@0.1.2-alpha.3'
+verifyDepsBeforeRun: false
