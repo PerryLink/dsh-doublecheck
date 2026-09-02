@@ -2,6 +2,12 @@
 
 All notable changes to dsh-doublecheck are recorded here, newest first.
 
+## [0.9.4] - 2026-09-02
+
+### Docs
+
+- Sync the five-language READMEs to the 0.1.2-alpha.5 facts; no behavior change.
+
 ## [0.9.3] - 2026-09-02
 
 ### Changed
