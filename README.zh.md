@@ -25,7 +25,7 @@
 
 | 方面 | 状态 |
 |---|---|
-| Harness | DeepSeek Harness `0.1.1-rc.2` |
+| Harness | DeepSeek Harness `0.1.2-alpha.5` |
 | Node | `^22.19.0 \|\| >=24.0.0` |
 | 平台 | 全部（纯宿主；无原生代码，自身无直接网络请求） |
 | 模型 | 任意（守卫本身从不调用模型；评审与批评阶段作为宿主 subagent 运行） |

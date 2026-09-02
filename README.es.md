@@ -25,7 +25,7 @@
 
 | Superficie | Estado |
 |---|---|
-| Harness | DeepSeek Harness `0.1.1-rc.2` |
+| Harness | DeepSeek Harness `0.1.2-alpha.5` |
 | Node | `^22.19.0 \|\| >=24.0.0` |
 | Plataformas | Todas (host puro; sin código nativo, sin solicitudes de red directas propias) |
 | Modelo | Cualquiera (el guard nunca llama a un modelo; las fases de crítico y revisor se ejecutan como subagentes del harness) |

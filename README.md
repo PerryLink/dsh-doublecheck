@@ -26,7 +26,7 @@
 
 | Surface | Status |
 |---|---|
-| Harness | DeepSeek Harness `0.1.1-rc.2` |
+| Harness | DeepSeek Harness `0.1.2-alpha.5` |
 | Node | `^22.19.0 \|\| >=24.0.0` |
 | Platforms | All (pure host; no native code, no direct network requests of its own) |
 | Model | Any (the guard itself never calls a model; the critic and reviewer phases run as harness subagents) |
