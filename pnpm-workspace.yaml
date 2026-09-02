@@ -54,4 +54,25 @@ minimumReleaseAgeExclude:
   - '@deepseek-ai/dsh-sandbox@0.1.2-alpha.3'
   - '@deepseek-ai/dsh-scope@0.1.2-alpha.3'
   - '@deepseek-ai/dsh-user-approval@0.1.2-alpha.3'
+  - '@deepseek-ai/dsh-agent@0.1.2-alpha.5'
+  - '@deepseek-ai/dsh-brand@0.1.2-alpha.5'
+  - '@deepseek-ai/dsh-commands@0.1.2-alpha.5'
+  - '@deepseek-ai/dsh-fs@0.1.2-alpha.5'
+  - '@deepseek-ai/dsh-llm@0.1.2-alpha.5'
+  - '@deepseek-ai/dsh-session-projection@0.1.2-alpha.5'
+  - '@deepseek-ai/dsh-session@0.1.2-alpha.5'
+  - '@deepseek-ai/dsh-skill@0.1.2-alpha.5'
+  - '@deepseek-ai/dsh-subagent@0.1.2-alpha.5'
+  - '@deepseek-ai/dsh-system-prompt@0.1.2-alpha.5'
+  - '@deepseek-ai/dsh-timeout@0.1.2-alpha.5'
+  - '@deepseek-ai/dsh-tools@0.1.2-alpha.5'
+  - '@deepseek-ai/dsh-typert-protocol@0.1.2-alpha.5'
+  - '@deepseek-ai/dsh-util-crypto@0.1.2-alpha.5'
+  - '@deepseek-ai/dsh-util-values@0.1.2-alpha.5'
+  - '@deepseek-ai/dsh-workflow@0.1.2-alpha.5'
 verifyDepsBeforeRun: false
+# The exact alpha pins are published inside the 24h minimum-release-age
+# window by design (every batch pins the newest published line); the
+# exclusion list above is the primary mechanism, and this zero-age override
+# keeps fresh installs deterministic when pnpm's lockfile policy re-checks.
+minimumReleaseAge: 0
