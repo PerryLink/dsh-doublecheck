@@ -2,6 +2,12 @@
 
 All notable changes to dsh-doublecheck are recorded here, newest first.
 
+## [0.9.3] - 2026-09-02
+
+### Changed
+
+- Align the devDependency pins to the published dsh 0.1.2-alpha.5 line and re-verify the adaptation claims; no behavior change.
+
 ## [0.9.2] - 2026-09-01
 
 ### Changed
