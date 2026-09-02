@@ -42,7 +42,12 @@ export function userTask(text: string): SessionEvent {
 }
 
 /** A session object whose log is exactly the given events; `append` records into it. */
-export function fakeSession(events: readonly SessionEvent[]): Session {
+export interface FakeSession extends Session {
+  events: SessionEvent[]
+}
+
+/** A session object whose log is exactly the given events; `append` records into it. */
+export function fakeSession(events: readonly SessionEvent[]): FakeSession {
   const log: SessionEvent[] = [...events]
   const session = {
     events: log,
@@ -53,7 +58,7 @@ export function fakeSession(events: readonly SessionEvent[]): Session {
       return event
     },
   }
-  return session as unknown as Session
+  return session as unknown as FakeSession
 }
 
 /** An agent object carrying exactly the fields the guard reads, with inject/steer capture. */

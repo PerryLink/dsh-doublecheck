@@ -31,6 +31,7 @@ import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { MessageSource, UserMessage } from '@deepseek-ai/dsh-llm'
 import type { SubagentRun } from '@deepseek-ai/dsh-subagent'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
+import { sessionEvents } from '../session-events.ts'
 import z from '@deepseek-ai/schemastery'
 import type Schema from '@deepseek-ai/schemastery'
 import type { TestRunDetection } from '../domain/evidence.ts'
@@ -406,7 +407,7 @@ function autoReviewInstalled(ctx: Context, agent: Agent): boolean {
       // Fall through to the durable-event probe.
     }
   }
-  return agent.session.events.some(event => (event.type as string).startsWith('autoReview/'))
+  return sessionEvents(agent.session).some(event => (event.type as string).startsWith('autoReview/'))
 }
 
 /**
@@ -429,7 +430,7 @@ export async function runGate(
   signal: AbortSignal,
   language: ProseLanguage,
 ): Promise<GateState> {
-  const events = agent.session.events
+  const events = sessionEvents(agent.session)
   const coverageRegex = new RegExp(config.tests.coveragePattern, 'i')
 
   const requirements: GatePhaseResult = config.requirements.enabled
@@ -677,7 +678,7 @@ export function gateHandler(deps: GateCommandDeps): (invocation: CommandInvocati
       return { kind: 'error', text: prose.gateCommandUnknown(invocation.rawInput.trim()) }
     }
 
-    const events = session.events
+    const events = sessionEvents(session)
     const coverageRegex = new RegExp(config.tests.coveragePattern, 'i')
     const requirements = config.requirements.enabled
       ? evaluateRequirements(

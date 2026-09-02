@@ -31,6 +31,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { MessageSource } from '@deepseek-ai/dsh-llm'
 import type { Session, SessionEvent, UserMessage } from '@deepseek-ai/dsh-session'
+import { sessionEvents } from '../session-events.ts'
 import type { PostToolDecision, PreToolDecision, ToolExecution } from '@deepseek-ai/dsh-tools'
 import z from '@deepseek-ai/schemastery'
 import type Schema from '@deepseek-ai/schemastery'
@@ -304,12 +305,12 @@ export function apply(ctx: Context, config: Config): void {
 
   /**
    * Fold the session log to its current guard facts. The log is append-only
-   * and `session.events` is an immutable snapshot replaced on each append, so
+   * and the event snapshot is an immutable array replaced on each append, so
    * a resumed fold reuses the already-folded prefix: a per-call read costs
    * O(new events) instead of rescanning the whole log.
    */
   function snapshotOf(session: Session): Snapshot {
-    const events = session.events
+    const events = sessionEvents(session)
     const cached = snapshots.get(session)
     if (cached !== undefined) {
       if (cached.events === events && events.length === cached.scanned) return cached

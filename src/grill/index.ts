@@ -39,6 +39,7 @@ import {
   type ReportData,
 } from '../domain/report.ts'
 import { SPEC_FIELD_NAMES, VERIFY_DIMENSIONS } from '../domain/vocabulary.ts'
+import { sessionEvents } from '../session-events.ts'
 import { BundledSkillProvider, PROVIDER_NAME } from './provider.ts'
 
 export const name = 'doublecheck-grill'
@@ -417,7 +418,7 @@ export function apply(ctx: Context, config: Config): void {
       const session = exec.agent?.session
       const facts = session === undefined
         ? { spec: null, testRuns: { failed: 0, passed: 0 }, timeline: [], edits: 0, review: null }
-        : foldReportFacts(session.events, reportDetection)
+        : foldReportFacts(sessionEvents(session), reportDetection)
       const verify = args.verify ?? config.reportVerify
       const verification = verify
         ? await runVerifyWorkflow(ctx, config, facts.spec, exec)

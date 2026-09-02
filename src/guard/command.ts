@@ -19,6 +19,7 @@ import type { CommandInvocation, CommandResult } from '@deepseek-ai/dsh-commands
 import type { MessageSource } from '@deepseek-ai/dsh-llm'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, UserMessage } from '@deepseek-ai/dsh-session'
+import { sessionEvents } from '../session-events.ts'
 import { deriveReportVerdict, foldReportFacts, renderReportMarkdown, type ReportData } from '../domain/report.ts'
 import type { TestRunDetection } from '../domain/evidence.ts'
 import type { StateAppend } from '../events.ts'
@@ -141,7 +142,7 @@ export function doublecheckHandler(deps: CommandDeps): (invocation: CommandInvoc
     }
 
     if (input === 'report') {
-      const facts = foldReportFacts(session.events, detection)
+      const facts = foldReportFacts(sessionEvents(session), detection)
       const report: ReportData = {
         ...facts,
         verdict: deriveReportVerdict(facts, null),

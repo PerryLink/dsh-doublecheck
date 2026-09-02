@@ -30,6 +30,7 @@ import { deriveReportVerdict, foldReportFacts } from './domain/report.ts'
 import { deriveGateVerdict, GATE_PHASES, type GateState } from './domain/gate.ts'
 import type { TestRunDetection } from './domain/evidence.ts'
 import type {} from './events.ts'
+import { sessionEvents } from './session-events.ts'
 
 /** Full npm package name owning the reported failures. */
 export const PACKAGE_NAME = 'dsh-doublecheck'
@@ -76,7 +77,7 @@ export function installInvariant(facts: InvariantFacts): InvariantInstaller {
     })
 
     ctx.on('doublecheck/report', (payload) => {
-      const folded = foldReportFacts(payload.session.events, facts.detection())
+      const folded = foldReportFacts(sessionEvents(payload.session), facts.detection())
       if (payload.verification === null) {
         const rederived = deriveReportVerdict(folded, null)
         if (rederived !== payload.verdict) {
