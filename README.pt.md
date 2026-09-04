@@ -25,7 +25,7 @@
 
 | Superfície | Status |
 |---|---|
-| Harness | DeepSeek Harness `0.1.2-alpha.5` |
+| Harness | DeepSeek Harness `0.1.2-rc.1` |
 | Node | `^22.19.0 \|\| >=24.0.0` |
 | Plataformas | Todas (host puro; sem código nativo, sem requisições de rede diretas próprias) |
 | Modelo | Qualquer (o guard nunca chama um modelo; as fases de crítico e revisor rodam como subagentes do harness) |
@@ -223,8 +223,8 @@ O CLI apenas serializa o `GateState` já assentado — nunca reexecuta a porta d
 
 ## Limitações conhecidas
 
-- **Escritas duráveis.** `/doublecheck on\|off` → `doublecheck/state` e `/gate run` → `doublecheck/gate` precisam da superfície de append `ignorable` do host (pós-rc.6 até `0.1.1-rc.2`). Em hosts sem essa superfície (rc.6/rc.8 e `0.1.2-alpha.1`, que removeu o envelope — `0.1.2-alpha.5` restaura o campo apenas para compatibilidade de leitura de logs armazenados e ainda não consegue estampá-lo), as escritas são omitidas e o interruptor permanece em processo.
-0.1.2-alpha.5 (adaptado em 2026-09-02): o envelope de sessão mantém seu campo ignorable apenas para compatibilidade de leitura de logs armazenados - o Session.append ainda não consegue estampá-lo, então o comportamento da porta não muda.
+- **Escritas duráveis.** `/doublecheck on\|off` → `doublecheck/state` e `/gate run` → `doublecheck/gate` precisam da superfície de append `ignorable` do host (pós-rc.6 até `0.1.1-rc.2`). Em hosts sem essa superfície (rc.6/rc.8 e `0.1.2-alpha.1`, que removeu o envelope — `0.1.2-rc.1` restaura o campo apenas para compatibilidade de leitura de logs armazenados e ainda não consegue estampá-lo), as escritas são omitidas e o interruptor permanece em processo.
+0.1.2-rc.1 (adaptado em 2026-09-02): o envelope de sessão mantém seu campo ignorable apenas para compatibilidade de leitura de logs armazenados - o Session.append ainda não consegue estampá-lo, então o comportamento da porta não muda.
 - **Interfaces opcionais.** O namespace de configurações `doublecheck.gate` é registrado apenas quando o serviço de configurações está montado; a linha de modo plano de `/gate status` lê o `ctx.planMode` opcional (mostra `unknown` sem ele); a revisão adversarial precisa de `ctx.subagents`; a verificação precisa de `workflowEngine`.
 - **Degradação local.** `gate.review.engine: auto` degrada para o revisor local quando o dsh-auto-review está ausente ou não tem registros de veredicto nesta sessão — o relatório nomeia a razão em vez de inventar um veredicto.
 - **A evidência dsh-eval é baseada em arquivos.** O motor de avaliação do dsh-auto-review (`dsh-eval`) grava seus resultados de regressão de prompt / estresse / equidade em um arquivo de relatório do espaço de trabalho, não no registro de sessão. `gate.tests.evalReports.enabled` dobra esse arquivo (desativado por padrão; pula quando ausente) e as contagens dobradas viajam no registro durável `doublecheck/gate` para que uma execução assentada ainda seja reproduzível.

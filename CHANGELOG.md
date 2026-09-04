@@ -2,6 +2,12 @@
 
 All notable changes to dsh-doublecheck are recorded here, newest first.
 
+## [0.9.5] - 2026-09-04
+
+### Changed
+
+- Align the devDependency pins to the published dsh `0.1.2-rc.1` line (11 packages), move the CI/compat `dsh` CLI probes from `0.1.1-rc.2` to `0.1.2-rc.1`, extend the `minimumReleaseAgeExclude` list with the rc.1 line, and re-verify the adaptation claims; no behavior change (the runtime still detects the non-stamping host by probe, so durable writes keep being skipped).
+
 ## [0.9.4] - 2026-09-02
 
 ### Docs
