@@ -25,7 +25,7 @@
 
 | Superfície | Status |
 |---|---|
-| Harness | DeepSeek Harness `0.1.2-rc.1` |
+| Harness | DeepSeek Harness `0.1.2-rc.1`. Verificado em 2026-09-06 contra o checkout master `dsh-v0.1.3-alpha.1` (cadeia completa de portões + smoke de instalação do perfil). |
 | Node | `^22.19.0 \|\| >=24.0.0` |
 | Plataformas | Todas (host puro; sem código nativo, sem requisições de rede diretas próprias) |
 | Modelo | Qualquer (o guard nunca chama um modelo; as fases de crítico e revisor rodam como subagentes do harness) |

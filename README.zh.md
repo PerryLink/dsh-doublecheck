@@ -25,7 +25,7 @@
 
 | 方面 | 状态 |
 |---|---|
-| Harness | DeepSeek Harness `0.1.2-rc.1` |
+| Harness | DeepSeek Harness `0.1.2-rc.1`。已于 2026-09-06 对照 `dsh-v0.1.3-alpha.1` master checkout 核验（完整门禁链 + profile 安装冒烟）。 |
 | Node | `^22.19.0 \|\| >=24.0.0` |
 | 平台 | 全部（纯宿主；无原生代码，自身无直接网络请求） |
 | 模型 | 任意（守卫本身从不调用模型；评审与批评阶段作为宿主 subagent 运行） |
