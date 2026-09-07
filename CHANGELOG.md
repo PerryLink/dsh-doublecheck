@@ -2,6 +2,17 @@
 
 All notable changes to dsh-doublecheck are recorded here, newest first.
 
+## [0.9.7] - 2026-09-07
+
+### Fixed
+
+- Regenerate the committed `lib/` after the seam-marker docs commit so the CI build-drift gate stays green; no behavior change.
+
+### Docs
+
+- Fix the DSH plugin badge URL: shields.io rejects the four-segment static badge form with "404 badge not found"; the label now uses the documented double-dash form (`dsh--plugin`), rendering identically; no behavior change.
+
+
 ## [0.9.6] - 2026-09-07
 
 ### Fixed
