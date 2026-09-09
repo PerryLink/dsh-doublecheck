@@ -64,9 +64,15 @@ jobs:
 
   # Assemble the published bundle into a real DSH profile and prove both
   # plugin rows mount: the only step that exercises cordis.patch.yml.
+  # Both release lines are probed: the published dependency-pin line and the
+  # current V3 line (whose `tool/ptc-dispatch` vocabulary the plugin adapts to).
   smoke:
     needs: gates
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dsh: ['0.1.2-rc.1', '0.1.5-alpha.1']
     steps:
       - uses: actions/checkout@v4
 
@@ -84,7 +90,7 @@ jobs:
         run: pnpm pack
 
       - name: Install the DSH CLI
-        run: npm install --global @deepseek-ai/dsh@0.1.2-rc.1
+        run: npm install --global @deepseek-ai/dsh@${{ matrix.dsh }}
 
       - name: Assemble a scratch profile with the packed bundle
         run: |
