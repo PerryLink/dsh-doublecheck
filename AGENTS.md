@@ -12,11 +12,11 @@ Standalone DeepSeek Harness plugin repository (`dsh-doublecheck`). Development f
 - `src/guard/review.ts` — adversary review orchestration (forked critic subagent, structured findings, honest "unavailable" degradation).
 - `src/guard/gate.ts` — the delivery quality gate (v0.7): the `gate.*` Schema config, fail-loud validation, the four-phase runner (deterministic requirements/tests folds + forked consistency/local reviewers), the dsh-auto-review weak dependency (durable `autoReview/*` verdict records; degrade-to-local), the `/gate status|run|config` command, the durable `doublecheck/gate` fold, and the `doublecheck.gate` settings namespace.
 - `src/guard/prose.ts` — the injected reminder/deny/review/gate prose, per-language (`en` / `zh`); gate notices open with a one-sentence role statement and stay short.
-- `src/domain/` — pure folds and vocabularies shared by both rows (stages, evidence, vagueness, vocabulary, report, gate). No Cordis imports.
+- `src/domain/` — pure folds and vocabularies shared by both rows (stages, evidence, vagueness, vocabulary, report, gate). No Cordis imports. `src/domain/evidence.ts` owns `ptcSettle()`, the one normalizer for settled PTC sub-dispatch events.
 - `src/events.ts` — process-local Cordis event vocabulary (`@mode emit`, observability-only) + the durable `doublecheck/state` and `doublecheck/gate` `SessionEventMap` members and the `doublecheck-gate` message source.
 - `skills/` — four bundled discipline skills (`grill-requirements`, `red-green-tdd`, `delivery-review`, `delivery-proof`), each `<name>/SKILL.md` in the generic Agent Skills layout.
 - `tests/` — vitest; real Cordis `Context` with scripted services (subagents/commands) and synthetic durable events; `tests/fixtures/` holds real-transcript regression logs.
-- `scripts/` — session-log tooling (`decode-session`, `extract-fixture`, `scan-sessions`) + `release-notes.mjs` (extracts the top changelog section for the publish workflow's release job).
+- `scripts/` — session-log tooling (`decode-session`, `extract-fixture`, `scan-sessions`; all take an explicit log/directory path and never read the real session store by default) + the gates and release helpers (`assert-profile`, `check-readme-sync`, `verify-skills`, `verify-self-contained`, `verify-artifacts`, `fix-dts`, `release-notes`, `smoke-insert` / `verify-block` / `verify-report` / `verify-review` / `verify-tdd` patch overlays).
 
 ## Hard rules applied here
 
@@ -26,6 +26,7 @@ Standalone DeepSeek Harness plugin repository (`dsh-doublecheck`). Development f
 - Weak dependency on dsh-auto-review: never imported, never hard-required — the gate folds its durable verdict records and degrades to the local reviewer; the gate never synthesizes approval requests (the chain may reach a human).
 - No agent-loop changes; only documented seams (skills provider, tools, `tools/pre-execute` / `post-execute`, subagents, commands, session events).
 - Process-local `doublecheck/*` events are observability-only: listeners must not veto or reroute; durable state never depends on them.
+- PTC sub-dispatch vocabulary: every fold reads a settled sub-dispatch through `ptcSettle()` (`src/domain/evidence.ts`) instead of switching on one event label. The current line emits `tool/ptc-dispatch` (session format V3 renamed the predecessor `tool/code-dispatch`); the predecessor label is matched structurally so a host on the older release line keeps folding identically. Never re-add a bare `case 'tool/ptc-dispatch'` or `case 'tool/code-dispatch'` to a fold.
 
 ## Build & publish
 
@@ -42,4 +43,4 @@ Standalone DeepSeek Harness plugin repository (`dsh-doublecheck`). Development f
 
 ## Checks
 
-`pnpm run typecheck && pnpm run lint && pnpm test && pnpm run build && pnpm run pack:check` — CI runs the same on a 3-OS × 2-Node matrix. A separate `smoke` job then packs the tarball, installs it into a scratch `dsh` profile, and asserts both bundle rows mount (`scripts/assert-profile.mjs`).
+`pnpm run typecheck && pnpm run typecheck:ci && pnpm run lint && pnpm test && pnpm run build && pnpm run pack:check` — CI runs the same on a 3-OS × 2-Node matrix. `typecheck:ci` resolves published types (`tsconfig.ci.json`, no `paths`); the committed `tsconfig.json` carries no `paths` either, so both baselines coincide while the devDependencies stay pinned to the current published line. A separate `smoke` job then packs the tarball, installs it into a scratch `dsh` profile, and asserts both bundle rows mount (`scripts/assert-profile.mjs`) on both pinned dsh release lines (`0.1.2-rc.1`, `0.1.5-alpha.1`).

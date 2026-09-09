@@ -25,7 +25,7 @@
 
 | 方面 | 状态 |
 |---|---|
-| Harness | DeepSeek Harness `dsh-v0.1.3-alpha.1`。已于 2026-09-06 对照 `dsh-v0.1.3-alpha.1` master checkout 核验（完整门禁链 + profile 安装冒烟）。 |
+| Harness | DeepSeek Harness `dsh-v0.1.5-alpha.1`。已于 2026-09-09 对照 `dsh-v0.1.5-alpha.1` master checkout 核验（完整门禁链 + profile 安装冒烟）；已发布的 `0.1.2-rc.1` 钉号线仍受支持。 |
 | Node | `^22.19.0 \|\| >=24.0.0` |
 | 平台 | 全部（纯宿主；无原生代码，自身无直接网络请求） |
 | 模型 | 任意（守卫本身从不调用模型；评审与批评阶段作为宿主 subagent 运行） |
@@ -208,7 +208,7 @@ CLI 只序列化已定的 `GateState` —— 它从不重新运行四阶段门�
 
 ## 权限与数据
 
-- **读取**：仅进程内读取会话日志（`tool/call` / `tool/result` / `tool/code-dispatch`、注入的 `user/message` 来源，以及外部的 `autoReview/*` 裁决记录）；可选的计划模式服务状态。
+- **读取**：仅进程内读取会话日志（`tool/call` / `tool/result` / `tool/ptc-dispatch`、注入的 `user/message` 来源，以及外部的 `autoReview/*` 裁决记录）；可选的计划模式服务状态。V3 改名前的宿主用旧标签 `tool/code-dispatch` 记录 PTC 子调用；两个标签折叠结果完全一致。
 - **写入**：会话工作区中的 `doublecheck-spec.md`、`doublecheck-report.md` 和 `gate-report.md`（路径可配置），通过 `ctx.fs` 接口；持久的 `doublecheck/state` 和 `doublecheck/gate` 会话事件。
 - **模型调用**：门禁的一致性阶段和本地评审阶段（每次 `/gate run` 各一个 subagent）、可选的对抗式评审，以及 `doublecheck_report` 验证工作流会启动 subagent 运行；除此之外不调用模型或网络。
 - **绝不触碰**：凭据、环境变量，或会话工作区之外的任何文件。workshop 清单只声明 `filesystem:read` 和 `filesystem:write`。门禁报告只携带计数、id 和裁决；评审文本中被识别的机密在存储或显示之前会被脱敏。
@@ -225,6 +225,7 @@ CLI 只序列化已定的 `GateState` —— 它从不重新运行四阶段门�
 
 - **持久写入。** `/doublecheck on\|off` → `doublecheck/state` 与 `/gate run` → `doublecheck/gate` 需要宿主的 `ignorable` 追加接口（rc.6 之后至 `0.1.1-rc.2`）。在无此接口的宿主上（rc.6/rc.8，以及移除该信封的 `0.1.2-alpha.1`——`0.1.2-rc.1` 仅恢复存量日志读取兼容字段、仍无法盖章），写入被跳过、开关保持进程内状态。
 0.1.2-rc.1（2026-09-02 已适配）：会话信封保留 ignorable 字段但仅用于存量日志读取兼容——Session.append 仍无法盖章，门控行为不变。
+0.1.5-alpha.1（2026-09-09 已适配）：会话格式 V3 把持久子调用事件 `tool/code-dispatch` 改名为 `tool/ptc-dispatch`（载荷不变；两个标签折叠结果一致）。Session.append 仍无 `ignorable` 写入通道，写入继续跳过、开关保持进程内——行为不变。`doublecheck.gate` 设置命名空间仍是弱接口（见「已知限制」）。
 - **可选接口。** `doublecheck.gate` 设置命名空间仅在挂载设置服务时注册；`/gate status` 的计划模式行读取可选的 `ctx.planMode`（没有则显示 `unknown`）；对抗式评审需要 `ctx.subagents`；验证需要 `workflowEngine`。
 - **本地降级。** 当 dsh-auto-review 缺失或本会话没有裁决记录时，`gate.review.engine: auto` 会降级到本地评审者——报告会写明原因，而不是捏造裁决。
 - **dsh-eval 证据基于文件。** dsh-auto-review 评测引擎（`dsh-eval`）把其 prompt 回归 / 压测 / 公平性结果写入工作区报告文件，而非会话日志。`gate.tests.evalReports.enabled` 折叠该文件（默认关闭；缺失时跳过），折叠出的计数随持久 `doublecheck/gate` 记录保存，使已定的运行仍可重放。

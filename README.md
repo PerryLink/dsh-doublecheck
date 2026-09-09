@@ -26,7 +26,7 @@
 
 | Surface | Status |
 |---|---|
-| Harness | DeepSeek Harness `dsh-v0.1.3-alpha.1`. Verified 2026-09-06 against the `dsh-v0.1.3-alpha.1` master checkout (full gate chain + profile install smoke). |
+| Harness | DeepSeek Harness `dsh-v0.1.5-alpha.1`. Verified 2026-09-09 against the `dsh-v0.1.5-alpha.1` master checkout (full gate chain + profile install smoke); the published `0.1.2-rc.1` pin line stays supported. |
 | Node | `^22.19.0 \|\| >=24.0.0` |
 | Platforms | All (pure host; no native code, no direct network requests of its own) |
 | Model | Any (the guard itself never calls a model; the critic and reviewer phases run as harness subagents) |
@@ -209,7 +209,7 @@ The CLI only serializes the already-settled `GateState` — it never re-runs the
 
 ## Permissions & data
 
-- **Reads**: the session log (`tool/call` / `tool/result` / `tool/code-dispatch`, injected `user/message` sources, and the foreign `autoReview/*` verdict records) in-process only; the optional plan-mode service state.
+- **Reads**: the session log (`tool/call` / `tool/result` / `tool/ptc-dispatch`, injected `user/message` sources, and the foreign `autoReview/*` verdict records) in-process only; the optional plan-mode service state. PTC sub-dispatches carry the predecessor `tool/code-dispatch` label on hosts before the V3 rename; both labels fold identically.
 - **Writes**: `doublecheck-spec.md`, `doublecheck-report.md`, `gate-report.md`, and `gate-report.json` in the session workspace (paths configurable) through the `ctx.fs` seam; the durable `doublecheck/state` and `doublecheck/gate` session events.
 - **Model calls**: the gate's consistency and local-review phases (one subagent each per `/gate run`), the optional adversary review, and the `doublecheck_report` verification workflow start subagent runs; nothing else calls a model or the network.
 - **Never touched**: credentials, environment variables, or any file outside the session workspace. The workshop manifest declares `filesystem:read` and `filesystem:write` only. Gate reports carry counts, ids, and verdicts only; recognized secrets in reviewer texts are redacted before storage or display.
@@ -226,6 +226,7 @@ The CLI only serializes the already-settled `GateState` — it never re-runs the
 
 - **Durable writes.** `/doublecheck on\|off` → `doublecheck/state` and `/gate run` → `doublecheck/gate` ride the host's `ignorable` append surface (post-rc.6 through `0.1.1-rc.2`). On hosts without that surface (rc.6/rc.8, and `0.1.2-alpha.1`, which removed the envelope — `0.1.2-rc.1` restores the field for stored-log read compatibility only and still cannot stamp it), the writes are skipped and the switch stays process-local.
 0.1.2-rc.1 (adapted 2026-09-02): the session envelope keeps its ignorable field for stored-log read compatibility only - Session.append still cannot stamp it, so audit-gate behavior is unchanged.
+0.1.5-alpha.1 (adapted 2026-09-09): session format V3 renames the durable sub-dispatch event `tool/code-dispatch` to `tool/ptc-dispatch` (payload unchanged; both labels fold identically). Session.append still exposes no `ignorable` channel, so durable writes stay skipped and the switch stays process-local - behavior unchanged. The `doublecheck.gate` settings namespace remains a weak seam (see Known limitations).
 - **Optional seams.** The `doublecheck.gate` settings namespace registers only when the settings service is mounted; the `/gate status` plan-mode line reads the optional `ctx.planMode` (shows `unknown` without it); the adversary review needs `ctx.subagents`; verification needs `workflowEngine`.
 - **Local degrade.** `gate.review.engine: auto` degrades to the local reviewer when dsh-auto-review is absent or has no verdict records this session — the report names the reason instead of inventing a verdict.
 - **dsh-eval evidence is file-based.** The dsh-auto-review eval engine (`dsh-eval`) writes its prompt-regression / stress / fairness results to a workspace report file, not the session log. `gate.tests.evalReports.enabled` folds that file (off by default; skips when absent) and the folded counts ride the durable `doublecheck/gate` record so a settled run still replays.

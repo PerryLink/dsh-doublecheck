@@ -25,7 +25,7 @@
 
 | Superficie | Estado |
 |---|---|
-| Harness | DeepSeek Harness `dsh-v0.1.3-alpha.1`. Verificado el 2026-09-06 contra el checkout master `dsh-v0.1.3-alpha.1` (cadena completa de puertas + humo de instalación del perfil). |
+| Harness | DeepSeek Harness `dsh-v0.1.5-alpha.1`. Verificado el 2026-09-09 contra el checkout master `dsh-v0.1.5-alpha.1` (cadena completa de puertas + humo de instalación del perfil); la línea publicada `0.1.2-rc.1` sigue soportada. |
 | Node | `^22.19.0 \|\| >=24.0.0` |
 | Plataformas | Todas (host puro; sin código nativo, sin solicitudes de red directas propias) |
 | Modelo | Cualquiera (el guard nunca llama a un modelo; las fases de crítico y revisor se ejecutan como subagentes del harness) |
@@ -208,7 +208,7 @@ El CLI solo serializa el `GateState` ya asentado — nunca vuelve a ejecutar la 
 
 ## Permisos y datos
 
-- **Lee**: el registro de sesión (`tool/call` / `tool/result` / `tool/code-dispatch`, fuentes `user/message` inyectadas y los registros de veredicto ajenos `autoReview/*`) solo en proceso; el estado opcional del servicio de modo plan.
+- **Lee**: el registro de sesión (`tool/call` / `tool/result` / `tool/ptc-dispatch`, fuentes `user/message` inyectadas y los registros de veredicto ajenos `autoReview/*`) solo en proceso; el estado opcional del servicio de modo plan. Antes del renombrado de V3 el host registra los subenvíos PTC con la etiqueta predecesora `tool/code-dispatch`; ambas etiquetas se pliegan de forma idéntica.
 - **Escribe**: `doublecheck-spec.md`, `doublecheck-report.md` y `gate-report.md` en el workspace de sesión (rutas configurables) a través de la interfaz `ctx.fs`; los eventos de sesión durables `doublecheck/state` y `doublecheck/gate`.
 - **Llamadas a modelo**: las fases de consistencia y revisión local de la puerta (un subagente cada una por `/gate run`), la revisión adversarial opcional y el flujo de verificación de `doublecheck_report` inician ejecuciones de subagente; nada más llama a un modelo o a la red.
 - **Nunca toca**: credenciales, variables de entorno o cualquier archivo fuera del workspace de sesión. El manifiesto del workshop declara solo `filesystem:read` y `filesystem:write`. Los informes de la puerta llevan solo conteos, ids y veredictos; los secretos reconocidos en los textos del revisor se redactan antes de almacenarlos o mostrarlos.
@@ -225,6 +225,7 @@ El CLI solo serializa el `GateState` ya asentado — nunca vuelve a ejecutar la 
 
 - **Escrituras durables.** `/doublecheck on\|off` → `doublecheck/state` y `/gate run` → `doublecheck/gate` necesitan la superficie de append `ignorable` del host (post-rc.6 hasta `0.1.1-rc.2`). En hosts sin esa superficie (rc.6/rc.8 y `0.1.2-alpha.1`, que eliminó el sobre — `0.1.2-rc.1` restaura el campo solo para compatibilidad de lectura de logs almacenados y aún no puede estamparlo), las escrituras se omiten y el interruptor queda en proceso.
 0.1.2-rc.1 (adaptado el 2026-09-02): el sobre de sesión conserva su campo ignorable solo para compatibilidad de lectura de logs almacenados - Session.append aún no puede estamparlo, por lo que el comportamiento de la puerta no cambia.
+0.1.5-alpha.1 (adaptado el 2026-09-09): el formato de sesión V3 renombra el evento durable de subenvío `tool/code-dispatch` a `tool/ptc-dispatch` (carga útil sin cambios; ambas etiquetas se pliegan de forma idéntica). Session.append sigue sin canal `ignorable`, así que las escrituras durables se omiten y el interruptor permanece en proceso - comportamiento sin cambios. El espacio de ajustes `doublecheck.gate` sigue siendo una interfaz débil (véase Limitaciones conocidas).
 - **Interfaces opcionales.** El espacio de ajustes `doublecheck.gate` se registra solo cuando el servicio de ajustes está montado; la línea de modo plan de `/gate status` lee el `ctx.planMode` opcional (muestra `unknown` sin él); la revisión adversarial necesita `ctx.subagents`; la verificación necesita `workflowEngine`.
 - **Degradación local.** `gate.review.engine: auto` degrada al revisor local cuando dsh-auto-review está ausente o no tiene registros de veredicto en esta sesión — el informe nombra la razón en lugar de inventar un veredicto.
 - **La evidencia dsh-eval se basa en archivos.** El motor de evaluación de dsh-auto-review (`dsh-eval`) escribe sus resultados de regresión de prompt / estrés / equidad en un archivo de informe del espacio de trabajo, no en el registro de sesión. `gate.tests.evalReports.enabled` pliega ese archivo (desactivado por defecto; salta cuando está ausente) y los recuentos pliegados viajan en el registro duradero `doublecheck/gate` para que una ejecución asentada siga siendo reproducible.
