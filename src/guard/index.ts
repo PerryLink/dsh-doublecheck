@@ -31,6 +31,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { MessageSource } from '@deepseek-ai/dsh-llm'
 import type { Session, SessionEvent, UserMessage } from '@deepseek-ai/dsh-session'
+import type { SettingsProvider } from '@deepseek-ai/dsh-settings'
 import { sessionEvents } from '../session-events.ts'
 import type { PostToolDecision, PreToolDecision, ToolExecution } from '@deepseek-ai/dsh-tools'
 import z from '@deepseek-ai/schemastery'
@@ -74,6 +75,15 @@ import { doublecheckHandler, hostStampsIgnorable } from './command.ts'
 
 export const name = 'doublecheck-guard'
 export const inject = ['commands']
+
+/**
+ * The gate's settings namespace. Hyphenated on purpose: the host's
+ * `NAMESPACE_PATTERN` (`/^[a-z][a-z0-9-]*$/`) rejects a dot with a
+ * `TypeError`, and a rejected registration never reaches
+ * `ctx.settings.describe()`, so no settings surface can see it. v0.9.8 and
+ * earlier registered `doublecheck.gate`, which never took effect anywhere.
+ */
+export const GATE_SETTINGS_NS = 'doublecheck-gate'
 
 /**
  * Guard configuration. `intensity` is shared by all three gates; `modules`
@@ -185,6 +195,32 @@ export function apply(ctx: Context, config: Config): void {
   assertPositiveInteger('vagueTaskMaxChars', config.vagueTaskMaxChars)
   assertGuardTools(config.guardTools)
   validateGateConfig(config.gate)
+  // The effective gate config: the user's stored `doublecheck-gate` section
+  // overrides this row's composition entry, which overrides the Schema
+  // defaults (the settings service resolves exactly that order). The service
+  // is a weak seam — without it, or when the stored section is unusable, the
+  // composition entry stands and the reason is logged. `applies: 'restart'`
+  // is deliberate: `gate.enabled` decides whether the turn-stopping notice is
+  // installed at load, so a live swap could not honor it; the resolved value
+  // is therefore read once here and an edit takes effect on the next load.
+  const settings = ctx.get('settings') as SettingsProvider | undefined
+  let gateConfig: GateConfig = config.gate
+  if (settings !== undefined) {
+    try {
+      const resolved = settings.register(GATE_SETTINGS_NS, GateConfigSchema, {
+        base: config.gate,
+        applies: 'restart',
+        validate: validateGateConfig,
+      }).get()
+      // The host validates the resolved section at registration, so this only
+      // fires on a host that ignores the `validate` option; degrade rather
+      // than fail the whole row over a settings typo.
+      validateGateConfig(resolved)
+      gateConfig = resolved
+    } catch (error) {
+      ctx.logger.warn(`dsh-doublecheck: gate settings namespace skipped, using the composition entry: ${String(error)}`)
+    }
+  }
   if (config.modules.adversary) {
     assertBoundedInteger('adversaryMaxFindings', config.adversaryMaxFindings, 20)
     assertPositiveInteger('adversaryTimeoutMs', config.adversaryTimeoutMs)
@@ -370,38 +406,20 @@ export function apply(ctx: Context, config: Config): void {
     description: 'run the delivery quality gate and report the deliverable/rework decision',
     input: { hint: 'status|run|config' },
     handler: gateHandler({
-      config: config.gate,
+      config: gateConfig,
       detection,
       prose,
-      runGate: (agent, signal) => runGate(ctx, config.gate, detection, agent, signal, config.language),
-      settleGate: (state, agent, signal) => settleGate(ctx, config.gate, state, agent, signal, hostStampsIgnorable()),
+      runGate: (agent, signal) => runGate(ctx, gateConfig, detection, agent, signal, config.language),
+      settleGate: (state, agent, signal) => settleGate(ctx, gateConfig, state, agent, signal, hostStampsIgnorable()),
       stampsIgnorable: hostStampsIgnorable,
       planMode: ctx.get('planMode') as { get(agent: import('@deepseek-ai/dsh-agent').Agent): { active?: boolean } | undefined } | undefined,
     }),
   })
 
-  // The gate settings namespace: the pluggable checklist becomes editable
-  // through the harness settings surface when one is mounted (weak seam —
-  // a profile without the settings service simply has no settings page).
-  const settings = ctx.get('settings') as {
-    register(ns: string, schema: unknown, options: { base: unknown; applies: 'restart'; expose: boolean }): unknown
-  } | undefined
-  if (settings !== undefined) {
-    try {
-      settings.register('doublecheck.gate', GateConfigSchema, {
-        base: config.gate,
-        applies: 'restart',
-        expose: true,
-      })
-    } catch (error) {
-      ctx.logger.warn(`dsh-doublecheck: gate settings namespace skipped: ${String(error)}`)
-    }
-  }
-
   // The gate-red turn notice: once per session, a settled rework verdict
   // suggests re-opening the work in plan mode. Installed even when every
   // discipline module is off — the gate panel is advisory, not a gate.
-  if (config.gate.enabled) {
+  if (gateConfig.enabled) {
     ctx.on('agent/turn-stopping', async ({ agent }) => {
       if (!doublecheckEnabled(agent.session)) return
       const snapshot = snapshotOf(agent.session)

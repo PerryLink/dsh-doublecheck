@@ -37,6 +37,14 @@ import { type GateVerdict } from '../domain/gate.js';
 export declare const name = "doublecheck-guard";
 export declare const inject: string[];
 /**
+ * The gate's settings namespace. Hyphenated on purpose: the host's
+ * `NAMESPACE_PATTERN` (`/^[a-z][a-z0-9-]*$/`) rejects a dot with a
+ * `TypeError`, and a rejected registration never reaches
+ * `ctx.settings.describe()`, so no settings surface can see it. v0.9.8 and
+ * earlier registered `doublecheck.gate`, which never took effect anywhere.
+ */
+export declare const GATE_SETTINGS_NS = "doublecheck-gate";
+/**
  * Guard configuration. `intensity` is shared by all three gates; `modules`
  * selects them. The `adversary` module (v0.3) dispatches a forked critic
  * subagent at the turn boundary once the delivery reaches green.
