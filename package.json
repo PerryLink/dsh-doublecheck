@@ -56,8 +56,9 @@
   "scripts": {
     "build": "tsc --noEmitOnError && node scripts/fix-dts.mjs",
     "prepare": "tsc --noEmitOnError && node scripts/fix-dts.mjs",
-    "prepublishOnly": "tsc --noEmitOnError && node scripts/fix-dts.mjs && pnpm run test",
+    "prepublishOnly": "pnpm run typecheck:ci && tsc --noEmitOnError && node scripts/fix-dts.mjs && pnpm run test",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.tests.json",
+    "typecheck:ci": "tsc -p tsconfig.ci.json --noEmit",
     "lint": "eslint src tests",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
