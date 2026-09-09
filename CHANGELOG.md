@@ -2,6 +2,23 @@
 
 All notable changes to dsh-doublecheck are recorded here, newest first.
 
+## [0.9.9] - 2026-09-09
+
+### Fixed
+
+- Register the gate settings namespace as **`doublecheck-gate`**. The previous `doublecheck.gate` name violated the host's `NAMESPACE_PATTERN` (`/^[a-z][a-z0-9-]*$/`), so `ctx.settings.register` threw a `TypeError` (the pattern has rejected dots since the settings seam landed), the guard swallowed it into a warn, and the namespace never reached `ctx.settings.describe()` — no settings surface could see or edit the checklist. The namespace is now typed against the host `SettingsProvider`, so a dotted name also fails at compile time.
+- Wire the registered namespace into the runtime: `apply` now reads the resolved `SettingsScope` once at load, so the user section overrides the composition `gate.*` values for the `/gate` panel and the gate-red notice (`applies: restart`). Writes pass through `validate: validateGateConfig`, so a duplicate checklist id is refused at update time and the last good value stays in place.
+- Remove the `expose: true` registration option: the host has no such option and silently ignored it.
+
+### Changed
+
+- Add `@deepseek-ai/dsh-settings` as a devDependency (type-only import) for the real settings contract in tests and the compile-time namespace guard; no runtime dependency change.
+- Add `tests/settings.spec.ts`: the host rejects a dotted namespace with `/must match/`; `doublecheck-gate` is registered with `applies: 'restart'`, the composition base, and appears in `ctx.settings.describe()`; the row mounts without the "namespace skipped" warning; and a user section reaches the `/gate config` output. A pre-existing `doublecheck.gate` section (if any) was never read by any release and is now simply ignored.
+
+### Docs
+
+- Five-language READMEs and `AGENTS.md`: the `doublecheck-gate` namespace name, the `ctx.settings.describe()` visibility scope (the package ships no client card, so the shipped Web GUI plugin page does not list it), and the user-section-overrides-composition behavior.
+
 ## [0.9.8] - 2026-09-09
 
 ### Fixed
