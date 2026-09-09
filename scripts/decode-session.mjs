@@ -2,7 +2,9 @@
  * One-off acceptance helper: decode a JSONL zstd session log from the flat
  * fallback's dsh-session-persistence-jsonl and print a compact event trace
  * filtered to the dsh-doublecheck evidence.
- * Usage: node scripts/decode-session.mjs <path-to-session.jsonl.zstd>
+ * Usage: node scripts/decode-session.mjs <path-to-session.v<N>.jsonl.zstd>
+ * (generation 0 keeps the flat name `session.jsonl.zstd`; the path is passed in,
+ * so the script never reads the real session store on its own)
  */
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'

@@ -2,7 +2,9 @@
  * One-off fixture extractor: trim a real session log to the discipline-relevant
  * events (user messages, review injections, spec/report/shell/mutation calls
  * and their results) and write a compact fixture for regression tests.
- * Usage: tsx scripts/extract-fixture.mjs <session.jsonl.zstd> <out.json> <maxEvents>
+ * Usage: tsx scripts/extract-fixture.mjs <session.v<N>.jsonl.zstd> <out.json> <maxEvents>
+ * (generation 0 keeps the flat name `session.jsonl.zstd`; the path is passed in,
+ * so the script never reads the real session store on its own)
  */
 import { readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
