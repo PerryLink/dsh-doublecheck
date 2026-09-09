@@ -18,6 +18,7 @@ import {
   joinTextBlocks,
   mutationTargetPath,
   parseRawArguments,
+  ptcSettle,
   shellCommand,
   testOutcome,
   type TestRunDetection,
@@ -80,6 +81,20 @@ export function applyDoublecheckEvent(
   event: SessionEvent,
   detection: TestRunDetection,
 ): DoublecheckProjectionState {
+  // A settled PTC sub-dispatch is a discipline fact exactly like a native
+  // call. The normalizer accepts both event generations, so the projection
+  // does not depend on which one wrote the log.
+  const settle = ptcSettle(event)
+  if (settle !== undefined) {
+    const args = parseRawArguments(settle.arguments)
+    const command = shellCommand(settle.name, args, detection)
+    if (command !== undefined && isTestCommand(command, detection)) {
+      const outcome = testOutcome(joinTextBlocks(settle.content), settle.isError)
+      if (outcome === 'fail') return { ...state, color: 'red', stage: 'red' }
+      if (outcome === 'pass') return { ...state, color: 'green', stage: 'green' }
+    }
+    return state
+  }
   switch (event.type) {
     case 'tool/call': {
       const args = parseRawArguments(event.data.arguments)
@@ -119,16 +134,6 @@ export function applyDoublecheckEvent(
         if (outcome === 'fail') return { ...next, color: 'red', stage: 'red' }
         if (outcome === 'pass') return { ...next, color: 'green', stage: 'green' }
         return next
-      }
-      return state
-    }
-    case 'tool/code-dispatch': {
-      const args = parseRawArguments(event.data.arguments)
-      const command = shellCommand(event.data.name, args, detection)
-      if (command !== undefined && isTestCommand(command, detection)) {
-        const outcome = testOutcome(joinTextBlocks(event.data.content), event.data.isError)
-        if (outcome === 'fail') return { ...state, color: 'red', stage: 'red' }
-        if (outcome === 'pass') return { ...state, color: 'green', stage: 'green' }
       }
       return state
     }

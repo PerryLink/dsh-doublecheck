@@ -32,6 +32,7 @@ import {
   isTestCommand,
   joinTextBlocks,
   parseRawArguments,
+  ptcSettle,
   shellCommand,
   testOutcome,
   type TestRunDetection,
@@ -208,6 +209,19 @@ export function foldTestEvidence(
   const evidence: TestEvidence = { failed: 0, passed: 0, lastOutcome: 'none', failingAfterGreen: 0, coveragePct: null }
   const pendingTests = new Map<string, undefined>()
   for (const event of events) {
+    // A settled PTC sub-dispatch is a test run exactly like a native shell
+    // call; the normalizer accepts both event generations, so the evidence
+    // does not depend on which one wrote the log.
+    const settle = ptcSettle(event)
+    if (settle !== undefined) {
+      const args = parseRawArguments(settle.arguments)
+      const command = shellCommand(settle.name, args, detection)
+      if (command !== undefined && isTestCommand(command, detection)) {
+        const text = joinTextBlocks(settle.content)
+        foldTestEvidenceOutcome(evidence, testOutcome(text, settle.isError), text, coverageRegex)
+      }
+      continue
+    }
     switch (event.type) {
       case 'tool/call': {
         const args = parseRawArguments(event.data.arguments)
@@ -222,15 +236,6 @@ export function foldTestEvidence(
         if (!pendingTests.delete(callId)) break
         const text = joinTextBlocks(event.data.message.content)
         foldTestEvidenceOutcome(evidence, testOutcome(text, event.data.error !== undefined), text, coverageRegex)
-        break
-      }
-      case 'tool/code-dispatch': {
-        const args = parseRawArguments(event.data.arguments)
-        const command = shellCommand(event.data.name, args, detection)
-        if (command !== undefined && isTestCommand(command, detection)) {
-          const text = joinTextBlocks(event.data.content)
-          foldTestEvidenceOutcome(evidence, testOutcome(text, event.data.isError), text, coverageRegex)
-        }
         break
       }
     }

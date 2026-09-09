@@ -23,6 +23,7 @@ import {
   joinTextBlocks,
   mutationTargetPath,
   parseRawArguments,
+  ptcSettle,
   shellCommand,
   testOutcome,
   type TestRunDetection,
@@ -132,6 +133,24 @@ export function foldDisciplineRange(
   for (let index = start; index < events.length; index += 1) {
     const event = events[index]
     if (event === undefined) continue
+    // A settled PTC sub-dispatch runs through the same pre-execute policy
+    // gates, so a dispatched test run or edit is a real discipline fact and
+    // must count exactly like a native call. The normalizer accepts both event
+    // generations, so the fold does not depend on which one wrote the log.
+    const settle = ptcSettle(event)
+    if (settle !== undefined) {
+      const args = parseRawArguments(settle.arguments)
+      const command = shellCommand(settle.name, args, detection)
+      if (command !== undefined && isTestCommand(command, detection)) {
+        foldTestOutcome(state, testOutcome(joinTextBlocks(settle.content), settle.isError))
+      }
+      const path = mutationTargetPath(settle.name, args, detection)
+      if (path !== undefined && !isTestFilePath(path, detection)) {
+        state.pendingGreen = true
+        state.editCount += 1
+      }
+      continue
+    }
     switch (event.type) {
       case 'tool/call': {
         const args = parseRawArguments(event.data.arguments)
@@ -165,22 +184,6 @@ export function foldDisciplineRange(
         }
         if (state.pendingTestCalls.delete(callId)) {
           foldTestOutcome(state, testOutcome(joinTextBlocks(event.data.message.content), event.data.error !== undefined))
-        }
-        break
-      }
-      case 'tool/code-dispatch': {
-        const args = parseRawArguments(event.data.arguments)
-        const command = shellCommand(event.data.name, args, detection)
-        if (command !== undefined && isTestCommand(command, detection)) {
-          foldTestOutcome(state, testOutcome(joinTextBlocks(event.data.content), event.data.isError))
-        }
-        // Code Mode dispatches run through the same pre-execute policy gates,
-        // so a dispatched edit is a real implementation edit and must count
-        // toward the green gate and the report exactly like a native call.
-        const path = mutationTargetPath(event.data.name, args, detection)
-        if (path !== undefined && !isTestFilePath(path, detection)) {
-          state.pendingGreen = true
-          state.editCount += 1
         }
         break
       }
