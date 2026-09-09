@@ -36,7 +36,7 @@
 `dsh-doublecheck` 安装两个插件行，它们读取并执行同一份持久会话日志：
 
 1. **`doublecheck-grill`** —— 需求熔炉：内置的 `grill-requirements` 技能，加上面向模型的 `doublecheck_skills`、`doublecheck_spec`、`doublecheck_report` 工具，以及按维度执行的验证工作流。
-2. **`doublecheck-guard`** —— 纪律守卫：grill 门禁、红/绿证据门禁、对抗式评审、`/doublecheck` 与 `/gate` 命令、`doublecheck.gate` 设置命名空间，以及四阶段交付门禁。
+2. **`doublecheck-guard`** —— 纪律守卫：grill 门禁、红/绿证据门禁、对抗式评审、`/doublecheck` 与 `/gate` 命令、`doublecheck-gate` 设置命名空间，以及四阶段交付门禁。
 
 两者共同执行**纪律闭环** —— *grill → design → red → green → review → verify*：
 
@@ -138,7 +138,7 @@ dsh --profile web --dump-config | grep -E -A3 'id: doublecheck-(grill|guard)'
 | `/doublecheck status\|report\|on\|off` | 命令 | 开关、模块、强度、阶段事实、折叠报告，以及持久的开/关覆盖。 |
 | `/gate status\|run\|config` | 命令 | 实时清单进度、已确定的可交付/返工报告，以及生效配置。 |
 | `grill-requirements`、`red-green-tdd`、`delivery-review`、`delivery-proof` | 技能 | 覆盖全部六个闭环阶段的内置纪律技能。 |
-| `doublecheck.gate` | 设置命名空间 | 可插拔清单，暴露给支持设置的 UI（`expose: true`、`applies: restart`）。 |
+| `doublecheck-gate` | 设置命名空间 | 可插拔清单：用户段覆盖 composition 的 `gate.*` 值，在加载时读取一次（`applies: restart`），经 `ctx.settings.describe()` 可见。 |
 | `strict.patch.yml` | 覆盖层 | 一个补丁层内以 `block` 强度开启每个门禁并启用覆盖率要求。 |
 | `dsh-doublecheck/invariant` | 伴生行 | 通过宿主 `invariants` 注册表报告包自有写路径矛盾。 |
 
@@ -226,8 +226,8 @@ CLI 只序列化已定的 `GateState` —— 它从不重新运行四阶段门�
 
 - **持久写入。** `/doublecheck on\|off` → `doublecheck/state` 与 `/gate run` → `doublecheck/gate` 需要宿主的 `ignorable` 追加接口（rc.6 之后至 `0.1.1-rc.2`）。在无此接口的宿主上（rc.6/rc.8，以及移除该信封的 `0.1.2-alpha.1`——`0.1.2-rc.1` 仅恢复存量日志读取兼容字段、仍无法盖章），写入被跳过、开关保持进程内状态。
 0.1.2-rc.1（2026-09-02 已适配）：会话信封保留 ignorable 字段但仅用于存量日志读取兼容——Session.append 仍无法盖章，门控行为不变。
-0.1.5-alpha.1（2026-09-09 已适配）：会话格式 V3 把持久子调用事件 `tool/code-dispatch` 改名为 `tool/ptc-dispatch`（载荷不变；两个标签折叠结果一致）。Session.append 仍无 `ignorable` 写入通道，写入继续跳过、开关保持进程内——行为不变。`doublecheck.gate` 设置命名空间仍是弱接口（见「已知限制」）。
-- **可选接口。** `doublecheck.gate` 设置命名空间仅在挂载设置服务时注册；`/gate status` 的计划模式行读取可选的 `ctx.planMode`（没有则显示 `unknown`）；对抗式评审需要 `ctx.subagents`；验证需要 `workflowEngine`。
+0.1.5-alpha.1（2026-09-09 已适配）：会话格式 V3 把持久子调用事件 `tool/code-dispatch` 改名为 `tool/ptc-dispatch`（载荷不变；两个标签折叠结果一致）。Session.append 仍无 `ignorable` 写入通道，写入继续跳过、开关保持进程内——行为不变。`doublecheck-gate` 设置命名空间是弱接口，在加载时解析（见「已知限制」）。
+- **可选接口。** `doublecheck-gate` 设置命名空间仅在挂载设置服务时注册；注册后出现在 `ctx.settings.describe()` 中，其用户段在下次加载时覆盖 composition 的 `gate.*` 值；本包不带 client 卡片，故 Web GUI 插件页不会单列它。`/gate status` 的计划模式行读取可选的 `ctx.planMode`（没有则显示 `unknown`）；对抗式评审需要 `ctx.subagents`；验证需要 `workflowEngine`。
 - **本地降级。** 当 dsh-auto-review 缺失或本会话没有裁决记录时，`gate.review.engine: auto` 会降级到本地评审者——报告会写明原因，而不是捏造裁决。
 - **dsh-eval 证据基于文件。** dsh-auto-review 评测引擎（`dsh-eval`）把其 prompt 回归 / 压测 / 公平性结果写入工作区报告文件，而非会话日志。`gate.tests.evalReports.enabled` 折叠该文件（默认关闭；缺失时跳过），折叠出的计数随持久 `doublecheck/gate` 记录保存，使已定的运行仍可重放。
 

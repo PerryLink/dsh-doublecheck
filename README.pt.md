@@ -36,7 +36,7 @@
 `dsh-doublecheck` instala duas linhas de plugin que leem e aplicam a partir do mesmo registro de sessão durável:
 
 1. **`doublecheck-grill`** — o forno de requisitos: a skill empacotada `grill-requirements` mais as ferramentas voltadas ao modelo `doublecheck_skills`, `doublecheck_spec` e `doublecheck_report`, e o fluxo de verificação por dimensão.
-2. **`doublecheck-guard`** — o guard de disciplina: o portão grill, os portões de evidência vermelho/verde, a revisão adversarial, os comandos `/doublecheck` e `/gate`, o namespace de configurações `doublecheck.gate` e o portão de entrega de quatro fases.
+2. **`doublecheck-guard`** — o guard de disciplina: o portão grill, os portões de evidência vermelho/verde, a revisão adversarial, os comandos `/doublecheck` e `/gate`, o namespace de configurações `doublecheck-gate` e o portão de entrega de quatro fases.
 
 Juntos impõem o **ciclo de disciplina** — *grill → design → red → green → review → verify*:
 
@@ -138,7 +138,7 @@ A má configuração falha em voz alta ao carregar: regex inválidas, listas de 
 | `/doublecheck status\|report\|on\|off` | comando | Interruptor, módulos, intensidade, fatos de etapa, relatório dobrado e a sobrescrita durável on/off. |
 | `/gate status\|run\|config` | comando | Progresso da lista em tempo real, o relatório entregável/retrabalho assentado e a configuração efetiva. |
 | `grill-requirements`, `red-green-tdd`, `delivery-review`, `delivery-proof` | skill | Skills de disciplina empacotadas que cobrem as seis etapas do ciclo. |
-| `doublecheck.gate` | namespace de configurações | A lista plugável, exposta a UIs com configurações (`expose: true`, `applies: restart`). |
+| `doublecheck-gate` | namespace de configurações | A lista plugável: a seção do usuário substitui os valores `gate.*` da composição e é lida uma vez ao carregar (`applies: restart`), visível via `ctx.settings.describe()`. |
 | `strict.patch.yml` | camada de sobreposição | Cada portão ativo com intensidade `block` mais o requisito de cobertura, em uma camada de patch. |
 | `dsh-doublecheck/invariant` | linha acompanhante | Reporta contradições de caminho de escrita próprias do pacote por meio do registro `invariants` do host. |
 
@@ -226,8 +226,8 @@ O CLI apenas serializa o `GateState` já assentado — nunca reexecuta a porta d
 
 - **Escritas duráveis.** `/doublecheck on\|off` → `doublecheck/state` e `/gate run` → `doublecheck/gate` precisam da superfície de append `ignorable` do host (pós-rc.6 até `0.1.1-rc.2`). Em hosts sem essa superfície (rc.6/rc.8 e `0.1.2-alpha.1`, que removeu o envelope — `0.1.2-rc.1` restaura o campo apenas para compatibilidade de leitura de logs armazenados e ainda não consegue estampá-lo), as escritas são omitidas e o interruptor permanece em processo.
 0.1.2-rc.1 (adaptado em 2026-09-02): o envelope de sessão mantém seu campo ignorable apenas para compatibilidade de leitura de logs armazenados - o Session.append ainda não consegue estampá-lo, então o comportamento da porta não muda.
-0.1.5-alpha.1 (adaptado em 2026-09-09): o formato de sessão V3 renomeia o evento durável de subenvio `tool/code-dispatch` para `tool/ptc-dispatch` (carga útil inalterada; os dois rótulos são dobrados de forma idêntica). O Session.append continua sem canal `ignorable`, então as escritas duráveis são omitidas e o interruptor permanece em processo - comportamento inalterado. O namespace de configurações `doublecheck.gate` continua sendo uma interface fraca (ver Limitações conhecidas).
-- **Interfaces opcionais.** O namespace de configurações `doublecheck.gate` é registrado apenas quando o serviço de configurações está montado; a linha de modo plano de `/gate status` lê o `ctx.planMode` opcional (mostra `unknown` sem ele); a revisão adversarial precisa de `ctx.subagents`; a verificação precisa de `workflowEngine`.
+0.1.5-alpha.1 (adaptado em 2026-09-09): o formato de sessão V3 renomeia o evento durável de subenvio `tool/code-dispatch` para `tool/ptc-dispatch` (carga útil inalterada; os dois rótulos são dobrados de forma idêntica). O Session.append continua sem canal `ignorable`, então as escritas duráveis são omitidas e o interruptor permanece em processo - comportamento inalterado. O namespace de configurações `doublecheck-gate` é uma interface fraca, resolvida ao carregar (ver Limitações conhecidas).
+- **Interfaces opcionais.** O namespace de configurações `doublecheck-gate` é registrado apenas quando o serviço de configurações está montado; então aparece em `ctx.settings.describe()` e sua seção do usuário substitui os valores `gate.*` da composição no próximo carregamento (o pacote não inclui cartão de cliente, então a página de plugins da Web GUI não o lista); a linha de modo plano de `/gate status` lê o `ctx.planMode` opcional (mostra `unknown` sem ele); a revisão adversarial precisa de `ctx.subagents`; a verificação precisa de `workflowEngine`.
 - **Degradação local.** `gate.review.engine: auto` degrada para o revisor local quando o dsh-auto-review está ausente ou não tem registros de veredicto nesta sessão — o relatório nomeia a razão em vez de inventar um veredicto.
 - **A evidência dsh-eval é baseada em arquivos.** O motor de avaliação do dsh-auto-review (`dsh-eval`) grava seus resultados de regressão de prompt / estresse / equidade em um arquivo de relatório do espaço de trabalho, não no registro de sessão. `gate.tests.evalReports.enabled` dobra esse arquivo (desativado por padrão; pula quando ausente) e as contagens dobradas viajam no registro durável `doublecheck/gate` para que uma execução assentada ainda seja reproduzível.
 
