@@ -12,7 +12,20 @@ import {
   type ReportData,
 } from '../src/domain/report.ts'
 import type { ReviewFinding, VerifyCheck } from '../src/domain/vocabulary.ts'
-import { codeDispatchRun, mutationCall, reviewInjectionEvent, sessionEvent, shellCall, shellResult, specToolCall, toolResult, userTask } from './helpers.ts'
+import {
+  legacyCodeDispatchEdit,
+  legacyCodeDispatchRun,
+  mutationCall,
+  ptcDispatchEdit,
+  ptcDispatchRun,
+  reviewInjectionEvent,
+  sessionEvent,
+  shellCall,
+  shellResult,
+  specToolCall,
+  toolResult,
+  userTask,
+} from './helpers.ts'
 
 const specFields = {
   goal: 'Ship the widget.',
@@ -94,10 +107,29 @@ describe('foldReportFacts', () => {
     expect(good.spec).toEqual(specFields)
   })
 
-  it('folds Code Mode test runs into the timeline', () => {
-    const facts = foldReportFacts([codeDispatchRun('pnpm test', '[exit code: 2]')] as never, detection())
+  it('folds PTC test runs into the timeline', () => {
+    const facts = foldReportFacts([ptcDispatchRun('pnpm test', '[exit code: 2]')] as never, detection())
     expect(facts.testRuns).toEqual({ failed: 1, passed: 0 })
     expect(facts.timeline[0]?.kind).toBe('red')
+  })
+
+  // L6 upgrade compatibility: the predecessor `tool/code-dispatch` label folds
+  // to identical report facts as the current `tool/ptc-dispatch` label.
+  it('folds the predecessor dispatch label to identical report facts', () => {
+    const current = foldReportFacts([
+      ptcDispatchRun('pnpm test', '1 failed\n[exit code: 1]'),
+      ptcDispatchEdit('src/app.ts'),
+      ptcDispatchRun('pnpm test', '3 passed\n[exit code: 0]'),
+    ] as never, detection())
+    const legacy = foldReportFacts([
+      legacyCodeDispatchRun('pnpm test', '1 failed\n[exit code: 1]'),
+      legacyCodeDispatchEdit('src/app.ts'),
+      legacyCodeDispatchRun('pnpm test', '3 passed\n[exit code: 0]'),
+    ] as never, detection())
+    expect(legacy).toEqual(current)
+    expect(legacy.testRuns).toEqual({ failed: 1, passed: 1 })
+    expect(legacy.edits).toBe(1)
+    expect(legacy.timeline.map(entry => entry.kind)).toEqual(['red', 'green'])
   })
 
   it('tracks the latest review record', () => {

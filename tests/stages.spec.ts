@@ -10,7 +10,18 @@ import {
   successfulToolCalls,
 } from '../src/domain/stages.ts'
 import { compileDetection } from '../src/domain/evidence.ts'
-import { codeDispatchEdit, codeDispatchRun, mutationCall, shellCall, shellResult, toolCall, toolResult, userTask } from './helpers.ts'
+import {
+  legacyCodeDispatchEdit,
+  legacyCodeDispatchRun,
+  mutationCall,
+  ptcDispatchEdit,
+  ptcDispatchRun,
+  shellCall,
+  shellResult,
+  toolCall,
+  toolResult,
+  userTask,
+} from './helpers.ts'
 
 function detection() {
   return compileDetection({
@@ -132,23 +143,23 @@ describe('red/green evidence fold', () => {
     expect(state.color).toBe('none')
   })
 
-  it('folds Code Mode sub-dispatches as settled test runs', () => {
-    const events = [codeDispatchRun('pnpm test', '[exit code: 1]')]
+  it('folds PTC sub-dispatches as settled test runs', () => {
+    const events = [ptcDispatchRun('pnpm test', '[exit code: 1]')]
     const state = foldDisciplineState(events, detection())
     expect(state.color).toBe('red')
-    const green = foldDisciplineState([codeDispatchRun('pnpm test', '5 passed\n[exit code: 0]')], detection())
+    const green = foldDisciplineState([ptcDispatchRun('pnpm test', '5 passed\n[exit code: 0]')], detection())
     expect(green.color).toBe('green')
-    // Code Mode dispatches carry no exit marker: a finished dispatch with no
+    // PTC dispatches carry no exit marker: a finished dispatch with no
     // failure markers settled with exit 0, so it is green evidence.
-    const markerless = foldDisciplineState([codeDispatchRun('pnpm test', '5 passed')], detection())
+    const markerless = foldDisciplineState([ptcDispatchRun('pnpm test', '5 passed')], detection())
     expect(markerless.color).toBe('green')
   })
 
-  it('counts Code Mode edit dispatches as implementation edits', () => {
+  it('counts PTC edit dispatches as implementation edits', () => {
     const events = [
-      { ...codeDispatchRun('pnpm test', '1 failed\n[exit code: 1]') },
-      codeDispatchEdit('src/app.ts'),
-      codeDispatchRun('pnpm test', '3 passed\n[exit code: 0]'),
+      { ...ptcDispatchRun('pnpm test', '1 failed\n[exit code: 1]') },
+      ptcDispatchEdit('src/app.ts'),
+      ptcDispatchRun('pnpm test', '3 passed\n[exit code: 0]'),
     ]
     const state = foldDisciplineState(events, detection())
     expect(state.editCount).toBe(1)
@@ -156,11 +167,33 @@ describe('red/green evidence fold', () => {
     expect(state.color).toBe('green')
 
     const stillPending = foldDisciplineState([
-      codeDispatchRun('pnpm test', '1 failed\n[exit code: 1]'),
-      codeDispatchEdit('src/app.ts'),
+      ptcDispatchRun('pnpm test', '1 failed\n[exit code: 1]'),
+      ptcDispatchEdit('src/app.ts'),
     ], detection())
     expect(stillPending.editCount).toBe(1)
     expect(stillPending.pendingGreen).toBe(true)
+  })
+
+  // L6 upgrade compatibility: the predecessor `tool/code-dispatch` label (a
+  // V2 log or a host on the older release line) folds to the same state as the
+  // current `tool/ptc-dispatch` label.
+  it('folds the predecessor dispatch label to the identical discipline state', () => {
+    const current = [
+      ptcDispatchRun('pnpm test', '1 failed\n[exit code: 1]'),
+      ptcDispatchEdit('src/app.ts'),
+      ptcDispatchRun('pnpm test', '3 passed\n[exit code: 0]'),
+    ]
+    const legacy = [
+      legacyCodeDispatchRun('pnpm test', '1 failed\n[exit code: 1]'),
+      legacyCodeDispatchEdit('src/app.ts'),
+      legacyCodeDispatchRun('pnpm test', '3 passed\n[exit code: 0]'),
+    ]
+    const foldedCurrent = foldDisciplineState(current, detection())
+    const foldedLegacy = foldDisciplineState(legacy, detection())
+    expect(foldedLegacy).toEqual(foldedCurrent)
+    expect(foldedLegacy.color).toBe('green')
+    expect(foldedLegacy.editCount).toBe(1)
+    expect(foldedLegacy.pendingGreen).toBe(false)
   })
 
   it('arms the green gate on implementation edits and clears it on a pass', () => {

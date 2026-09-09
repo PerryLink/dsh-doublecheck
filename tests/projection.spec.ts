@@ -9,7 +9,9 @@ import {
 } from '../src/domain/projection.ts'
 import { doublecheckViewSchema } from '../src/types.ts'
 import {
+  legacyCodeDispatchRun,
   mutationCall,
+  ptcDispatchRun,
   reviewInjectionEvent,
   shellCall,
   shellResult,
@@ -76,5 +78,30 @@ describe('doublecheck projection fold', () => {
     ] as unknown as SessionEvent[]
     const state = foldDoublecheckState(events, detection())
     expect(viewDoublecheck(state).hasSpec).toBe(false)
+  })
+
+  it('moves the projection color on a settled PTC sub-dispatch test run', () => {
+    const red = foldDoublecheckState([ptcDispatchRun('pnpm test', '[exit code: 1]')], detection())
+    expect(red.color).toBe('red')
+    expect(red.stage).toBe('red')
+    const green = foldDoublecheckState([ptcDispatchRun('pnpm test', '4 passed\n[exit code: 0]')], detection())
+    expect(green.color).toBe('green')
+    expect(green.stage).toBe('green')
+  })
+
+  // L6 upgrade compatibility: the predecessor `tool/code-dispatch` label folds
+  // to the identical projection state as the current `tool/ptc-dispatch` label.
+  it('folds the predecessor dispatch label to the identical projection state', () => {
+    const current = foldDoublecheckState([
+      ptcDispatchRun('pnpm test', '1 failed\n[exit code: 1]'),
+      ptcDispatchRun('pnpm test', '3 passed\n[exit code: 0]'),
+    ], detection())
+    const legacy = foldDoublecheckState([
+      legacyCodeDispatchRun('pnpm test', '1 failed\n[exit code: 1]'),
+      legacyCodeDispatchRun('pnpm test', '3 passed\n[exit code: 0]'),
+    ], detection())
+    expect(legacy).toEqual(current)
+    expect(legacy.color).toBe('green')
+    expect(legacy.stage).toBe('green')
   })
 })

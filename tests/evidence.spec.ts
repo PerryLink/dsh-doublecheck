@@ -5,9 +5,11 @@ import {
   isTestFilePath,
   mutationTargetPath,
   parseRawArguments,
+  ptcSettle,
   shellCommand,
   testOutcome,
 } from '../src/domain/evidence.ts'
+import { legacyCodeDispatchRun, ptcDispatchRun, sessionEvent } from './helpers.ts'
 
 function detection(overrides: Partial<Parameters<typeof compileDetection>[0]> = {}) {
   return compileDetection({
@@ -108,5 +110,33 @@ describe('testOutcome', () => {
     expect(testOutcome('spawn ENOENT', true)).toBeUndefined()
     expect(testOutcome('[sandbox: file access denied under read-only mode]', false)).toBeUndefined()
     expect(testOutcome('started background job job-1', false)).toBeUndefined()
+  })
+})
+
+describe('ptcSettle', () => {
+  it('normalizes the current tool/ptc-dispatch label', () => {
+    const settle = ptcSettle(ptcDispatchRun('pnpm test', '[exit code: 1]'))
+    expect(settle).toEqual({
+      name: 'bash',
+      arguments: { command: 'pnpm test' },
+      isError: false,
+      content: [{ type: 'text', text: '[exit code: 1]' }],
+    })
+  })
+
+  it('normalizes the predecessor tool/code-dispatch label to the same payload', () => {
+    expect(ptcSettle(legacyCodeDispatchRun('pnpm test', '[exit code: 1]')))
+      .toEqual(ptcSettle(ptcDispatchRun('pnpm test', '[exit code: 1]')))
+  })
+
+  it('ignores every other event and a predecessor payload without a name', () => {
+    expect(ptcSettle(sessionEvent('tool/call', { name: 'bash' }))).toBeUndefined()
+    expect(ptcSettle(sessionEvent('tool/result', { message: { source: { kind: 'tool', callId: 'c' } } }))).toBeUndefined()
+    expect(ptcSettle(sessionEvent('tool/code-dispatch', { arguments: {} }))).toBeUndefined()
+  })
+
+  it('defaults missing optional predecessor fields safely', () => {
+    const settle = ptcSettle(sessionEvent('tool/code-dispatch', { name: 'bash', arguments: { command: 'pnpm test' } }))
+    expect(settle).toEqual({ name: 'bash', arguments: { command: 'pnpm test' }, isError: false, content: [] })
   })
 })

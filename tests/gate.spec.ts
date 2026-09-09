@@ -30,10 +30,11 @@ import {
 } from '../src/domain/gate.ts'
 import type { ReviewFinding } from '../src/domain/vocabulary.ts'
 import {
-  codeDispatchRun,
   fakeAgent,
   fakeSession,
+  legacyCodeDispatchRun,
   mutationCall,
+  ptcDispatchRun,
   sessionEvent,
   shellCall,
   shellResult,
@@ -142,7 +143,7 @@ describe('gate domain folds', () => {
       shellResult('t-2', '4 passed\ncoverage: 60.0%'),
       shellCall('bash', 'pnpm test', 't-3'),
       shellResult('t-3', '4 passed\ncoverage: 92%'),
-      codeDispatchRun('pnpm test', '[exit code: 1]'),
+      ptcDispatchRun('pnpm test', '[exit code: 1]'),
     ] as unknown as SessionEvent[]
     const evidence = foldTestEvidence(events, detection(), coverageRegex())
     expect(evidence.failed).toBe(2)
@@ -150,6 +151,23 @@ describe('gate domain folds', () => {
     expect(evidence.lastOutcome).toBe('fail')
     expect(evidence.failingAfterGreen).toBe(1)
     expect(evidence.coveragePct).toBe(92)
+  })
+
+  // L6 upgrade compatibility: the predecessor `tool/code-dispatch` label folds
+  // to the identical test evidence as the current `tool/ptc-dispatch` label.
+  it('folds the predecessor dispatch label to the identical test evidence', () => {
+    const current = foldTestEvidence(
+      [ptcDispatchRun('pnpm test', '4 passed\ncoverage: 80%', false)] as unknown as SessionEvent[],
+      detection(),
+      coverageRegex(),
+    )
+    const legacy = foldTestEvidence(
+      [legacyCodeDispatchRun('pnpm test', '4 passed\ncoverage: 80%', false)] as unknown as SessionEvent[],
+      detection(),
+      coverageRegex(),
+    )
+    expect(legacy).toEqual(current)
+    expect(legacy).toEqual({ failed: 0, passed: 1, lastOutcome: 'pass', failingAfterGreen: 0, coveragePct: 80 })
   })
 
   it('evaluates the tests phase: passing run, red window, and coverage threshold', () => {

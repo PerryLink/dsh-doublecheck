@@ -115,8 +115,38 @@ export function shellResult(callId: string, output: string, error?: { name: stri
   })
 }
 
-/** A Code Mode sub-dispatch event for a settled shell test run. */
-export function codeDispatchRun(command: string, output: string, isError = false): SessionEvent {
+/** A settled PTC sub-dispatch event for a shell test run, under the V3 label. */
+export function ptcDispatchRun(command: string, output: string, isError = false): SessionEvent {
+  return sessionEvent('tool/ptc-dispatch', {
+    rootCallId: CallId('root-1'),
+    parentCallId: CallId('parent-1'),
+    subCallId: CallId('sub-1'),
+    name: 'bash',
+    arguments: { command },
+    isError,
+    content: [{ type: 'text', text: output }],
+  })
+}
+
+/** A settled PTC sub-dispatch event for a dispatched `edit` implementation change, under the V3 label. */
+export function ptcDispatchEdit(filePath: string): SessionEvent {
+  return sessionEvent('tool/ptc-dispatch', {
+    rootCallId: CallId('root-2'),
+    parentCallId: CallId('parent-2'),
+    subCallId: CallId('sub-2'),
+    name: 'edit',
+    arguments: { file_path: filePath, old_string: 'a', new_string: 'b' },
+    isError: false,
+    content: [{ type: 'text', text: 'updated' }],
+  })
+}
+
+/**
+ * The same settled test-run payload under the predecessor label. A V2 log is
+ * renamed by the host's V2→V3 migration before the plugin sees it, but a host
+ * on the older release line still emits this label; the fold must accept both.
+ */
+export function legacyCodeDispatchRun(command: string, output: string, isError = false): SessionEvent {
   return sessionEvent('tool/code-dispatch', {
     rootCallId: CallId('root-1'),
     parentCallId: CallId('parent-1'),
@@ -128,8 +158,8 @@ export function codeDispatchRun(command: string, output: string, isError = false
   })
 }
 
-/** A Code Mode sub-dispatch event for a dispatched `edit` implementation change. */
-export function codeDispatchEdit(filePath: string): SessionEvent {
+/** The same dispatched-edit payload under the predecessor label. */
+export function legacyCodeDispatchEdit(filePath: string): SessionEvent {
   return sessionEvent('tool/code-dispatch', {
     rootCallId: CallId('root-2'),
     parentCallId: CallId('parent-2'),
