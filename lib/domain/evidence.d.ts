@@ -2,13 +2,14 @@
  * Test-run evidence classification for the red/green gates.
  *
  * The durable session log is the only source of truth: a shell tool call
- * (`bash` / `pwsh`, including Code Mode sub-dispatches) whose command matches
- * the configured test patterns is a test run, and its rendered result text
+ * (`bash` / `pwsh`, including PTC sub-dispatches) whose command matches the
+ * configured test patterns is a test run, and its rendered result text
  * carries the exit facts (`[exit code: N]`, timeout, signal, sandbox-denial
  * markers). A failing run is red evidence; a passing run is green evidence.
  *
  * @module dsh-doublecheck/domain/evidence
  */
+import type { SessionEvent } from '@deepseek-ai/dsh-session';
 /** Compiled red/green evidence detection knobs. */
 export interface TestRunDetection {
     /** Tool names that can execute shell commands. */
@@ -45,9 +46,41 @@ export interface DetectionConfig {
 export declare function compileDetection(config: DetectionConfig): TestRunDetection;
 /** The detection record with every list empty: test-run evidence is ignored. */
 export declare function emptyDetection(): TestRunDetection;
+/** The rendered result blocks of a settled sub-dispatch (structural: only the fields the evidence folds read). */
+export type PtcContent = ReadonlyArray<{
+    type?: unknown;
+    text?: unknown;
+    content?: unknown;
+}>;
+/** One settled PTC sub-dispatch payload, whatever generation names the event. */
+export interface PtcSettle {
+    /** The dispatched tool name (`bash` / `pwsh` / `edit` / `write` …). */
+    name: string;
+    /** The dispatch arguments: a normalized record on the current line, a JSON string on the predecessor. */
+    arguments: unknown;
+    /** Whether the sub-dispatch failed at the infrastructure level. */
+    isError: boolean;
+    /** The rendered model-facing result blocks. */
+    content: PtcContent;
+}
+/**
+ * Normalize one settled PTC sub-dispatch event, across the event-vocabulary
+ * rename at the session-format V2→V3 edge.
+ *
+ * The current line names the settled sub-dispatch `tool/ptc-dispatch` (the
+ * host's V2→V3 migration renames the predecessor `tool/code-dispatch`, keeping
+ * the payload values), so a stored V2 log arrives under the new label. A host
+ * on the older release line still emits the predecessor label, which is outside
+ * this line's `SessionEventMap`; it is matched structurally instead of as a
+ * switch case, so the fold never depends on which generation wrote the log.
+ *
+ * @param event - one committed session event.
+ * @returns the settled payload, or `undefined` when the event is not a settled sub-dispatch.
+ */
+export declare function ptcSettle(event: SessionEvent): PtcSettle | undefined;
 /**
  * Parse a raw tool-call `arguments` value (a JSON string from the model, or an
- * already-normalized object from a Code Mode sub-dispatch) into a plain record.
+ * already-normalized object from a PTC sub-dispatch) into a plain record.
  * @param raw - the raw arguments value from the durable event.
  * @returns the parsed record, or `undefined` when the string is not valid JSON.
  */
