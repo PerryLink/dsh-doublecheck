@@ -2,6 +2,22 @@
 
 All notable changes to dsh-doublecheck are recorded here, newest first.
 
+## [0.9.8] - 2026-09-09
+
+### Fixed
+
+- Adapt the PTC sub-dispatch event vocabulary to the session-format V3 line: the host renamed the durable `tool/code-dispatch` event to `tool/ptc-dispatch` (payload unchanged), so on `0.1.5-alpha.1` the four evidence folds (discipline stage, test evidence, report facts, session projection) silently missed PTC test runs and dispatched `edit`/`write` calls. A shared `ptcSettle()` normalizer now folds the current label and matches the predecessor label structurally, so both the published `0.1.2-rc.1` line and the V3 line stay supported by the unchanged peer band.
+- Point `scripts/scan-sessions.mjs` at the generation-suffixed log filename (`session.v3.jsonl.zstd`, highest `vN` per directory) instead of the hardcoded flat `session.jsonl.zstd`, and require the session project directory as an explicit argument so the tool can never default to the real `~/.dsh` store.
+
+### Changed
+
+- Add the `typecheck:ci` gate (`tsconfig.ci.json`, published-type resolution) and run it in `prepublishOnly`; no behavior change.
+- Extend the CI/compat install probes to a `0.1.2-rc.1` + `0.1.5-alpha.1` matrix instead of replacing the old pin, so both release lines keep an install smoke.
+
+### Docs
+
+- Refresh the five-language README compatibility sections: harness baseline `dsh-v0.1.5-alpha.1`, the `tool/ptc-dispatch` event name, and the `Session.append` / settings-seam facts re-verified on `0.1.5-alpha.1`; no behavior change.
+
 ## [0.9.7] - 2026-09-07
 
 ### Fixed
