@@ -66,7 +66,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dsh: ['0.1.2-rc.1', '0.1.5-alpha.1']
+        dsh: ['0.1.2-rc.1', '0.1.5-rc.1']
     steps:
       - uses: actions/checkout@v5
 
