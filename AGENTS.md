@@ -38,7 +38,7 @@ Standalone DeepSeek Harness plugin repository (`dsh-doublecheck`). Development f
 
 ## Docs
 
-- Five-language READMEs (`README.md`, `README.zh.md`, `README.es.md`, `README.pt.md`, `README.hi.md`) — keep all five in sync; the English file is the source of truth.
+- Five-language READMEs (`README.md`, `README-zh.md`, `README-es.md`, `README-pt.md`, `README-hi.md`) — keep all five in sync; the English file is the source of truth.
 - The GitHub repo carries the `dsh-plugin` topic; the bundle patch's config keys restate only deliberate deviations — Schema defaults are the single source of tuning defaults.
 
 ## Checks

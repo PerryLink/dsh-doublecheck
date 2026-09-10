@@ -4,6 +4,10 @@ All notable changes to dsh-doublecheck are recorded here, newest first.
 
 ## [Unreleased]
 
+### Changed
+
+- Rename the four translated READMEs to `README-<lang>.md`. npm selects the package-page readme as the first markdown file matching its `{README,README.*}` glob (`@npmcli/package-json`, publish path), and that glob order puts `README.<lang>.md` ahead of `README.md` — so npm was serving the Simplified-Chinese file for this package too (measured on 15/15 sampled packages of the family). The new names sit outside the glob, so the English source is served again. No content changed apart from the language-switcher link each translation holds to its siblings, and the repo readme gate still passes. Takes effect with the next release; an already-published version cannot gain a corrected readme retroactively.
+
 ## [0.9.10] - 2026-09-10
 
 ### Changed
@@ -162,7 +166,7 @@ The hardening release: the whole model-visible surface honors `language`, the pr
 - **Wider default test coverage**: `deno test` and `uv run pytest` joined the default test-command patterns.
 - **`strict.patch.yml` restored**: the v0.5-changeloged all-gates-`block` overlay now actually ships (added to `files`).
 - **Release pipeline**: `NPM_TOKEN` lives in the repo secrets; the publish step skips versions already on the registry (idempotent re-tags) instead of failing, and a new `release` job creates the GitHub Release with the top changelog section as its notes.
-- **Package metadata**: `publishConfig.access: 'public'`, `sideEffects: false`, an npm version badge across the five READMEs, and `README.hi.md` fully synced to v0.6.
+- **Package metadata**: `publishConfig.access: 'public'`, `sideEffects: false`, an npm version badge across the five READMEs, and `README-hi.md` fully synced to v0.6.
 
 ## v0.5.0 — 2026-08-14
 

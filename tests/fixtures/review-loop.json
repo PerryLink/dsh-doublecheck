@@ -827,7 +827,7 @@
       "step": 35,
       "callId": "call_01_xUSQChEsOOpHF38c7SPQ2060",
       "name": "edit",
-      "arguments": "{\"file_path\": \".\\\\README.zh.md\", \"new_string\": \"| `vagueTaskMaxChars` | `200` | 超过此长度的任务一律不算模糊；简短任务提到文件名、路径、URL 或下划线关键词即为具体。 |\", \"old_string\": \"| `vagueTaskMaxChars` | `200` | 超过此长度的任务一律不算模糊；简短任务提到文件名、路径或 URL 即为具体。 |\"}"
+      "arguments": "{\"file_path\": \".\\\\README-zh.md\", \"new_string\": \"| `vagueTaskMaxChars` | `200` | 超过此长度的任务一律不算模糊；简短任务提到文件名、路径、URL 或下划线关键词即为具体。 |\", \"old_string\": \"| `vagueTaskMaxChars` | `200` | 超过此长度的任务一律不算模糊；简短任务提到文件名、路径或 URL 即为具体。 |\"}"
     }
   },
   {
@@ -849,7 +849,7 @@
             "content": [
               {
                 "type": "text",
-                "text": "The file D:\\deepseek-harness\\Project\\Plugins\\dsh-doublecheck\\README.zh.md has been updated successfully."
+                "text": "The file D:\\deepseek-harness\\Project\\Plugins\\dsh-doublecheck\\README-zh.md has been updated successfully."
               }
             ],
             "isError": false
@@ -861,7 +861,7 @@
       "meta": {
         "diffs": [
           {
-            "path": ".\\README.zh.md",
+            "path": ".\\README-zh.md",
             "oldText": "| `modules.tdd` | `false` | 开启红/绿证据门（v0.2）。 |\n| `modules.adversary` | `false` | 到达 green 后启用派生 critic 评审（v0.3）；使用 `ctx.subagents` 接缝——接缝缺失时以「unavailable」通知诚实降级。 |\n| `guardTools` | `['edit', 'write']` | 两道门监视的变更类工具名。 |\n| `vagueTaskMaxChars` | `200` | 超过此长度的任务一律不算模糊；简短任务提到文件名、路径或 URL 即为具体。 |\n| `remindOnce` | `true` | 每道门每个会话最多注入一次提醒。 |\n| `testToolNames` | `['bash', 'pwsh']` | 可运行测试的 shell 工具名。 |\n| `testCommandPatterns` | *（pnpm/npm/yarn/bun test、pytest、go/cargo/make test、node --test）* | 命令需匹配的正则才算测试运行。 |",
             "newText": "| `modules.tdd` | `false` | 开启红/绿证据门（v0.2）。 |\n| `modules.adversary` | `false` | 到达 green 后启用派生 critic 评审（v0.3）；使用 `ctx.subagents` 接缝——接缝缺失时以「unavailable」通知诚实降级。 |\n| `guardTools` | `['edit', 'write']` | 两道门监视的变更类工具名。 |\n| `vagueTaskMaxChars` | `200` | 超过此长度的任务一律不算模糊；简短任务提到文件名、路径、URL 或下划线关键词即为具体。 |\n| `remindOnce` | `true` | 每道门每个会话最多注入一次提醒。 |\n| `testToolNames` | `['bash', 'pwsh']` | 可运行测试的 shell 工具名。 |\n| `testCommandPatterns` | *（pnpm/npm/yarn/bun test、pytest、go/cargo/make test、node --test）* | 命令需匹配的正则才算测试运行。 |"
           }
@@ -882,7 +882,7 @@
       "step": 35,
       "callId": "call_02_varGDWvp1hTzrAGuTJ3d5850",
       "name": "edit",
-      "arguments": "{\"file_path\": \".\\\\README.es.md\", \"new_string\": \"| `vagueTaskMaxChars` | `200` | Las tareas más largas nunca se consideran vagas. Las tareas breves que nombran un archivo, ruta, URL o una palabra clave con guion bajo son concretas. |\", \"old_string\": \"| `vagueTaskMaxChars` | `200` | Las tareas más largas nunca se consideran vagas. Las tareas breves que nombran un archivo, ruta o URL son concretas. |\"}"
+      "arguments": "{\"file_path\": \".\\\\README-es.md\", \"new_string\": \"| `vagueTaskMaxChars` | `200` | Las tareas más largas nunca se consideran vagas. Las tareas breves que nombran un archivo, ruta, URL o una palabra clave con guion bajo son concretas. |\", \"old_string\": \"| `vagueTaskMaxChars` | `200` | Las tareas más largas nunca se consideran vagas. Las tareas breves que nombran un archivo, ruta o URL son concretas. |\"}"
     }
   },
   {
@@ -904,7 +904,7 @@
             "content": [
               {
                 "type": "text",
-                "text": "Error: cannot edit \"D:\\deepseek-harness\\Project\\Plugins\\dsh-doublecheck\\README.es.md\": file changed since it was read — re-read the file, then retry"
+                "text": "Error: cannot edit \"D:\\deepseek-harness\\Project\\Plugins\\dsh-doublecheck\\README-es.md\": file changed since it was read — re-read the file, then retry"
               }
             ],
             "isError": true
@@ -932,7 +932,7 @@
       "step": 35,
       "callId": "call_03_vocgNNnW6cG3d4Kg53Fu7517",
       "name": "edit",
-      "arguments": "{\"file_path\": \".\\\\README.pt.md\", \"new_string\": \"| `vagueTaskMaxChars` | `200` | Tarefas mais longas nunca são tratadas como vagas. Tarefas breves que citam arquivo, caminho, URL ou palavra-chave com sublinhado são concretas. |\", \"old_string\": \"| `vagueTaskMaxChars` | `200` | Tarefas mais longas nunca são tratadas como vagas. Tarefas breves que citam arquivo, caminho ou URL são concretas. |\"}"
+      "arguments": "{\"file_path\": \".\\\\README-pt.md\", \"new_string\": \"| `vagueTaskMaxChars` | `200` | Tarefas mais longas nunca são tratadas como vagas. Tarefas breves que citam arquivo, caminho, URL ou palavra-chave com sublinhado são concretas. |\", \"old_string\": \"| `vagueTaskMaxChars` | `200` | Tarefas mais longas nunca são tratadas como vagas. Tarefas breves que citam arquivo, caminho ou URL são concretas. |\"}"
     }
   },
   {
@@ -954,7 +954,7 @@
             "content": [
               {
                 "type": "text",
-                "text": "Error: cannot edit \"D:\\deepseek-harness\\Project\\Plugins\\dsh-doublecheck\\README.pt.md\": file changed since it was read — re-read the file, then retry"
+                "text": "Error: cannot edit \"D:\\deepseek-harness\\Project\\Plugins\\dsh-doublecheck\\README-pt.md\": file changed since it was read — re-read the file, then retry"
               }
             ],
             "isError": true
@@ -982,7 +982,7 @@
       "step": 35,
       "callId": "call_04_l9HF9Vn91e1x56egBo0C8816",
       "name": "edit",
-      "arguments": "{\"file_path\": \".\\\\README.hi.md\", \"new_string\": \"| `vagueTaskMaxChars` | `200` | इससे लंबे कार्य कभी अस्पष्ट नहीं माने जाते। फ़ाइल, पथ, URL या अंडरस्कोर कीवर्ड बताने वाले छोटे कार्य ठोस होते हैं। |\", \"old_string\": \"| `vagueTaskMaxChars` | `200` | इससे लंबे कार्य कभी अस्पष्ट नहीं माने जाते। फ़ाइल, पथ या URL बताने वाले छोटे कार्य ठोस होते हैं। |\"}"
+      "arguments": "{\"file_path\": \".\\\\README-hi.md\", \"new_string\": \"| `vagueTaskMaxChars` | `200` | इससे लंबे कार्य कभी अस्पष्ट नहीं माने जाते। फ़ाइल, पथ, URL या अंडरस्कोर कीवर्ड बताने वाले छोटे कार्य ठोस होते हैं। |\", \"old_string\": \"| `vagueTaskMaxChars` | `200` | इससे लंबे कार्य कभी अस्पष्ट नहीं माने जाते। फ़ाइल, पथ या URL बताने वाले छोटे कार्य ठोस होते हैं। |\"}"
     }
   }
 ]

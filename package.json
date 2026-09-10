@@ -47,10 +47,10 @@
     "strict.patch.yml",
     "CHANGELOG.md",
     "README.md",
-    "README.zh.md",
-    "README.es.md",
-    "README.pt.md",
-    "README.hi.md",
+    "README-zh.md",
+    "README-es.md",
+    "README-pt.md",
+    "README-hi.md",
     "LICENSE"
   ],
   "scripts": {
