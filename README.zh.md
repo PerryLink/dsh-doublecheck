@@ -26,7 +26,7 @@
 
 | 方面 | 状态 |
 |---|---|
-| Harness | DeepSeek Harness `dsh-v0.1.5-alpha.1`。已于 2026-09-09 对照 `dsh-v0.1.5-alpha.1` master checkout 核验（完整门禁链 + profile 安装冒烟）；已发布的 `0.1.2-rc.1` 钉号线仍受支持。 |
+| Harness | DeepSeek Harness `dsh-v0.1.5-rc.1`。已于 2026-09-10 对照 `dsh-v0.1.5-rc.1` master checkout 核验（完整门禁链 + profile 安装冒烟）；已发布的 `0.1.2-rc.1` 钉号线仍受支持。 |
 | Node | `^22.19.0 \|\| >=24.0.0` |
 | 平台 | 全部（纯宿主；无原生代码，自身无直接网络请求） |
 | 模型 | 任意（守卫本身从不调用模型；评审与批评阶段作为宿主 subagent 运行） |
@@ -227,6 +227,7 @@ CLI 只序列化已定的 `GateState` —— 它从不重新运行四阶段门�
 - **持久写入。** `/doublecheck on\|off` → `doublecheck/state` 与 `/gate run` → `doublecheck/gate` 需要宿主的 `ignorable` 追加接口（rc.6 之后至 `0.1.1-rc.2`）。在无此接口的宿主上（rc.6/rc.8，以及移除该信封的 `0.1.2-alpha.1`——`0.1.2-rc.1` 仅恢复存量日志读取兼容字段、仍无法盖章），写入被跳过、开关保持进程内状态。
 0.1.2-rc.1（2026-09-02 已适配）：会话信封保留 ignorable 字段但仅用于存量日志读取兼容——Session.append 仍无法盖章，门控行为不变。
 0.1.5-alpha.1（2026-09-09 已适配）：会话格式 V3 把持久子调用事件 `tool/code-dispatch` 改名为 `tool/ptc-dispatch`（载荷不变；两个标签折叠结果一致）。Session.append 仍无 `ignorable` 写入通道，写入继续跳过、开关保持进程内——行为不变。`doublecheck-gate` 设置命名空间是弱接口，在加载时解析（见「已知限制」）。
+0.1.5-rc.1（2026-09-10 已适配）：依赖钉号移至已发布的 0.1.5-rc.1 线；无接口变更影响本插件行为。
 - **可选接口。** `doublecheck-gate` 设置命名空间仅在挂载设置服务时注册；注册后出现在 `ctx.settings.describe()` 中，其用户段在下次加载时覆盖 composition 的 `gate.*` 值；本包不带 client 卡片，故 Web GUI 插件页不会单列它。`/gate status` 的计划模式行读取可选的 `ctx.planMode`（没有则显示 `unknown`）；对抗式评审需要 `ctx.subagents`；验证需要 `workflowEngine`。
 - **本地降级。** 当 dsh-auto-review 缺失或本会话没有裁决记录时，`gate.review.engine: auto` 会降级到本地评审者——报告会写明原因，而不是捏造裁决。
 - **dsh-eval 证据基于文件。** dsh-auto-review 评测引擎（`dsh-eval`）把其 prompt 回归 / 压测 / 公平性结果写入工作区报告文件，而非会话日志。`gate.tests.evalReports.enabled` 折叠该文件（默认关闭；缺失时跳过），折叠出的计数随持久 `doublecheck/gate` 记录保存，使已定的运行仍可重放。
