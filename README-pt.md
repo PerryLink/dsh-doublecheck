@@ -26,7 +26,7 @@
 
 | Superfície | Status |
 |---|---|
-| Harness | DeepSeek Harness `dsh-v0.1.5-rc.1`. Verificado em 2026-09-10 contra o checkout master `dsh-v0.1.5-rc.1` (cadeia completa de portões + smoke de instalação do perfil); a linha publicada `0.1.2-rc.1` continua suportada. |
+| Harness | DeepSeek Harness `dsh-v0.1.5-rc.2`. Verificado em 2026-09-11 contra o checkout master `dsh-v0.1.5-rc.2` (cadeia completa de portões + smoke de instalação do perfil); a linha publicada `0.1.2-rc.1` continua suportada. |
 | Node | `^22.19.0 \|\| >=24.0.0` |
 | Plataformas | Todas (host puro; sem código nativo, sem requisições de rede diretas próprias) |
 | Modelo | Qualquer (o guard nunca chama um modelo; as fases de crítico e revisor rodam como subagentes do harness) |
@@ -228,6 +228,7 @@ O CLI apenas serializa o `GateState` já assentado — nunca reexecuta a porta d
 0.1.2-rc.1 (adaptado em 2026-09-02): o envelope de sessão mantém seu campo ignorable apenas para compatibilidade de leitura de logs armazenados - o Session.append ainda não consegue estampá-lo, então o comportamento da porta não muda.
 0.1.5-alpha.1 (adaptado em 2026-09-09): o formato de sessão V3 renomeia o evento durável de subenvio `tool/code-dispatch` para `tool/ptc-dispatch` (carga útil inalterada; os dois rótulos são dobrados de forma idêntica). O Session.append continua sem canal `ignorable`, então as escritas duráveis são omitidas e o interruptor permanece em processo - comportamento inalterado. O namespace de configurações `doublecheck-gate` é uma interface fraca, resolvida ao carregar (ver Limitações conhecidas).
 0.1.5-rc.1 (adaptado em 2026-09-10): os pinos de dependências passam para a linha publicada 0.1.5-rc.1; nenhuma mudança de interface afeta o comportamento deste plugin.
+0.1.5-rc.2 (adaptado em 2026-09-11): os pinos de dependências passam para a linha publicada 0.1.5-rc.2; nenhuma mudança de interface afeta o comportamento deste plugin.
 - **Interfaces opcionais.** O namespace de configurações `doublecheck-gate` é registrado apenas quando o serviço de configurações está montado; então aparece em `ctx.settings.describe()` e sua seção do usuário substitui os valores `gate.*` da composição no próximo carregamento (o pacote não inclui cartão de cliente, então a página de plugins da Web GUI não o lista); a linha de modo plano de `/gate status` lê o `ctx.planMode` opcional (mostra `unknown` sem ele); a revisão adversarial precisa de `ctx.subagents`; a verificação precisa de `workflowEngine`.
 - **Degradação local.** `gate.review.engine: auto` degrada para o revisor local quando o dsh-auto-review está ausente ou não tem registros de veredicto nesta sessão — o relatório nomeia a razão em vez de inventar um veredicto.
 - **A evidência dsh-eval é baseada em arquivos.** O motor de avaliação do dsh-auto-review (`dsh-eval`) grava seus resultados de regressão de prompt / estresse / equidade em um arquivo de relatório do espaço de trabalho, não no registro de sessão. `gate.tests.evalReports.enabled` dobra esse arquivo (desativado por padrão; pula quando ausente) e as contagens dobradas viajam no registro durável `doublecheck/gate` para que uma execução assentada ainda seja reproduzível.
