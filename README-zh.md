@@ -27,7 +27,7 @@
 
 | 方面 | 状态 |
 |---|---|
-| Harness | DeepSeek Harness `dsh-v0.1.5-rc.2`。已于 2026-09-11 对照 `dsh-v0.1.5-rc.2` master checkout 核验（完整门禁链 + profile 安装冒烟）；已发布的 `0.1.2-rc.1` 钉号线仍受支持。 |
+| Harness | DeepSeek Harness `dsh-v0.1.6-alpha.2`。已于 2026-09-18 核验（双 typecheck 尺子 + 全量测试绿）；peer 区间接纳 `0.1.2-rc.1`、`0.1.5-alpha.1`、`0.1.5-rc.2` 与 `0.1.6-alpha.2`，不丢任何已支持宿主线。 |
 | Node | `^22.19.0 \|\| >=24.0.0` |
 | 平台 | 全部（纯宿主；无原生代码，自身无直接网络请求） |
 | 模型 | 任意（守卫本身从不调用模型；评审与批评阶段作为宿主 subagent 运行） |

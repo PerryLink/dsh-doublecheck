@@ -27,7 +27,7 @@
 
 | Superficie | Estado |
 |---|---|
-| Harness | DeepSeek Harness `dsh-v0.1.5-rc.2`. Verificado el 2026-09-11 contra el checkout master `dsh-v0.1.5-rc.2` (cadena completa de puertas + humo de instalación del perfil); la línea publicada `0.1.2-rc.1` sigue soportada. |
+| Harness | DeepSeek Harness `dsh-v0.1.6-alpha.2`. Verificado el 2026-09-18 (doble typecheck + suite completa en verde); el rango de peers admite `0.1.2-rc.1`, `0.1.5-alpha.1`, `0.1.5-rc.2` y `0.1.6-alpha.2`, así que no se pierde ninguna línea soportada. |
 | Node | `^22.19.0 \|\| >=24.0.0` |
 | Plataformas | Todas (host puro; sin código nativo, sin solicitudes de red directas propias) |
 | Modelo | Cualquiera (el guard nunca llama a un modelo; las fases de crítico y revisor se ejecutan como subagentes del harness) |

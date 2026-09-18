@@ -1,6 +1,6 @@
 name: Compat
 
-# dshbase-style compatibility verification (monthly + on demand):
+# dshbase-style compatibility verification (weekly + per PR + on demand):
 #   1. bare-import: install the packed tarball into an empty project (native
 #      builds allowlisted) and import its entry - catches devDependencies
 #      mistaken for dependencies and native-build gate regressions.
@@ -14,7 +14,8 @@ name: Compat
 # behavior (Windows/macOS-only rows) is never asserted on this Linux runner.
 on:
   schedule:
-    - cron: '0 4 1 * *'
+    - cron: '0 4 * * 1'
+  pull_request:
   workflow_dispatch:
 
 jobs:
@@ -66,7 +67,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dsh: ['0.1.2-rc.1', '0.1.5-rc.2']
+        dsh: ['0.1.2-rc.1', '0.1.6-alpha.2']
     steps:
       - uses: actions/checkout@v5
 
@@ -100,6 +101,7 @@ jobs:
             - .
           nodeLinker: hoisted
           autoInstallPeers: false
+          minimumReleaseAge: 0
           allowBuilds:
             '@deepseek-ai/dsh-subprocess-local': true
             koffi: true

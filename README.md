@@ -27,7 +27,7 @@
 
 | Surface | Status |
 |---|---|
-| Harness | DeepSeek Harness `dsh-v0.1.5-rc.2`. Verified 2026-09-11 against the `dsh-v0.1.5-rc.2` master checkout (full gate chain + profile install smoke); the published `0.1.2-rc.1` pin line stays supported. |
+| Harness | DeepSeek Harness `dsh-v0.1.6-alpha.2`. Verified 2026-09-18 (dual typecheck rulers + full test suite green); the peer range admits `0.1.2-rc.1`, `0.1.5-alpha.1`, `0.1.5-rc.2` and `0.1.6-alpha.2`, so no supported host line is dropped. |
 | Node | `^22.19.0 \|\| >=24.0.0` |
 | Platforms | All (pure host; no native code, no direct network requests of its own) |
 | Model | Any (the guard itself never calls a model; the critic and reviewer phases run as harness subagents) |
