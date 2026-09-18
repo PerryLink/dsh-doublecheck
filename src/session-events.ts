@@ -15,9 +15,16 @@ export type SessionEventsSource = Session | { events?: readonly SessionEvent[] }
  * The current event snapshot of one session, whichever harness line owns it.
  * @param session - the host Session (or a fixture-shaped session in tests).
  * @returns a frozen full log snapshot on alpha.5+, the `.events` array earlier.
+ * @throws when the object exposes neither read face: an empty log would turn
+ * every fold into a wrong "nothing happened" conclusion instead of an error.
  */
 export function sessionEvents(session: SessionEventsSource | null | undefined): readonly SessionEvent[] {
   if (session === null || session === undefined) return []
   if (typeof (session as Session).snapshotEvents === 'function') return (session as Session).snapshotEvents()
-  return (session as { events?: readonly SessionEvent[] }).events ?? []
+  const legacy = (session as { events?: readonly SessionEvent[] }).events
+  if (legacy !== undefined) return legacy
+  throw new Error(
+    'dsh-doublecheck: the session exposes neither snapshotEvents() nor an events array — '
+    + 'the discipline folds cannot read the log (pass a real Session, not a partial shape)',
+  )
 }
