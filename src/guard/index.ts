@@ -661,17 +661,25 @@ export function apply(ctx: Context, config: Config): void {
       }): () => void
     } | undefined
     if (registry === undefined) return
-    registry.register({
-      key: 'doublecheck',
-      stateSchema: doublecheckStateSchema,
-      init: emptyDoublecheckState,
-      apply: (state, event) => applyDoublecheckEvent(state, event, detection),
-      wire: {
-        viewSchema: doublecheckViewSchema,
-        view: viewDoublecheck,
-      },
-      stateVersion: 2,
-    })
+    // The registry returns the disposer that unregisters this projection; it
+    // MUST be owned by an effect. Registering without holding it left the old
+    // closure live after a config hot-reload: turning `gate` (or any detection
+    // knob) off and on again kept judging with the stale definitions — a
+    // silent false-safety window, and a hard throw once the state version moved.
+    projectionCtx.effect(
+      () => registry.register({
+        key: 'doublecheck',
+        stateSchema: doublecheckStateSchema,
+        init: emptyDoublecheckState,
+        apply: (state, event) => applyDoublecheckEvent(state, event, detection),
+        wire: {
+          viewSchema: doublecheckViewSchema,
+          view: viewDoublecheck,
+        },
+        stateVersion: 2,
+      }),
+      'dsh-doublecheck: projection',
+    )
   })
 
   // The invariant companion, registered from the main plugin so its checks
