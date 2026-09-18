@@ -2,7 +2,7 @@
 
 All notable changes to dsh-doublecheck are recorded here, newest first.
 
-## [Unreleased]
+## [0.9.12] - 2026-09-18
 
 ### Fixed
 
