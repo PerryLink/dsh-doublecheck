@@ -2,6 +2,17 @@
 
 All notable changes to dsh-doublecheck are recorded here, newest first.
 
+## [Unreleased]
+
+### Fixed
+
+- **A `gate` configuration change now really takes effect after a reload.** The `doublecheck` session projection was registered without holding the disposer the projection registry returns, so a config hot-reload left the previous closure live: turning the delivery gate (or any detection knob) off and on again kept judging with the stale definitions — a silent false-safety window, and a hard throw the moment the projection state version moved. The registration is now owned by an effect, exactly like the invariant companion, and a regression test proves both halves: dispose releases the old registration, and a remount folds with the new detection.
+- A session that exposes neither `snapshotEvents()` nor a legacy `events` array now fails loud instead of folding an empty log. The silent empty read turned every discipline fold into a wrong "nothing happened" conclusion (no spec required, no red test on record) rather than an error.
+
+### Changed
+
+- Declare `dsh.manifestVersion: 1` and the canonical three-clause `engines.dsh` range (`>=0.1.2-rc.1 <0.2.0 || >=0.1.5-alpha.1 <0.2.0 || >=0.1.6-0 <0.2.0`); every `@deepseek-ai/dsh-*` peer already carried the third clause. Declarative only — no reader changes behavior.
+
 ## [0.9.11] - 2026-09-12
 
 ### Changed
