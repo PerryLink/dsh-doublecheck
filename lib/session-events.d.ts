@@ -14,5 +14,7 @@ export type SessionEventsSource = Session | {
  * The current event snapshot of one session, whichever harness line owns it.
  * @param session - the host Session (or a fixture-shaped session in tests).
  * @returns a frozen full log snapshot on alpha.5+, the `.events` array earlier.
+ * @throws when the object exposes neither read face: an empty log would turn
+ * every fold into a wrong "nothing happened" conclusion instead of an error.
  */
 export declare function sessionEvents(session: SessionEventsSource | null | undefined): readonly SessionEvent[];
