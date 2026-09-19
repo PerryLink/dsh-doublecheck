@@ -2,6 +2,15 @@
 
 All notable changes to dsh-doublecheck are recorded here, newest first.
 
+## [0.9.13] - 2026-09-19
+
+### Added
+
+- `pnpm run check:lockfile` (`scripts/check-lockfile-drift.mjs`) fails fast when `package.json` and `pnpm-lock.yaml` disagree; the probe is read-only and the documented checks chain runs it alongside the other gates.
+
+### Changed
+
+- The release workflow now publishes through **npm trusted publishing** (OIDC) instead of the long-lived `NPM_TOKEN` secret: `setup-node` no longer sets `registry-url` (its empty `_authToken` line made the registry answer 404 on PUT), npm is upgraded to >= 11.5.1 before publishing, and the "NPM_TOKEN is not set -> skip" guard is gone so a missing publisher cannot turn a release into a silent no-op.
 ## [0.9.12] - 2026-09-18
 
 ### Fixed

@@ -33,7 +33,7 @@ Standalone DeepSeek Harness plugin repository (`dsh-doublecheck`). Development f
 - `lib/` is committed on purpose: the git-install channel resolves the package without a build step. `prepare` runs `tsc --noEmitOnError` for channels that do build; every package the built `lib/` imports at runtime is therefore a regular `dependency` (pnpm installs no devDependencies for git-hosted packages) — that is `typescript` (the `prepare` build) and `zod` (the projection schema the sessionProjections registry expects as a `ZodType`).
 - The committed `lib/` carries `js` + `d.ts` only (`sourceMap: false`, `declarationMap: false`); rebuild with `pnpm run build` after source changes and commit the regenerated tree.
 - `pnpm run pack:check` runs build + pack; `prepublishOnly` additionally runs the full test suite. `files` ships `lib`, `skills`, `cordis.patch.yml`, `strict.patch.yml` (the all-gates-block overlay), `CHANGELOG.md`, the five READMEs, and `LICENSE`.
-- Tag pushes run `publish.yml`: it publishes to npm when the repo's `NPM_TOKEN` secret is present (skipping versions already on the registry, so re-tags are harmless), then the `release` job creates the GitHub Release with the top `CHANGELOG.md` section as its notes (`scripts/release-notes.mjs`).
+- Tag pushes run `release.yml`: it publishes to npm through **trusted publishing (OIDC, no secret)** — skipping versions already on the registry, so re-tags are harmless — then the `release` job creates the GitHub Release with the top `CHANGELOG.md` section as its notes (`scripts/release-notes.mjs`).
 - Per-session artifacts (`doublecheck-spec.md`, `doublecheck-report.md`, `.dsh/`, `*.tgz`, `*.log`) are gitignored; `pnpm-workspace.yaml` is tracked (profile-level installs and the build-allowlist read it).
 
 ## Docs
