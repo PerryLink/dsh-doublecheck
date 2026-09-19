@@ -63,6 +63,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "verify:skills": "node scripts/verify-skills.mjs",
+    "check:lockfile": "node scripts/check-lockfile-drift.mjs",
     "check:readmes": "node scripts/check-readme-sync.mjs",
     "verify:self-contained": "node scripts/verify-self-contained.mjs",
     "verify:artifacts": "node scripts/verify-artifacts.mjs",
