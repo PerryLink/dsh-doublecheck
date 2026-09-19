@@ -19,8 +19,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          registry-url: 'https://registry.npmjs.org'
           cache: pnpm
+          # No registry-url on purpose: it writes
+          # //registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN} into .npmrc, and with
+          # the secret retired that line is an empty bearer token - the registry
+          # answers 404 on PUT instead of letting npm do the OIDC exchange.
 
       - name: Install
         run: pnpm install --frozen-lockfile
@@ -29,22 +32,24 @@ jobs:
         run: pnpm run build
 
       # npm publish runs prepublishOnly (tsc + full test suite) automatically.
-      # Requires the NPM_TOKEN repository secret. A tag push without the
-      # secret, or for a version already on the registry, no longer skips
-      # silently: a release that published nothing used to go green, and it now
-      # fails loudly instead. A version already on the registry still skips
-      # (idempotent re-runs). (The guard lives in bash because
-      # GitHub rejects the secrets context in step-level `if` expressions.)
+      # Trusted publishing: the OIDC token (id-token: write above) replaces the
+      # long-lived NPM_TOKEN, so this step reads no secret. The empty-token guard
+      # is gone on purpose - with the secret retired it would fail every release.
+      - name: Upgrade npm and show what the publish will authenticate with
+        run: |
+          npm install -g npm@^11.5.1
+          echo "npm: $(npm --version)"
+          echo "registry: $(npm config get registry)"
+          if [ -f .npmrc ]; then echo "--- workspace .npmrc ---"; cat .npmrc; else echo "no workspace .npmrc"; fi
+          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then echo "OIDC request TOKEN: present"; else echo "OIDC request TOKEN: MISSING"; fi
+
       - name: Publish
         env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # npm's OIDC exchange never throws: a failure is only visible at verbose
+          # level, otherwise the step just fails with ENEEDAUTH and no reason.
+          NPM_CONFIG_LOGLEVEL: verbose
         run: |
           version="$(node -p "require('./package.json').version")"
-          if [ -z "$NPM_TOKEN" ]; then
-            echo "::error::NPM_TOKEN secret is not set; refusing to report a release that published nothing"
-            exit 1
-          fi
           if npm view "dsh-doublecheck@${version}" version >/dev/null 2>&1; then
             echo "dsh-doublecheck@${version} is already published; skipping npm publish"
           else
