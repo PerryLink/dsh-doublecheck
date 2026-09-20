@@ -258,7 +258,7 @@ pnpm run pack:check      # build + pack the tarball
 
 ## PerryLink DSH Plugin Family
 
-这是 [PerryLink](https://github.com/PerryLink) 维护的 [40 个 DeepSeek Harness 插件](https://github.com/PerryLink) 之一。如果它能帮到你，其他的也会：
+这是 [PerryLink](https://github.com/PerryLink) 维护的 [41 个 DeepSeek Harness 插件](https://github.com/PerryLink) 之一。如果它能帮到你，其他的也会：
 
 | Plugin | One-liner |
 |---|---|
