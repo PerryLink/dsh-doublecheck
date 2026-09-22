@@ -28,7 +28,7 @@
 
 | Superfície | Status |
 |---|---|
-| Harness | DeepSeek Harness `dsh-v0.1.6-alpha.2`. Verificado em 2026-09-18 (typecheck duplo + suíte completa verde); o intervalo de peers admite `0.1.2-rc.1`, `0.1.5-alpha.1`, `0.1.5-rc.2` e `0.1.6-alpha.2`, então nenhuma linha suportada é perdida. |
+| Harness | DeepSeek Harness `dsh-v0.1.7-alpha.1`. Verificado em 2026-09-22 (typecheck duplo + suíte completa verde); o intervalo de peers admite `0.1.2-rc.1`, `0.1.5-alpha.1`, `0.1.5-rc.2`, `0.1.6-alpha.2` e `0.1.7-alpha.1`, então nenhuma linha suportada é perdida. |
 | Node | `^22.19.0 \|\| >=24.0.0` |
 | Plataformas | Todas (host puro; sem código nativo, sem requisições de rede diretas próprias) |
 | Modelo | Qualquer (o guard nunca chama um modelo; as fases de crítico e revisor rodam como subagentes do harness) |
@@ -38,7 +38,7 @@
 `dsh-doublecheck` instala duas linhas de plugin que leem e aplicam a partir do mesmo registro de sessão durável:
 
 1. **`doublecheck-grill`** — o forno de requisitos: a skill empacotada `grill-requirements` mais as ferramentas voltadas ao modelo `doublecheck_skills`, `doublecheck_spec` e `doublecheck_report`, e o fluxo de verificação por dimensão.
-2. **`doublecheck-guard`** — o guard de disciplina: o portão grill, os portões de evidência vermelho/verde, a revisão adversarial, os comandos `/doublecheck` e `/gate`, o namespace de configurações `doublecheck-gate` e o portão de entrega de quatro fases.
+2. **`doublecheck-guard`** — o guard de disciplina: o portão grill, os portões de evidência vermelho/verde, a revisão adversarial, os comandos `/doublecheck` e `/gate`, o cartão de configurações ao vivo `gate` e o portão de entrega de quatro fases.
 
 Juntos impõem o **ciclo de disciplina** — *grill → design → red → green → review → verify*:
 
@@ -128,6 +128,8 @@ Todos os ajustes são campos `Config` do Schemastery (alteráveis a partir do co
 | `gate.review.engine` | `'auto'` | `auto` = registros de veredicto do dsh-auto-review quando presentes, senão o revisor local; `local` = sempre local. |
 | `gate.review.provider` | `'fork'` | Provedor do revisor local de revisão (seu `model`/`tools`/`timeoutMs`/`maxFindings` coincidem com `gate.consistency.*`). |
 
+Cada chave `gate.*` acima faz parte de um único **campo ao vivo**: o guard marca todo o bloco `gate` como `.volatile()`, então ele é o cartão de configurações editável da linha (o namespace do formulário é o id de entrada de perfil da linha). As demais chaves são configuração de composição comum do patch de perfil. O bloco é lido uma vez ao carregar, então uma edição passa a valer no próximo carregamento — `gate.enabled` decide se o aviso vermelho do limite de turno é instalado. Se o schemastery do host for anterior a `.volatile()`, a linha monta mesmo assim: não há cartão e o bloco vem do patch de perfil.
+
 A má configuração falha em voz alta ao carregar: regex inválidas, listas de nomes vazias ou duplicadas, limites fora de faixa e ids de lista duplicados lançam erro em vez de não fazer nada em silêncio. `strict.patch.yml` é a camada de todos os portões em bloqueio que redeclara a linha guard com `intensity: block`, todos os módulos ativos e o requisito de cobertura habilitado.
 
 ## Ferramentas e superfícies
@@ -140,7 +142,7 @@ A má configuração falha em voz alta ao carregar: regex inválidas, listas de 
 | `/doublecheck status\|report\|on\|off` | comando | Interruptor, módulos, intensidade, fatos de etapa, relatório dobrado e a sobrescrita durável on/off. |
 | `/gate status\|run\|config` | comando | Progresso da lista em tempo real, o relatório entregável/retrabalho assentado e a configuração efetiva. |
 | `grill-requirements`, `red-green-tdd`, `delivery-review`, `delivery-proof` | skill | Skills de disciplina empacotadas que cobrem as seis etapas do ciclo. |
-| `doublecheck-gate` | namespace de configurações | A lista plugável: a seção do usuário substitui os valores `gate.*` da composição e é lida uma vez ao carregar (`applies: restart`), visível via `ctx.settings.describe()`. |
+| `gate` | campo de configuração ao vivo | A lista plugável é o único campo `.volatile()` da linha do guard: é editada no cartão de configurações da linha (namespace = o id de entrada de perfil da linha) e lida uma vez ao carregar. |
 | `strict.patch.yml` | camada de sobreposição | Cada portão ativo com intensidade `block` mais o requisito de cobertura, em uma camada de patch. |
 | `dsh-doublecheck/invariant` | linha acompanhante | Reporta contradições de caminho de escrita próprias do pacote por meio do registro `invariants` do host. |
 
@@ -211,7 +213,7 @@ O CLI apenas serializa o `GateState` já assentado — nunca reexecuta a porta d
 
 ## Permissões e dados
 
-- **Lê**: o registro de sessão (`tool/call` / `tool/result` / `tool/ptc-dispatch`, fontes `user/message` injetadas e os registros de veredicto alheios `autoReview/*`) somente em processo; o estado opcional do serviço de modo plano. Antes da renomeação da V3, o host registra os subenvios PTC com o rótulo predecessor `tool/code-dispatch`; os dois rótulos são dobrados de forma idêntica.
+- **Lê**: o registro de sessão (`tool/call` / `tool/result` / `tool/ptc-dispatch`, fontes `user/message` injetadas e os registros de veredicto alheios `autoReview/*`) somente em processo; o estado opcional do serviço de modo plano. Antes da renomeação da V3, o host registra os subenvios PTC com o rótulo predecessor `tool/code-dispatch`; os dois rótulos são dobrados de forma idêntica. Os avisos injetados carregam o kind de fonte de mensagem próprio do pacote, `dsh-doublecheck`; registros anteriores a esse kind chegam como `plugin:dsh-doublecheck` (a reescrita que a migração V3→V4 do host aplica a um invólucro catch-all publicado) ou como o invólucro `plugin` publicado, e as três formas são dobradas igualmente.
 - **Escreve**: `doublecheck-spec.md`, `doublecheck-report.md` e `gate-report.md` no workspace da sessão (caminhos configuráveis) por meio da interface `ctx.fs`; os eventos de sessão duráveis `doublecheck/state` e `doublecheck/gate`.
 - **Chamadas a modelo**: as fases de consistência e revisão local do portão (um subagente cada por `/gate run`), a revisão adversarial opcional e o fluxo de verificação de `doublecheck_report` iniciam execuções de subagente; nada mais chama um modelo ou a rede.
 - **Nunca toca**: credenciais, variáveis de ambiente ou qualquer arquivo fora do workspace da sessão. O manifesto do workshop declara apenas `filesystem:read` e `filesystem:write`. Os relatórios do portão carregam apenas contagens, ids e veredictos; segredos reconhecidos nos textos do revisor são redigidos antes de armazenar ou exibir.
@@ -228,10 +230,11 @@ O CLI apenas serializa o `GateState` já assentado — nunca reexecuta a porta d
 
 - **Escritas duráveis.** `/doublecheck on\|off` → `doublecheck/state` e `/gate run` → `doublecheck/gate` precisam da superfície de append `ignorable` do host (pós-rc.6 até `0.1.1-rc.2`). Em hosts sem essa superfície (rc.6/rc.8 e `0.1.2-alpha.1`, que removeu o envelope — `0.1.2-rc.1` restaura o campo apenas para compatibilidade de leitura de logs armazenados e ainda não consegue estampá-lo), as escritas são omitidas e o interruptor permanece em processo.
 0.1.2-rc.1 (adaptado em 2026-09-02): o envelope de sessão mantém seu campo ignorable apenas para compatibilidade de leitura de logs armazenados - o Session.append ainda não consegue estampá-lo, então o comportamento da porta não muda.
-0.1.5-alpha.1 (adaptado em 2026-09-09): o formato de sessão V3 renomeia o evento durável de subenvio `tool/code-dispatch` para `tool/ptc-dispatch` (carga útil inalterada; os dois rótulos são dobrados de forma idêntica). O Session.append continua sem canal `ignorable`, então as escritas duráveis são omitidas e o interruptor permanece em processo - comportamento inalterado. O namespace de configurações `doublecheck-gate` é uma interface fraca, resolvida ao carregar (ver Limitações conhecidas).
+0.1.5-alpha.1 (adaptado em 2026-09-09): o formato de sessão V3 renomeia o evento durável de subenvio `tool/code-dispatch` para `tool/ptc-dispatch` (carga útil inalterada; os dois rótulos são dobrados de forma idêntica). O Session.append continua sem canal `ignorable`, então as escritas duráveis são omitidas e o interruptor permanece em processo - comportamento inalterado. (O namespace de configurações `doublecheck-gate` que essa entrada introduziu foi removido em 0.1.7-alpha.1, quando o host apagou o registro de namespaces.)
 0.1.5-rc.1 (adaptado em 2026-09-10): os pinos de dependências passam para a linha publicada 0.1.5-rc.1; nenhuma mudança de interface afeta o comportamento deste plugin.
 0.1.5-rc.2 (adaptado em 2026-09-11): os pinos de dependências passam para a linha publicada 0.1.5-rc.2; nenhuma mudança de interface afeta o comportamento deste plugin.
-- **Interfaces opcionais.** O namespace de configurações `doublecheck-gate` é registrado apenas quando o serviço de configurações está montado; então aparece em `ctx.settings.describe()` e sua seção do usuário substitui os valores `gate.*` da composição no próximo carregamento (o pacote não inclui cartão de cliente, então a página de plugins da Web GUI não o lista); a linha de modo plano de `/gate status` lê o `ctx.planMode` opcional (mostra `unknown` sem ele); a revisão adversarial precisa de `ctx.subagents`; a verificação precisa de `workflowEngine`.
+0.1.7-alpha.1 (adaptado em 2026-09-22): o host removeu o kind de fonte de mensagem catch-all compartilhado `plugin` (os avisos agora carregam o kind próprio `dsh-doublecheck`, e a dobra de `remindOnce` continua lendo as duas formas anteriores à atualização que um registro durável pode conter) e substituiu o registro de namespaces de configurações por `SettingsForms` (o namespace `doublecheck-gate` desaparece; a lista do portão passa a ser o único campo `.volatile()` da linha do guard, ainda lido uma vez ao carregar). Os pisos de peers de `@deepseek-ai/cordis` e `@deepseek-ai/schemastery` passam para `^4.0.3` / `^3.18.3` nas dependências de desenvolvimento; os intervalos de peers continuam `^4.0.2` / `^3.18.2` e a capacidade de campos ao vivo é detectada ao carregar, então as linhas de host anteriores ainda montam a linha (sem cartão de configurações). Sem mudança de comportamento além do local de armazenamento das configurações.
+- **Interfaces opcionais.** O cartão de configurações da linha do guard aparece quando o serviço de configurações está montado; o cartão é a Config desta própria linha (namespace = seu id de entrada de perfil), e o bloco `gate` é lido uma vez ao carregar, então seus valores valem para o painel `/gate` e o aviso vermelho no próximo carregamento. A capacidade de campos ao vivo é detectada ao carregar: se o schemastery do host for anterior a `.volatile()`, a linha monta mesmo assim — sem cartão, com o bloco `gate` vindo do patch de perfil. A linha de modo plano de `/gate status` lê o `ctx.planMode` opcional (mostra `unknown` sem ele); a revisão adversarial precisa de `ctx.subagents`; a verificação precisa de `workflowEngine`.
 - **Degradação local.** `gate.review.engine: auto` degrada para o revisor local quando o dsh-auto-review está ausente ou não tem registros de veredicto nesta sessão — o relatório nomeia a razão em vez de inventar um veredicto.
 - **A evidência dsh-eval é baseada em arquivos.** O motor de avaliação do dsh-auto-review (`dsh-eval`) grava seus resultados de regressão de prompt / estresse / equidade em um arquivo de relatório do espaço de trabalho, não no registro de sessão. `gate.tests.evalReports.enabled` dobra esse arquivo (desativado por padrão; pula quando ausente) e as contagens dobradas viajam no registro durável `doublecheck/gate` para que uma execução assentada ainda seja reproduzível.
 

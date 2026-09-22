@@ -2,6 +2,40 @@
 
 All notable changes to dsh-doublecheck are recorded here, newest first.
 
+## [Unreleased]
+
+Adapted to DeepSeek Harness `dsh-v0.1.7-alpha.1`. Three of the host's seams this
+package sat on were replaced in that line, so this is a compatibility release:
+existing behaviour, existing `gate.*` configuration, and existing session logs
+all keep working, and one editable surface moved house.
+
+### Fixed
+
+- **Durable notices carry a producer-owned message source.** The harness deleted the shared catch-all `plugin` kind from `MessageSourceMap` ("there is no shared catch-all `plugin` kind") and its physical-row admission now refuses a `kind: 'plugin'` source outright — in `@deepseek-ai/dsh-llm`, in `session-format-v3-to-v4`'s message-source admission, and in the same layer's developer-message check. Every injected reminder, review steer, and switch notice would therefore have been rejected on write and on restore. `src/events.ts` now declares `'dsh-doublecheck'` on `MessageSourceMap` (mixed with `ContextFormed`) — the shape the harness's own `tool-jobs` row uses — and builds every notice through one shared `noticeSource()` helper, so `src/guard/index.ts` and `src/guard/command.ts` can no longer drift apart.
+- **A session recorded by 0.9.13 keeps its once-semantics.** The guard's `remindOnce` fold reads the notice summary out of the durable source, and a durable log outlives any one release line. `noticeSummaryOf()` recognizes all three shapes a log can carry: the new `dsh-doublecheck` kind, the `plugin:dsh-doublecheck` kind the host's V3→V4 migration stamps on a released catch-all wrapper (it rewrites an unknown plugin name to `plugin:<name>` and preserves the rest of the source), and the released `{ kind: 'plugin', plugin: 'dsh-doublecheck' }` wrapper itself. Without the second shape a resumed or restored pre-upgrade session would re-show reminders it had already shown.
+- **The gate settings seam moved onto the row's own Config.** `@deepseek-ai/dsh-settings` is now `SettingsForms`: `SettingsProvider`, `SettingsNamespace`, `SettingsScope`, `installSection`, and `settings.register(ns, schema, options)` are all gone from the package. A row's settings surface is now its own Config, addressed by profile entry id, and only the fields it marks `.volatile()` are projected into a form. The guard row marks `gate` `.volatile()` and registers its page policy through `ctx.inject(['settings'], child => child.effect(() => child.settings.configure({ auto: false }, ctx.fiber)))`; the retired `GATE_SETTINGS_NS` export is removed rather than left as a name for a registry that no longer exists. `validateGateConfig` still runs fail-loud at load — the host validates the Config schema on every write, but the unique/in-range checklist rule is this package's own and has no write-path channel in the new contract.
+
+### Changed
+
+- Pin every `@deepseek-ai/dsh-*` dev/test dependency to the published `0.1.7-alpha.1` line (the harness release this is adapted to). `0.1.5-rc.3` is the *previous* contract's `next` line — it still carries `installSection` / `SettingsProvider` and still carries the `plugin` message-source kind — so it cannot be the adaptation target.
+- Move the **dev/test** pins for `@deepseek-ai/cordis` to `^4.0.3` and `@deepseek-ai/schemastery` to `^3.18.3` — the newest published line, and the one the harness release ships. `Volatile` does not exist in cordis `4.0.2` and `.volatile()` does not exist in schemastery `3.18.2`, so the live `gate` field needs both; `@deepseek-ai/cosmokit` resolves to `1.8.4` through them. The **peer** ranges stay `^4.0.2` / `^3.18.2` and the live-field surface is feature-detected at load (see Behavior), so a host line shipping the older packages still mounts this row. The three-clause `@deepseek-ai/dsh-*` peer band and `engines.dsh` are unchanged, so no supported host line is dropped.
+- Add `@deepseek-ai/dsh-invariants` as a devDependency. It was already a declared peer with no pin, so the package manager auto-installed a stale `0.1.2-rc.1`, which dragged a second `schemastery@3.18.2` copy into the graph and made the emitted `Config` declaration unnameable. Pinning it to the `0.1.7-alpha.1` line collapses the graph to one schemastery.
+- `Config`'s schema is no longer annotated with the `Schema<Config>` alias, and `GateConfigSchema` keeps its `Schema<GateConfig>` alias. A live field resolves to a `Volatile` reference, which the alias's output mapping cannot express; the hand-written interface still documents what `apply` reads.
+- Annotate `Config['gate']` as `Volatile<GateConfig | undefined>` and resolve the absence once at the read. The schema carries a root default, so the absence is unreachable in practice; the check makes it loud instead of silent if that ever stops being true.
+
+### Behavior
+
+- **Older host lines keep working — they just have no settings card.** The live-field surface is detected once at load, not assumed: `.volatile()` is called only when the mounted schemastery has it, the resolved `gate` block is read through `resolveGateBlock()` (a `Volatile` reference or a plain object, whichever the host produced), and the presentation policy is registered only when the settings service actually exposes `configure`. On the `0.1.2-rc.1` / `0.1.5-alpha.1` / `0.1.6-alpha.2` lines the guard row therefore behaves exactly as it did in 0.9.13 — the gate block comes from the profile patch, and there is simply no card to edit it from.
+- **`gate.*` edits are still restart-scoped.** The row reads the resolved block once at load, because `gate.enabled` decides whether the turn-boundary red notice is installed at all — the same reason the removed namespace was registered with `applies: 'restart'`. An edit made from the row's settings card lands in the profile patch and is picked up on the next load.
+- **The one place the storage moved.** The removed namespace kept its values in a `doublecheck-gate` section of the host's `settings.yaml`. That document is gone in this harness line, and its legacy importer maps a section name to a *profile entry id*, so a section named `doublecheck-gate` has no entry to land on. A pre-upgrade `doublecheck-gate:` section is therefore not carried over; the same values set under the guard row's own `gate` block behave identically.
+- `tool/code-dispatch` stays readable. The pre-V3 sub-dispatch label is only ever *read* back out of a session log (`src/domain/evidence.ts`), never written — so it is legacy read compatibility, not retired syntax this package emits, and the harness's refusal applies to rows it writes. Note that on this host line a physical row carrying that label without `ignorable: true` is refused during migration, so the legacy branch is reachable for `ignorable`-stamped rows and for hosts below the V4 format line.
+
+### Docs
+
+- Five-language READMEs: the harness baseline moves to `dsh-v0.1.7-alpha.1`, the `doublecheck-gate` settings-namespace row becomes the row's live `gate` field, and the adaptation history gains the `0.1.7-alpha.1` entry.
+- `AGENTS.md`: the `src/events.ts` and `src/guard/gate.ts` layout notes now describe the producer-owned notice source and the live `gate` field, and the hard rules record why the notice fold reads three source shapes and why the live-field surface must stay feature-detected.
+- Extend both smoke matrices to `0.1.7-alpha.1` (`ci.yml`'s profile install and `compat.yml`'s weekly run) and record it in `dshWorkshop.compatibility.dshVersions`. The older lines stay in the matrix on purpose: they are what proves `gate` still resolves as plain config where `.volatile()` does not exist.
+
 ## [0.9.13] - 2026-09-19
 
 ### Added

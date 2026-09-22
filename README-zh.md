@@ -28,7 +28,7 @@
 
 | 方面 | 状态 |
 |---|---|
-| Harness | DeepSeek Harness `dsh-v0.1.6-alpha.2`。已于 2026-09-18 核验（双 typecheck 尺子 + 全量测试绿）；peer 区间接纳 `0.1.2-rc.1`、`0.1.5-alpha.1`、`0.1.5-rc.2` 与 `0.1.6-alpha.2`，不丢任何已支持宿主线。 |
+| Harness | DeepSeek Harness `dsh-v0.1.7-alpha.1`。已于 2026-09-22 核验（双 typecheck 尺子 + 全量测试绿）；peer 区间接纳 `0.1.2-rc.1`、`0.1.5-alpha.1`、`0.1.5-rc.2`、`0.1.6-alpha.2` 与 `0.1.7-alpha.1`，不丢任何已支持宿主线。 |
 | Node | `^22.19.0 \|\| >=24.0.0` |
 | 平台 | 全部（纯宿主；无原生代码，自身无直接网络请求） |
 | 模型 | 任意（守卫本身从不调用模型；评审与批评阶段作为宿主 subagent 运行） |
@@ -38,7 +38,7 @@
 `dsh-doublecheck` 安装两个插件行，它们读取并执行同一份持久会话日志：
 
 1. **`doublecheck-grill`** —— 需求熔炉：内置的 `grill-requirements` 技能，加上面向模型的 `doublecheck_skills`、`doublecheck_spec`、`doublecheck_report` 工具，以及按维度执行的验证工作流。
-2. **`doublecheck-guard`** —— 纪律守卫：grill 门禁、红/绿证据门禁、对抗式评审、`/doublecheck` 与 `/gate` 命令、`doublecheck-gate` 设置命名空间，以及四阶段交付门禁。
+2. **`doublecheck-guard`** —— 纪律守卫：grill 门禁、红/绿证据门禁、对抗式评审、`/doublecheck` 与 `/gate` 命令、实时的 `gate` 设置卡片，以及四阶段交付门禁。
 
 两者共同执行**纪律闭环** —— *grill → design → red → green → review → verify*：
 
@@ -128,6 +128,8 @@ dsh --profile web --dump-config | grep -E -A3 'id: doublecheck-(grill|guard)'
 | `gate.review.engine` | `'auto'` | `auto` = 存在时使用 dsh-auto-review 的裁决记录，否则使用本地评审者；`local` = 始终使用本地评审者。 |
 | `gate.review.provider` | `'fork'` | 本地评审评审者的提供者（其 `model`/`tools`/`timeoutMs`/`maxFindings` 与 `gate.consistency.*` 相同）。 |
 
+上表中每个 `gate.*` 键都属于同一个**活动字段**：守卫行把整个 `gate` 块标记为 `.volatile()`，因此它就是该行的可编辑设置卡片（表单命名空间即该行的 profile 条目 id）。其余键是来自 profile patch 的普通 composition 配置。该块在加载时读取一次，所以编辑在下次加载生效——`gate.enabled` 决定回合边界的红灯提示是否安装。若宿主的 schemastery 早于 `.volatile()`，本行照旧挂载：没有卡片，该块仍取自 profile patch。
+
 配置错误会在加载时大声失败：无效的正则、空或重复的名称列表、越界阈值、重复的清单 id 都会抛错，而不是悄无声息地什么都不做。`strict.patch.yml` 是全门禁阻断覆盖层，以 `intensity: block` 重新声明守卫行，开启所有模块并要求覆盖率。
 
 ## 工具与界面
@@ -140,7 +142,7 @@ dsh --profile web --dump-config | grep -E -A3 'id: doublecheck-(grill|guard)'
 | `/doublecheck status\|report\|on\|off` | 命令 | 开关、模块、强度、阶段事实、折叠报告，以及持久的开/关覆盖。 |
 | `/gate status\|run\|config` | 命令 | 实时清单进度、已确定的可交付/返工报告，以及生效配置。 |
 | `grill-requirements`、`red-green-tdd`、`delivery-review`、`delivery-proof` | 技能 | 覆盖全部六个闭环阶段的内置纪律技能。 |
-| `doublecheck-gate` | 设置命名空间 | 可插拔清单：用户段覆盖 composition 的 `gate.*` 值，在加载时读取一次（`applies: restart`），经 `ctx.settings.describe()` 可见。 |
+| `gate` | 活动配置字段 | 可插拔清单是守卫行唯一的 `.volatile()` 字段：从该行的设置卡片编辑（命名空间 = 该行的 profile 条目 id），在加载时读取一次。 |
 | `strict.patch.yml` | 覆盖层 | 一个补丁层内以 `block` 强度开启每个门禁并启用覆盖率要求。 |
 | `dsh-doublecheck/invariant` | 伴生行 | 通过宿主 `invariants` 注册表报告包自有写路径矛盾。 |
 
@@ -211,7 +213,7 @@ CLI 只序列化已定的 `GateState` —— 它从不重新运行四阶段门�
 
 ## 权限与数据
 
-- **读取**：仅进程内读取会话日志（`tool/call` / `tool/result` / `tool/ptc-dispatch`、注入的 `user/message` 来源，以及外部的 `autoReview/*` 裁决记录）；可选的计划模式服务状态。V3 改名前的宿主用旧标签 `tool/code-dispatch` 记录 PTC 子调用；两个标签折叠结果完全一致。
+- **读取**：仅进程内读取会话日志（`tool/call` / `tool/result` / `tool/ptc-dispatch`、注入的 `user/message` 来源，以及外部的 `autoReview/*` 裁决记录）；可选的计划模式服务状态。V3 改名前的宿主用旧标签 `tool/code-dispatch` 记录 PTC 子调用；两个标签折叠结果完全一致。注入的提示携带本包自有的 `dsh-doublecheck` 消息来源 kind；该 kind 出现之前记录的日志会以 `plugin:dsh-doublecheck`（宿主 V3→V4 迁移对已发布的 catch-all 包装所做的改写）或已发布的 `plugin` 包装抵达，三种形态折叠结果一致。
 - **写入**：会话工作区中的 `doublecheck-spec.md`、`doublecheck-report.md` 和 `gate-report.md`（路径可配置），通过 `ctx.fs` 接口；持久的 `doublecheck/state` 和 `doublecheck/gate` 会话事件。
 - **模型调用**：门禁的一致性阶段和本地评审阶段（每次 `/gate run` 各一个 subagent）、可选的对抗式评审，以及 `doublecheck_report` 验证工作流会启动 subagent 运行；除此之外不调用模型或网络。
 - **绝不触碰**：凭据、环境变量，或会话工作区之外的任何文件。workshop 清单只声明 `filesystem:read` 和 `filesystem:write`。门禁报告只携带计数、id 和裁决；评审文本中被识别的机密在存储或显示之前会被脱敏。
@@ -228,10 +230,11 @@ CLI 只序列化已定的 `GateState` —— 它从不重新运行四阶段门�
 
 - **持久写入。** `/doublecheck on\|off` → `doublecheck/state` 与 `/gate run` → `doublecheck/gate` 需要宿主的 `ignorable` 追加接口（rc.6 之后至 `0.1.1-rc.2`）。在无此接口的宿主上（rc.6/rc.8，以及移除该信封的 `0.1.2-alpha.1`——`0.1.2-rc.1` 仅恢复存量日志读取兼容字段、仍无法盖章），写入被跳过、开关保持进程内状态。
 0.1.2-rc.1（2026-09-02 已适配）：会话信封保留 ignorable 字段但仅用于存量日志读取兼容——Session.append 仍无法盖章，门控行为不变。
-0.1.5-alpha.1（2026-09-09 已适配）：会话格式 V3 把持久子调用事件 `tool/code-dispatch` 改名为 `tool/ptc-dispatch`（载荷不变；两个标签折叠结果一致）。Session.append 仍无 `ignorable` 写入通道，写入继续跳过、开关保持进程内——行为不变。`doublecheck-gate` 设置命名空间是弱接口，在加载时解析（见「已知限制」）。
+0.1.5-alpha.1（2026-09-09 已适配）：会话格式 V3 把持久子调用事件 `tool/code-dispatch` 改名为 `tool/ptc-dispatch`（载荷不变；两个标签折叠结果一致）。Session.append 仍无 `ignorable` 写入通道，写入继续跳过、开关保持进程内——行为不变。（该条引入的 `doublecheck-gate` 设置命名空间已在 0.1.7-alpha.1 随宿主删除命名空间注册表一并移除。）
 0.1.5-rc.1（2026-09-10 已适配）：依赖钉号移至已发布的 0.1.5-rc.1 线；无接口变更影响本插件行为。
 0.1.5-rc.2（2026-09-11 已适配）：依赖钉号移至已发布的 0.1.5-rc.2 线；无接口变更影响本插件行为。
-- **可选接口。** `doublecheck-gate` 设置命名空间仅在挂载设置服务时注册；注册后出现在 `ctx.settings.describe()` 中，其用户段在下次加载时覆盖 composition 的 `gate.*` 值；本包不带 client 卡片，故 Web GUI 插件页不会单列它。`/gate status` 的计划模式行读取可选的 `ctx.planMode`（没有则显示 `unknown`）；对抗式评审需要 `ctx.subagents`；验证需要 `workflowEngine`。
+0.1.7-alpha.1（2026-09-22 已适配）：宿主删除了共享的 catch-all `plugin` 消息来源 kind（提示改携本包自有的 `dsh-doublecheck` kind，`remindOnce` 折叠仍能读取持久日志可能持有的两种升级前形态），并用 `SettingsForms` 取代了设置命名空间注册表（`doublecheck-gate` 命名空间消失；门禁清单改为守卫行唯一的 `.volatile()` 字段，仍在加载时读取一次）。`@deepseek-ai/cordis` 与 `@deepseek-ai/schemastery` 的 dev/test 钉号移至 `^4.0.3` / `^3.18.3`，即 `Volatile` 与 `.volatile()` 首次出现的版本；peer 区间仍为 `^4.0.2` / `^3.18.2`，且活动字段能力在加载时探测，因此更早的宿主线仍能挂载本行（只是没有设置卡片）。除设置存储位置外无行为变更。
+- **可选接口。** 挂载设置服务时会出现守卫行自己的设置卡片；该卡片就是本行自己的 Config（命名空间 = 其 profile 条目 id），`gate` 块在加载时读取一次，因此其取值在下一次加载时作用于 `/gate` 面板与红灯提示。活动字段能力在加载时探测：若宿主的 schemastery 早于 `.volatile()`，本行照旧挂载——没有卡片，`gate` 块仍取自 profile patch。`/gate status` 的计划模式行读取可选的 `ctx.planMode`（没有则显示 `unknown`）；对抗式评审需要 `ctx.subagents`；验证需要 `workflowEngine`。
 - **本地降级。** 当 dsh-auto-review 缺失或本会话没有裁决记录时，`gate.review.engine: auto` 会降级到本地评审者——报告会写明原因，而不是捏造裁决。
 - **dsh-eval 证据基于文件。** dsh-auto-review 评测引擎（`dsh-eval`）把其 prompt 回归 / 压测 / 公平性结果写入工作区报告文件，而非会话日志。`gate.tests.evalReports.enabled` 折叠该文件（默认关闭；缺失时跳过），折叠出的计数随持久 `doublecheck/gate` 记录保存，使已定的运行仍可重放。
 

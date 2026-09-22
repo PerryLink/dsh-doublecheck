@@ -29,7 +29,7 @@
 
 | Surface | Status |
 |---|---|
-| Harness | DeepSeek Harness `dsh-v0.1.6-alpha.2`. Verified 2026-09-18 (dual typecheck rulers + full test suite green); the peer range admits `0.1.2-rc.1`, `0.1.5-alpha.1`, `0.1.5-rc.2` and `0.1.6-alpha.2`, so no supported host line is dropped. |
+| Harness | DeepSeek Harness `dsh-v0.1.7-alpha.1`. Verified 2026-09-22 (dual typecheck rulers + full test suite green); the peer range admits `0.1.2-rc.1`, `0.1.5-alpha.1`, `0.1.5-rc.2`, `0.1.6-alpha.2` and `0.1.7-alpha.1`, so no supported host line is dropped. |
 | Node | `^22.19.0 \|\| >=24.0.0` |
 | Platforms | All (pure host; no native code, no direct network requests of its own) |
 | Model | Any (the guard itself never calls a model; the critic and reviewer phases run as harness subagents) |
@@ -39,7 +39,7 @@
 `dsh-doublecheck` installs two plugin rows that read and enforce from the same durable session log:
 
 1. **`doublecheck-grill`** — the requirements furnace: the bundled `grill-requirements` skill plus the model-facing `doublecheck_skills`, `doublecheck_spec`, and `doublecheck_report` tools and the per-dimension verification workflow.
-2. **`doublecheck-guard`** — the discipline guard: the grill gate, the red/green evidence gates, the adversary review, the `/doublecheck` and `/gate` commands, the `doublecheck-gate` settings namespace, and the four-phase delivery gate.
+2. **`doublecheck-guard`** — the discipline guard: the grill gate, the red/green evidence gates, the adversary review, the `/doublecheck` and `/gate` commands, the live `gate` settings card, and the four-phase delivery gate.
 
 Together they enforce the **discipline loop** — *grill → design → red → green → review → verify*:
 
@@ -129,6 +129,15 @@ All tunables are Schemastery `Config` fields (changeable from cordis.yml). An id
 | `gate.review.engine` | `'auto'` | `auto` = dsh-auto-review verdict records when present, else the local reviewer; `local` = always local. |
 | `gate.review.provider` | `'fork'` | The local review reviewer's provider (its `model`/`tools`/`timeoutMs`/`maxFindings` match `gate.consistency.*`). |
 
+Every `gate.*` key above is one **live field**: the guard row marks the whole
+`gate` block `.volatile()`, so it is the row's editable settings card (the form
+namespace is the row's profile entry id). The remaining keys are ordinary
+composition config from the profile patch. The block is read once at load, so an
+edit takes effect on the next load — `gate.enabled` decides whether the
+turn-boundary red notice is installed at all. On a host line whose schemastery
+predates `.volatile()` the row still mounts: the card is absent and the block
+comes from the profile patch exactly as before.
+
 Misconfiguration fails loud at load: invalid regexes, empty or duplicated name lists, out-of-range thresholds, and duplicate checklist ids throw instead of silently doing nothing. `strict.patch.yml` is the all-gates-block overlay that restates the guard row at `intensity: block` with every module on and the coverage requirement enabled.
 
 ## Tools & surfaces
@@ -141,7 +150,7 @@ Misconfiguration fails loud at load: invalid regexes, empty or duplicated name l
 | `/doublecheck status\|report\|on\|off` | command | Switch, modules, intensity, stage facts, folded report, and the durable on/off override. |
 | `/gate status\|run\|config` | command | Live checklist progress, the settled deliverable/rework report, and the effective config. |
 | `grill-requirements`, `red-green-tdd`, `delivery-review`, `delivery-proof` | skill | Bundled discipline skills covering all six loop stages. |
-| `doublecheck-gate` | settings namespace | The pluggable checklist: the user section overrides the composition `gate.*` values and is read once at load (`applies: restart`), visible through `ctx.settings.describe()`. |
+| `gate` | live config field | The pluggable checklist is the guard row's one `.volatile()` field: it is edited from the row's settings card (namespace = the row's profile entry id) and read once at load. |
 | `strict.patch.yml` | overlay | Every gate on at `block` intensity plus the coverage requirement, in one patch layer. |
 | `dsh-doublecheck/invariant` | companion row | Reports package-owned write-path contradictions through the host `invariants` registry. |
 
@@ -212,7 +221,7 @@ The CLI only serializes the already-settled `GateState` — it never re-runs the
 
 ## Permissions & data
 
-- **Reads**: the session log (`tool/call` / `tool/result` / `tool/ptc-dispatch`, injected `user/message` sources, and the foreign `autoReview/*` verdict records) in-process only; the optional plan-mode service state. PTC sub-dispatches carry the predecessor `tool/code-dispatch` label on hosts before the V3 rename; both labels fold identically.
+- **Reads**: the session log (`tool/call` / `tool/result` / `tool/ptc-dispatch`, injected `user/message` sources, and the foreign `autoReview/*` verdict records) in-process only; the optional plan-mode service state. PTC sub-dispatches carry the predecessor `tool/code-dispatch` label on hosts before the V3 rename; both labels fold identically. Injected notices carry the producer-owned `dsh-doublecheck` message-source kind; logs recorded before that kind existed arrive as `plugin:dsh-doublecheck` (the harness's V3→V4 migration on a released catch-all wrapper) or as the released `plugin` wrapper, and all three fold identically.
 - **Writes**: `doublecheck-spec.md`, `doublecheck-report.md`, `gate-report.md`, and `gate-report.json` in the session workspace (paths configurable) through the `ctx.fs` seam; the durable `doublecheck/state` and `doublecheck/gate` session events.
 - **Model calls**: the gate's consistency and local-review phases (one subagent each per `/gate run`), the optional adversary review, and the `doublecheck_report` verification workflow start subagent runs; nothing else calls a model or the network.
 - **Never touched**: credentials, environment variables, or any file outside the session workspace. The workshop manifest declares `filesystem:read` and `filesystem:write` only. Gate reports carry counts, ids, and verdicts only; recognized secrets in reviewer texts are redacted before storage or display.
@@ -229,10 +238,11 @@ The CLI only serializes the already-settled `GateState` — it never re-runs the
 
 - **Durable writes.** `/doublecheck on\|off` → `doublecheck/state` and `/gate run` → `doublecheck/gate` ride the host's `ignorable` append surface (post-rc.6 through `0.1.1-rc.2`). On hosts without that surface (rc.6/rc.8, and `0.1.2-alpha.1`, which removed the envelope — `0.1.2-rc.1` restores the field for stored-log read compatibility only and still cannot stamp it), the writes are skipped and the switch stays process-local.
 0.1.2-rc.1 (adapted 2026-09-02): the session envelope keeps its ignorable field for stored-log read compatibility only - Session.append still cannot stamp it, so audit-gate behavior is unchanged.
-0.1.5-alpha.1 (adapted 2026-09-09): session format V3 renames the durable sub-dispatch event `tool/code-dispatch` to `tool/ptc-dispatch` (payload unchanged; both labels fold identically). Session.append still exposes no `ignorable` channel, so durable writes stay skipped and the switch stays process-local - behavior unchanged. The `doublecheck-gate` settings namespace is a weak seam resolved at load (see Known limitations).
+0.1.5-alpha.1 (adapted 2026-09-09): session format V3 renames the durable sub-dispatch event `tool/code-dispatch` to `tool/ptc-dispatch` (payload unchanged; both labels fold identically). Session.append still exposes no `ignorable` channel, so durable writes stay skipped and the switch stays process-local - behavior unchanged. (The `doublecheck-gate` settings namespace this entry introduced was removed in 0.1.7-alpha.1, when the harness deleted the namespace registry.)
 0.1.5-rc.1 (adapted 2026-09-10): dependency pins move to the published 0.1.5-rc.1 line; no seam change affects this plugin's behavior.
 0.1.5-rc.2 (adapted 2026-09-11): dependency pins move to the published 0.1.5-rc.2 line; no seam change affects this plugin's behavior.
-- **Optional seams.** The `doublecheck-gate` settings namespace registers only when the settings service is mounted; it then appears in `ctx.settings.describe()`, and its user section overrides the composition `gate.*` values on the next load. The package ships no client card, so the shipped Web GUI plugin page does not list it. The `/gate status` plan-mode line reads the optional `ctx.planMode` (shows `unknown` without it); the adversary review needs `ctx.subagents`; verification needs `workflowEngine`.
+0.1.7-alpha.1 (adapted 2026-09-22): the harness deleted the shared catch-all `plugin` message-source kind (notices now carry the producer-owned `dsh-doublecheck` kind, and the `remindOnce` fold still reads the two pre-upgrade shapes a durable log can hold), and it replaced the settings-namespace registry with `SettingsForms` (the `doublecheck-gate` namespace is gone; the gate checklist is now the guard row's one `.volatile()` field, still read once at load). Dev/test pins for `@deepseek-ai/cordis` and `@deepseek-ai/schemastery` move to `^4.0.3` / `^3.18.3`, where `Volatile` and `.volatile()` first exist; the peer ranges stay `^4.0.2` / `^3.18.2` and the live-field surface is detected at load, so the older host lines mount the row with no settings card. No behavior change beyond the settings storage location.
+- **Optional seams.** The guard row's settings card appears when the settings service is mounted; the card is this row's own Config (namespace = its profile entry id), and the `gate` block is read once at load, so its values apply to the `/gate` panel and the gate-red notice on the next load. The live-field surface is detected at load, so on a host line whose schemastery predates `.volatile()` the row mounts anyway — without a card, with the `gate` block taken from the profile patch. The `/gate status` plan-mode line reads the optional `ctx.planMode` (shows `unknown` without it); the adversary review needs `ctx.subagents`; verification needs `workflowEngine`.
 - **Local degrade.** `gate.review.engine: auto` degrades to the local reviewer when dsh-auto-review is absent or has no verdict records this session — the report names the reason instead of inventing a verdict.
 - **dsh-eval evidence is file-based.** The dsh-auto-review eval engine (`dsh-eval`) writes its prompt-regression / stress / fairness results to a workspace report file, not the session log. `gate.tests.evalReports.enabled` folds that file (off by default; skips when absent) and the folded counts ride the durable `doublecheck/gate` record so a settled run still replays.
 
