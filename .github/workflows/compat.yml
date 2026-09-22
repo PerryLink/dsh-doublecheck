@@ -64,11 +64,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     # Both release lines: the published dependency-pin line and the current V3
-    # line whose PTC dispatch vocabulary the plugin adapts to.
+    # line whose PTC dispatch vocabulary the plugin adapts to, plus the newest
+    # published line the live gate field needs.
     strategy:
       fail-fast: false
       matrix:
-        dsh: ['0.1.2-rc.1', '0.1.6-alpha.2']
+        dsh: ['0.1.2-rc.1', '0.1.6-alpha.2', '0.1.7-alpha.1']
     steps:
       - uses: actions/checkout@v5
 
