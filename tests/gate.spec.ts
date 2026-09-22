@@ -569,12 +569,12 @@ describe('/gate command', () => {
   })
 
   it('run folds the dsh-eval report into the tests phase when eval evidence is enabled', async () => {
-    const base = guardModule.Config(fullConfig())
+    const base = guardModule.Config(fullConfig()).gate.get()
     const config: guardModule.Config = {
       ...fullConfig(),
       gate: {
-        ...base.gate,
-        tests: { ...base.gate.tests, evalReports: { enabled: true, dir: '.eval-reports', file: 'report.json', required: false } },
+        ...base,
+        tests: { ...base.tests, evalReports: { enabled: true, dir: '.eval-reports', file: 'report.json', required: false } },
       },
     }
     const report = JSON.stringify({
@@ -592,7 +592,7 @@ describe('/gate command', () => {
   })
 
   it('run turns a failing dsh-eval report red and a missing required report red', async () => {
-    const base = guardModule.Config(fullConfig())
+    const base = guardModule.Config(fullConfig()).gate.get()
     const failing = JSON.stringify({
       suite: 'stress-suite',
       finishedAt: 1750000000000,
@@ -601,8 +601,8 @@ describe('/gate command', () => {
     const configFailing: guardModule.Config = {
       ...fullConfig(),
       gate: {
-        ...base.gate,
-        tests: { ...base.gate.tests, evalReports: { enabled: true, dir: '.eval-reports', file: 'report.json', required: false } },
+        ...base,
+        tests: { ...base.tests, evalReports: { enabled: true, dir: '.eval-reports', file: 'report.json', required: false } },
       },
     }
     const runFailing = await setup(configFailing, { reviews: [[]], evalReport: failing })
@@ -615,8 +615,8 @@ describe('/gate command', () => {
     const configRequired: guardModule.Config = {
       ...fullConfig(),
       gate: {
-        ...base.gate,
-        tests: { ...base.gate.tests, evalReports: { enabled: true, dir: '.eval-reports', file: 'report.json', required: true } },
+        ...base,
+        tests: { ...base.tests, evalReports: { enabled: true, dir: '.eval-reports', file: 'report.json', required: true } },
       },
     }
     const runRequired = await setup(configRequired, { reviews: [[]] })
@@ -628,12 +628,12 @@ describe('/gate command', () => {
   })
 
   it('run degrades an unreadable or non-report dsh-eval file to a skip', async () => {
-    const base = guardModule.Config(fullConfig())
+    const base = guardModule.Config(fullConfig()).gate.get()
     const config: guardModule.Config = {
       ...fullConfig(),
       gate: {
-        ...base.gate,
-        tests: { ...base.gate.tests, evalReports: { enabled: true, dir: '.eval-reports', file: 'report.json', required: false } },
+        ...base,
+        tests: { ...base.tests, evalReports: { enabled: true, dir: '.eval-reports', file: 'report.json', required: false } },
       },
     }
     const malformed = await setup(config, { reviews: [[]], evalReport: '{ not json' })
@@ -669,7 +669,7 @@ describe('/gate command', () => {
   })
 
   it('rejects invalid gate configuration at load, fail-loud', async () => {
-    const baseGate = (): guardModule.Config['gate'] => guardModule.Config(fullConfig()).gate
+    const baseGate = () => guardModule.Config(fullConfig()).gate.get()
     const cases: guardModule.Config[] = [
       fullConfig({ gate: { ...baseGate(), requirements: { ...baseGate().requirements, checklist: [] } } }),
       fullConfig({ gate: { ...baseGate(), requirements: { ...baseGate().requirements, checklist: [{ id: 'a', question: 'q', specDimension: null, required: true }, { id: 'a', question: 'q2', specDimension: null, required: true }] } } }),

@@ -149,8 +149,11 @@ function concreteSession(): Session {
 describe('doublecheck-guard', () => {
   it('validates its config schema: defaults and rejections', () => {
     // schemastery omits a null-defaulted key (adversaryModel) from the output
-    // config; every other default is materialized.
-    expect(guardModule.Config({})).toEqual({
+    // config; every other default is materialized. `gate` is a live field, so
+    // it resolves to a `Volatile` reference and is unwrapped before the
+    // structural comparison.
+    const resolved = guardModule.Config({})
+    expect({ ...resolved, gate: resolved.gate.get() }).toEqual({
       intensity: 'remind',
       modules: { grill: true, tdd: true, adversary: false },
       adversaryProvider: 'fork',
@@ -265,8 +268,9 @@ describe('doublecheck-guard', () => {
     const contexts = result.additionalContexts ?? []
     expect(contexts).toHaveLength(1)
     expect(contexts[0]?.content[0]).toMatchObject({ type: 'text' })
-    expect((contexts[0]?.source as { kind: string; plugin: string }).kind).toBe('plugin')
-    expect((contexts[0]?.source as { kind: string; plugin: string }).plugin).toBe('dsh-doublecheck')
+    expect((contexts[0]?.source as { kind: string; form: string; summary: string }).kind).toBe('dsh-doublecheck')
+    expect((contexts[0]?.source as { kind: string; form: string; summary: string }).form).toBe('notice')
+    expect((contexts[0]?.source as { kind: string; form: string; summary: string }).summary).toBe('requirements check')
     expect(announcements).toHaveLength(1)
     expect(announcements[0]).toMatchObject({ toolName: 'edit', intensity: 'remind', gate: 'grill', verdict: 'reminded' })
   })
