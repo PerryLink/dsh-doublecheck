@@ -13,6 +13,7 @@
  * @module dsh-doublecheck/events
  */
 import type { Agent } from '@deepseek-ai/dsh-agent';
+import type { ContextFormed } from '@deepseek-ai/dsh-llm';
 import type { Session, SessionEventMap } from '@deepseek-ai/dsh-session';
 import type { GrilledSpec, ReviewFinding, ReviewVerdict, ReportVerdict, VerifyCheck } from './domain/vocabulary.js';
 import type { GateState, GateVerdict } from './domain/gate.js';
@@ -72,6 +73,18 @@ export interface GateAppend {
 }
 declare module '@deepseek-ai/dsh-llm' {
     interface MessageSourceMap {
+        /**
+         * The discipline notices injected into the session — the grill/red/green
+         * reminders, the delivery-report expectation, the adversary steer, and the
+         * `/doublecheck on|off` switch notice. All carry `form: 'notice'` and a
+         * stable one-line `summary` the guard's durable `remindOnce` fold reads
+         * back (model-visible ⟺ logged). Producer-owned on purpose: the harness
+         * removed the shared catch-all `plugin` kind, and its physical-row
+         * admission refuses one outright, so a source must name this package.
+         */
+        'dsh-doublecheck': {
+            kind: 'dsh-doublecheck';
+        } & ContextFormed;
         /**
          * The adversary review injected into the session: the durable record of
          * one settled critique. The model-facing text is the rendered findings
@@ -200,3 +213,48 @@ declare module '@deepseek-ai/cordis' {
         }): void;
     }
 }
+/** The source shape an injected doublecheck notice carries, as read back from an unsettled log value. */
+export interface NoticeSourceShape {
+    kind?: unknown;
+    plugin?: unknown;
+    form?: unknown;
+    summary?: unknown;
+}
+/**
+ * The durable notice summaries the guard's `remindOnce` fold recognizes, and
+ * the prose each one announces. A summary is a stable wire constant, not
+ * prose: it identifies which reminder is already on record.
+ */
+export type NoticeSummary = 'requirements check' | 'red/green check' | 'green gate' | 'delivery report' | 'adversary review' | 'doublecheck state';
+/**
+ * Build the producer-owned source for one doublecheck notice.
+ * @param summary - the stable notice summary the fold reads back.
+ * @returns the `MessageSourceMap` member this package declares.
+ */
+export declare function noticeSource(summary: NoticeSummary): {
+    kind: 'dsh-doublecheck';
+    form: 'notice';
+    summary: string;
+};
+/**
+ * Read the notice summary out of a durable `user/message` source, or undefined
+ * when the source is not a doublecheck notice.
+ *
+ * Three shapes are recognized, because the durable log outlives any one
+ * release line:
+ *
+ * - `{ kind: 'dsh-doublecheck', form: 'notice', summary }` — what this package
+ *   writes now.
+ * - `{ kind: 'plugin:dsh-doublecheck', form: 'notice', summary }` — the host's
+ *   V3→V4 migration lifts a released catch-all `plugin` wrapper to a
+ *   `plugin:<name>` kind for producers it does not know, and preserves the
+ *   rest of the source. A session recorded before this package adopted its own
+ *   kind therefore arrives here.
+ * - `{ kind: 'plugin', plugin: 'dsh-doublecheck', form: 'notice', summary }` —
+ *   the released wrapper itself, kept for a log value that has not been
+ *   through that migration (an in-process array from an older composition).
+ *
+ * @param source - one `user/message` event's source, of unknown shape.
+ * @returns the summary when this is a doublecheck notice, else undefined.
+ */
+export declare function noticeSummaryOf(source: NoticeSourceShape): string | undefined;

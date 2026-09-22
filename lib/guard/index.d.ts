@@ -26,9 +26,9 @@
  *
  * @module dsh-doublecheck/guard
  */
-import type { Context } from '@deepseek-ai/cordis';
+import type { Context, Volatile } from '@deepseek-ai/cordis';
 import type { SessionEvent } from '@deepseek-ai/dsh-session';
-import type Schema from '@deepseek-ai/schemastery';
+import z from '@deepseek-ai/schemastery';
 import { type DisciplineState } from '../domain/stages.js';
 import type { GuardIntensity } from '../events.js';
 import { type ProseLanguage } from './prose.js';
@@ -37,17 +37,13 @@ import { type GateVerdict } from '../domain/gate.js';
 export declare const name = "doublecheck-guard";
 export declare const inject: string[];
 /**
- * The gate's settings namespace. Hyphenated on purpose: the host's
- * `NAMESPACE_PATTERN` (`/^[a-z][a-z0-9-]*$/`) rejects a dot with a
- * `TypeError`, and a rejected registration never reaches
- * `ctx.settings.describe()`, so no settings surface can see it. v0.9.8 and
- * earlier registered `doublecheck.gate`, which never took effect anywhere.
- */
-export declare const GATE_SETTINGS_NS = "doublecheck-gate";
-/**
  * Guard configuration. `intensity` is shared by all three gates; `modules`
  * selects them. The `adversary` module (v0.3) dispatches a forked critic
  * subagent at the turn boundary once the delivery reaches green.
+ *
+ * Only `gate` is a live field: the delivery gate's checklist is the one block
+ * users tune per project, and it is the block this row's settings card edits.
+ * Every other knob is ordinary composition config from the profile patch.
  */
 export interface Config {
     /** Enforcement strength of the grill, red/green, and review gates. */
@@ -84,10 +80,89 @@ export interface Config {
     testCommandPatterns: string[];
     /** Regexes identifying test-file paths, exempt from the red gate. */
     testFilePatterns: string[];
-    /** The delivery quality gate: the configurable checklist and the panel. */
-    gate: GateConfig;
+    /**
+     * The delivery quality gate: the configurable checklist and the panel. A live
+     * field on a host that has them, so the block is edited from this row's
+     * settings card; on an older host line it stays ordinary composition config
+     * and there is no card. Either way it is read through
+     * {@link resolveGateBlock}; see {@link apply} for when the value is taken.
+     * `| undefined` is the schema alias's shape (see `GateConfigSchema`), not a
+     * real state: the block carries a root default.
+     */
+    gate: Volatile<GateConfig | undefined> | GateConfig;
 }
-export declare const Config: Schema<Config>;
+/**
+ * Resolve the guard row's `gate` block from whatever shape the host produced:
+ * a `Volatile` reference on a host with live Config fields, the plain resolved
+ * object on one without. One build therefore spans the whole peer band.
+ * @param value - the resolved `gate` field.
+ * @returns the gate configuration block.
+ * @throws when the block is absent — the schema carries a root default, so this
+ * is a loud guard rather than a supported state.
+ */
+export declare function resolveGateBlock(value: Volatile<GateConfig | undefined> | GateConfig): GateConfig;
+/**
+ * The guard row's Config schema.
+ *
+ * Deliberately NOT annotated with the `Schema<Config>` alias: a live field's
+ * value is a `Volatile` reference, and the alias's output mapping cannot
+ * express one (it would demand a plain `GateConfig`). The interface above
+ * documents what `apply` reads; this schema is the runtime contract — the same
+ * split the harness's own provider rows use (`@deepseek-ai/dsh-llm`'s
+ * deepseek row declares `retryPolicy: Volatile<...>` against an un-annotated
+ * schema).
+ */
+export declare const Config: z<Schemastery.ObjectS<NoInfer<{
+    intensity: z<"warn" | "remind" | "block", "warn" | "remind" | "block", "defined">;
+    modules: z<Schemastery.ObjectS<NoInfer<{
+        grill: z<boolean, boolean, "defined">;
+        tdd: z<boolean, boolean, "defined">;
+        adversary: z<boolean, boolean, "defined">;
+    }>>, Schemastery.ObjectT<NoInfer<{
+        grill: z<boolean, boolean, "defined">;
+        tdd: z<boolean, boolean, "defined">;
+        adversary: z<boolean, boolean, "defined">;
+    }>>, "defined">;
+    adversaryModel: z<string | null, string | null, "defined">;
+    adversaryProvider: z<string, string, "defined">;
+    adversaryMaxFindings: z<number, number, "defined">;
+    adversaryTools: z<string[], string[], "defined">;
+    adversaryTimeoutMs: z<number, number, "defined">;
+    guardTools: z<string[], string[], "defined">;
+    vagueTaskMaxChars: z<number, number, "defined">;
+    remindOnce: z<boolean, boolean, "defined">;
+    language: z<"en" | "zh", "en" | "zh", "defined">;
+    enableByDefault: z<boolean, boolean, "defined">;
+    testToolNames: z<string[], string[], "defined">;
+    testCommandPatterns: z<string[], string[], "defined">;
+    testFilePatterns: z<string[], string[], "defined">;
+    gate: z<GateConfig>;
+}>>, Schemastery.ObjectT<NoInfer<{
+    intensity: z<"warn" | "remind" | "block", "warn" | "remind" | "block", "defined">;
+    modules: z<Schemastery.ObjectS<NoInfer<{
+        grill: z<boolean, boolean, "defined">;
+        tdd: z<boolean, boolean, "defined">;
+        adversary: z<boolean, boolean, "defined">;
+    }>>, Schemastery.ObjectT<NoInfer<{
+        grill: z<boolean, boolean, "defined">;
+        tdd: z<boolean, boolean, "defined">;
+        adversary: z<boolean, boolean, "defined">;
+    }>>, "defined">;
+    adversaryModel: z<string | null, string | null, "defined">;
+    adversaryProvider: z<string, string, "defined">;
+    adversaryMaxFindings: z<number, number, "defined">;
+    adversaryTools: z<string[], string[], "defined">;
+    adversaryTimeoutMs: z<number, number, "defined">;
+    guardTools: z<string[], string[], "defined">;
+    vagueTaskMaxChars: z<number, number, "defined">;
+    remindOnce: z<boolean, boolean, "defined">;
+    language: z<"en" | "zh", "en" | "zh", "defined">;
+    enableByDefault: z<boolean, boolean, "defined">;
+    testToolNames: z<string[], string[], "defined">;
+    testCommandPatterns: z<string[], string[], "defined">;
+    testFilePatterns: z<string[], string[], "defined">;
+    gate: z<GateConfig>;
+}>>, "plain">;
 /** Cached per-session guard facts, folded incrementally from the append-only log. */
 export interface Snapshot {
     /** The log snapshot this fold last consumed; an append yields a new one. */

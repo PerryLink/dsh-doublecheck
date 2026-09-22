@@ -16,13 +16,12 @@
 
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { CommandInvocation, CommandResult } from '@deepseek-ai/dsh-commands'
-import type { MessageSource } from '@deepseek-ai/dsh-llm'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, UserMessage } from '@deepseek-ai/dsh-session'
 import { sessionEvents } from '../session-events.ts'
 import { deriveReportVerdict, foldReportFacts, renderReportMarkdown, type ReportData } from '../domain/report.ts'
 import type { TestRunDetection } from '../domain/evidence.ts'
-import type { StateAppend } from '../events.ts'
+import { noticeSource, type StateAppend } from '../events.ts'
 import { PROSE, type GuardProse } from './prose.ts'
 import type { Config, Snapshot } from './index.ts'
 
@@ -95,7 +94,7 @@ export interface CommandDeps {
 
 /** The switch notice injected after `/doublecheck on|off`. */
 function switchNotice(enabled: boolean, durable: boolean, prose: GuardProse): UserMessage {
-  const source: MessageSource = { kind: 'plugin', plugin: 'dsh-doublecheck', form: 'notice', summary: 'doublecheck state' }
+  const source = noticeSource('doublecheck state')
   const text = enabled
     ? durable ? prose.switchOnDurable : prose.switchOnLocal
     : durable ? prose.switchOffDurable : prose.switchOffLocal

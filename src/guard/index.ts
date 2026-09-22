@@ -27,11 +27,13 @@
  * @module dsh-doublecheck/guard
  */
 
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context, Fiber, Volatile } from '@deepseek-ai/cordis'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import type { MessageSource } from '@deepseek-ai/dsh-llm'
 import type { Session, SessionEvent, UserMessage } from '@deepseek-ai/dsh-session'
-import type { SettingsProvider } from '@deepseek-ai/dsh-settings'
+// Type-only side effect: this augmentation is what puts `ctx.settings` on the
+// Context type. The old `SettingsProvider` import used to carry it; nothing
+// else in this module names a value from the package.
+import type {} from '@deepseek-ai/dsh-settings'
 import { sessionEvents } from '../session-events.ts'
 import type { PostToolDecision, PreToolDecision, ToolExecution } from '@deepseek-ai/dsh-tools'
 import z from '@deepseek-ai/schemastery'
@@ -50,6 +52,7 @@ import {
 import { emptyDisciplineState, foldDisciplineRange, type DisciplineState } from '../domain/stages.ts'
 import { isVagueTask } from '../domain/vagueness.ts'
 import type { GuardIntensity } from '../events.ts'
+import { noticeSource, noticeSummaryOf, type NoticeSourceShape, type NoticeSummary } from '../events.ts'
 import { runAdversaryReview, reviewInjection } from './review.ts'
 import type { AdversaryConfig } from './review.ts'
 import { PROSE, type ProseLanguage } from './prose.ts'
@@ -77,18 +80,13 @@ export const name = 'doublecheck-guard'
 export const inject = ['commands']
 
 /**
- * The gate's settings namespace. Hyphenated on purpose: the host's
- * `NAMESPACE_PATTERN` (`/^[a-z][a-z0-9-]*$/`) rejects a dot with a
- * `TypeError`, and a rejected registration never reaches
- * `ctx.settings.describe()`, so no settings surface can see it. v0.9.8 and
- * earlier registered `doublecheck.gate`, which never took effect anywhere.
- */
-export const GATE_SETTINGS_NS = 'doublecheck-gate'
-
-/**
  * Guard configuration. `intensity` is shared by all three gates; `modules`
  * selects them. The `adversary` module (v0.3) dispatches a forked critic
  * subagent at the turn boundary once the delivery reaches green.
+ *
+ * Only `gate` is a live field: the delivery gate's checklist is the one block
+ * users tune per project, and it is the block this row's settings card edits.
+ * Every other knob is ordinary composition config from the profile patch.
  */
 export interface Config {
   /** Enforcement strength of the grill, red/green, and review gates. */
@@ -125,11 +123,63 @@ export interface Config {
   testCommandPatterns: string[]
   /** Regexes identifying test-file paths, exempt from the red gate. */
   testFilePatterns: string[]
-  /** The delivery quality gate: the configurable checklist and the panel. */
-  gate: GateConfig
+  /**
+   * The delivery quality gate: the configurable checklist and the panel. A live
+   * field on a host that has them, so the block is edited from this row's
+   * settings card; on an older host line it stays ordinary composition config
+   * and there is no card. Either way it is read through
+   * {@link resolveGateBlock}; see {@link apply} for when the value is taken.
+   * `| undefined` is the schema alias's shape (see `GateConfigSchema`), not a
+   * real state: the block carries a root default.
+   */
+  gate: Volatile<GateConfig | undefined> | GateConfig
 }
 
-export const Config: Schema<Config> = z.object({
+/**
+ * The gate block as a live Config field where the host has one, else as plain
+ * composition config.
+ *
+ * `.volatile()` first exists in `@deepseek-ai/schemastery` 3.18.3, but the peer
+ * band still admits host lines that ship an older one. Detected once, at load:
+ * on such a host the block stays ordinary config and the settings card is
+ * simply absent — the row must not fail to mount over a missing optional
+ * surface.
+ */
+function gateField(): Schema<GateConfig> {
+  const candidate = GateConfigSchema as unknown as { volatile?: () => Schema<GateConfig> }
+  return typeof candidate.volatile === 'function' ? candidate.volatile() : GateConfigSchema
+}
+
+/**
+ * Resolve the guard row's `gate` block from whatever shape the host produced:
+ * a `Volatile` reference on a host with live Config fields, the plain resolved
+ * object on one without. One build therefore spans the whole peer band.
+ * @param value - the resolved `gate` field.
+ * @returns the gate configuration block.
+ * @throws when the block is absent — the schema carries a root default, so this
+ * is a loud guard rather than a supported state.
+ */
+export function resolveGateBlock(value: Volatile<GateConfig | undefined> | GateConfig): GateConfig {
+  const live = value as Volatile<GateConfig | undefined>
+  const resolved = typeof live.get === 'function' ? live.get() : value as GateConfig
+  if (resolved === undefined) {
+    throw new Error('dsh-doublecheck: gate config resolved to undefined; the Schema root default is missing')
+  }
+  return resolved as GateConfig
+}
+
+/**
+ * The guard row's Config schema.
+ *
+ * Deliberately NOT annotated with the `Schema<Config>` alias: a live field's
+ * value is a `Volatile` reference, and the alias's output mapping cannot
+ * express one (it would demand a plain `GateConfig`). The interface above
+ * documents what `apply` reads; this schema is the runtime contract — the same
+ * split the harness's own provider rows use (`@deepseek-ai/dsh-llm`'s
+ * deepseek row declares `retryPolicy: Volatile<...>` against an un-annotated
+ * schema).
+ */
+export const Config = z.object({
   intensity: z.union(['remind', 'warn', 'block'] as const).default('remind'),
   modules: z.object({
     grill: z.boolean().default(true),
@@ -149,7 +199,7 @@ export const Config: Schema<Config> = z.object({
   testToolNames: z.array(z.string()).default([...DEFAULT_TEST_TOOL_NAMES]),
   testCommandPatterns: z.array(z.string()).default([...DEFAULT_TEST_COMMAND_PATTERNS]),
   testFilePatterns: z.array(z.string()).default([...DEFAULT_TEST_FILE_PATTERNS]),
-  gate: GateConfigSchema,
+  gate: gateField(),
 })
 
 /** Cached per-session guard facts, folded incrementally from the append-only log. */
@@ -194,33 +244,41 @@ export interface Snapshot {
 export function apply(ctx: Context, config: Config): void {
   assertPositiveInteger('vagueTaskMaxChars', config.vagueTaskMaxChars)
   assertGuardTools(config.guardTools)
-  validateGateConfig(config.gate)
-  // The effective gate config: the user's stored `doublecheck-gate` section
-  // overrides this row's composition entry, which overrides the Schema
-  // defaults (the settings service resolves exactly that order). The service
-  // is a weak seam — without it, or when the stored section is unusable, the
-  // composition entry stands and the reason is logged. `applies: 'restart'`
-  // is deliberate: `gate.enabled` decides whether the turn-stopping notice is
-  // installed at load, so a live swap could not honor it; the resolved value
-  // is therefore read once here and an edit takes effect on the next load.
-  const settings = ctx.get('settings') as SettingsProvider | undefined
-  let gateConfig: GateConfig = config.gate
-  if (settings !== undefined) {
-    try {
-      const resolved = settings.register(GATE_SETTINGS_NS, GateConfigSchema, {
-        base: config.gate,
-        applies: 'restart',
-        validate: validateGateConfig,
-      }).get()
-      // The host validates the resolved section at registration, so this only
-      // fires on a host that ignores the `validate` option; degrade rather
-      // than fail the whole row over a settings typo.
-      validateGateConfig(resolved)
-      gateConfig = resolved
-    } catch (error) {
-      ctx.logger.warn(`dsh-doublecheck: gate settings namespace skipped, using the composition entry: ${String(error)}`)
-    }
-  }
+  // The effective gate config: the profile patch's `gate` block, layered over
+  // the Schema defaults (the host resolves exactly that order and hands the
+  // result over as this live field's value). Read ONCE here, deliberately:
+  // `gate.enabled` decides whether the turn-stopping notice is installed at
+  // load, so a live swap could not honor it. An edit made through the settings
+  // card lands in the profile patch and is picked up on the next load — the
+  // same restart-scoped semantics the removed `doublecheck-gate` namespace had
+  // (`applies: 'restart'`), minus the separate document that no longer exists.
+  //
+  // The one assertion in this module: on a host with live Config fields,
+  // `Volatile.get()` hands back a deeply readonly snapshot, and every consumer
+  // below (the command seam, the four gate phases, the report renderer) takes
+  // the hand-written `GateConfig`. Nothing in this package writes the block, so
+  // the snapshot's readonly wrapper is dropped once, at this single boundary —
+  // and on a host without live fields there is no wrapper to drop.
+  const gateConfig = resolveGateBlock(config.gate)
+  // Fail loud on an unactable checklist. The host validates the Config schema
+  // on every settings write, but this cross-field check (unique, non-empty,
+  // in-range checklist ids and the thresholds they bound) is this package's own
+  // rule, so it runs here — the write path cannot carry it.
+  validateGateConfig(gateConfig)
+  // Expose this row's live fields on the settings page. `auto: false` keeps the
+  // generated card off: the gate knobs are rendered from the schema by the
+  // form owner, and the package ships no custom page. The policy is an effect
+  // so it unwinds with the row. Feature-detected: the settings service of a
+  // host line without live Config fields has no `configure` at all, and the row
+  // must still mount there.
+  ctx.inject(['settings'], (child) => {
+    const settings = child.settings as unknown as { configure?: (presentation: { auto?: boolean }, owner: Fiber) => () => void }
+    if (typeof settings.configure !== 'function') return
+    // Bound: the policy is read off the service instance, and the host's
+    // implementation (like this row's stand-in) keeps its state on `this`.
+    const configure = settings.configure.bind(settings)
+    child.effect(() => configure({ auto: false }, ctx.fiber))
+  })
   if (config.modules.adversary) {
     assertBoundedInteger('adversaryMaxFindings', config.adversaryMaxFindings, 20)
     assertPositiveInteger('adversaryTimeoutMs', config.adversaryTimeoutMs)
@@ -272,12 +330,13 @@ export function apply(ctx: Context, config: Config): void {
       const event = events[index]
       if (event === undefined) continue
       if (event.type === 'user/message') {
-        const source = event.data.source as { kind?: unknown; plugin?: unknown; form?: unknown; summary?: unknown }
-        if (source.kind === 'plugin' && source.plugin === 'dsh-doublecheck' && source.form === 'notice') {
-          if (source.summary === 'requirements check') snapshot.grillReminded = true
-          else if (source.summary === 'red/green check') snapshot.redReminded = true
-          else if (source.summary === 'green gate') snapshot.greenReminded = true
-          else if (source.summary === 'delivery report') snapshot.reportReminded = true
+        const source = event.data.source as NoticeSourceShape
+        const summary = noticeSummaryOf(source)
+        if (summary !== undefined) {
+          if (summary === 'requirements check') snapshot.grillReminded = true
+          else if (summary === 'red/green check') snapshot.redReminded = true
+          else if (summary === 'green gate') snapshot.greenReminded = true
+          else if (summary === 'delivery report') snapshot.reportReminded = true
         } else if (source.kind === 'doublecheck-review') {
           snapshot.lastReviewSeq = event.seq
           snapshot.editsAfterReview = 0
@@ -358,15 +417,9 @@ export function apply(ctx: Context, config: Config): void {
     return refold(session, events)
   }
 
-  /** A plugin-sourced notice message carrying the given prose. */
-  function notice(summary: string, text: string): UserMessage {
-    const source: MessageSource = {
-      kind: 'plugin',
-      plugin: 'dsh-doublecheck',
-      form: 'notice',
-      summary,
-    }
-    return createUserMessage({ content: [{ type: 'text', text }], source })
+  /** A producer-owned notice message carrying the given prose. */
+  function notice(summary: NoticeSummary, text: string): UserMessage {
+    return createUserMessage({ content: [{ type: 'text', text }], source: noticeSource(summary) })
   }
 
   /** The grill reminder for this reaction, or undefined when already reminded. */

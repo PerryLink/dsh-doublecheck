@@ -166,7 +166,18 @@ export const DEFAULT_GATE_CONFIG: GateConfig = {
   },
 }
 
-/** The delivery-gate configuration schema (the pluggable checklist + knobs). */
+/**
+ * The delivery-gate configuration schema (the pluggable checklist + knobs).
+ *
+ * Annotated with the bare `Schema<GateConfig>` alias on purpose. The guard row
+ * marks this whole block `.volatile()`, and that call's result is derived from
+ * the *declared* schema type — so the alias is what keeps `Config`'s emitted
+ * declaration nameable instead of pointing into the package manager's store.
+ * The alias carries no root-default mode, which is why the guard row's
+ * interface declares the field `Volatile<GateConfig | undefined>` and resolves
+ * the absence once, at the read: the runtime value still comes from the
+ * `.default(...)` below.
+ */
 export const GateConfigSchema: Schema<GateConfig> = z.object({
   enabled: z.boolean().default(true),
   planSuggestion: z.boolean().default(true),
