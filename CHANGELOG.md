@@ -4,6 +4,8 @@ All notable changes to dsh-doublecheck are recorded here, newest first.
 
 ## [Unreleased]
 
+## [0.9.14] - 2026-09-22
+
 Adapted to DeepSeek Harness `dsh-v0.1.7-alpha.1`. Three of the host's seams this
 package sat on were replaced in that line, so this is a compatibility release:
 existing behaviour, existing `gate.*` configuration, and existing session logs
