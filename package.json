@@ -117,7 +117,8 @@
       "dshVersions": [
         "0.1.2-rc.1",
         "0.1.5-rc.2",
-        "0.1.7-alpha.1"
+        "0.1.7-alpha.1",
+        "0.1.7-alpha.2"
       ]
     },
     "capability": {
@@ -134,7 +135,7 @@
     }
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/cordis": "^4.0.4",
     "@deepseek-ai/dsh-agent": ">=0.1.2-rc.1 <0.2.0 || >=0.1.5-alpha.1 <0.2.0 || >=0.1.6-0 <0.2.0 || >=0.1.7-0 <0.2.0",
     "@deepseek-ai/dsh-commands": ">=0.1.2-rc.1 <0.2.0 || >=0.1.5-alpha.1 <0.2.0 || >=0.1.6-0 <0.2.0 || >=0.1.7-0 <0.2.0",
     "@deepseek-ai/dsh-invariants": ">=0.1.2-rc.1 <0.2.0 || >=0.1.5-alpha.1 <0.2.0 || >=0.1.6-0 <0.2.0 || >=0.1.7-0 <0.2.0",
@@ -150,7 +151,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "^4.0.3",
+    "@deepseek-ai/cordis": "^4.0.4",
     "@deepseek-ai/cordis-plugin-loader": "^1.0.3",
     "@deepseek-ai/dsh-agent": "0.1.7-alpha.2",
     "@deepseek-ai/dsh-commands": "0.1.7-alpha.2",
