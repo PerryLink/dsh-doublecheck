@@ -2,7 +2,17 @@
 
 All notable changes to dsh-doublecheck are recorded here, newest first.
 
-## [Unreleased]
+## [0.9.15] - 2026-09-23
+
+### Changed
+
+- Move the `@deepseek-ai/dsh-*` dev/test pins to the published `0.1.7-alpha.2` line and add `0.1.7-alpha.2` to `dshWorkshop.compatibility.dshVersions` (which keeps `0.1.7-alpha.1`). The Compat `smoke` matrix now runs `0.1.2-rc.1`, `0.1.6-alpha.2` and `0.1.7-alpha.2`; the line it replaced (`0.1.7-alpha.1`) is still admitted by the peer range, but the target line itself is what the job must exercise.
+- Append the fourth host clause `|| >=0.1.7-0 <0.2.0` to `engines.dsh` and to all eight `@deepseek-ai/dsh-*` peer ranges. Under semver's prerelease rule a range whose only prerelease comparators sit on earlier tuples cannot admit a later alpha, so the three-clause band excluded the very host line this release targets. No previously supported host line is dropped: the range still admits `0.1.2-rc.1`, `0.1.5-alpha.1`, `0.1.5-rc.2`, `0.1.6-alpha.2` and `0.1.7-alpha.1`, and now `0.1.7-alpha.2` as well.
+- Raise the `@deepseek-ai/cordis` dev/test pin to `^4.0.4`.
+
+### Docs
+
+- Correct the live-field claims against the new line: `AGENTS.md` listed the smoke job's release lines as `0.1.2-rc.1`, `0.1.5-alpha.1`, `0.1.7-alpha.1` and named `0.1.7-alpha.1` as the line where `gate` must resolve as a `Volatile` reference, and all five READMEs stopped the peer range's admitted-line list at `0.1.7-alpha.1`. Both now name `0.1.7-alpha.2`.
 
 ## [0.9.14] - 2026-09-22
 
