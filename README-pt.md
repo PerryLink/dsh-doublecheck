@@ -29,7 +29,7 @@
 
 | Superfície | Status |
 |---|---|
-| Harness | DeepSeek Harness `dsh-v0.1.7-alpha.2`. Verificado em 2026-09-22 (typecheck duplo + suíte completa verde); o intervalo de peers admite `0.1.2-rc.1`, `0.1.5-alpha.1`, `0.1.5-rc.2`, `0.1.6-alpha.2`, `0.1.7-alpha.1` e `0.1.7-alpha.2`, então nenhuma linha suportada é perdida. |
+| Harness | DeepSeek Harness `dsh-v0.1.7-rc.1`. Verificado em 2026-09-24 (typecheck duplo + suíte completa verde); o intervalo de peers admite `0.1.2-rc.1`, `0.1.5-alpha.1`, `0.1.5-rc.2`, `0.1.6-alpha.2`, `0.1.7-alpha.1` e `0.1.7-rc.1`, então nenhuma linha suportada é perdida. |
 | Node | `^22.19.0 \|\| >=24.0.0` |
 | Plataformas | Todas (host puro; sem código nativo, sem requisições de rede diretas próprias) |
 | Modelo | Qualquer (o guard nunca chama um modelo; as fases de crítico e revisor rodam como subagentes do harness) |
