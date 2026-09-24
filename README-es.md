@@ -36,7 +36,7 @@ Este plugin forma parte de la [familia de plugins DSH](https://github.com/PerryL
 
 | Superficie | Estado |
 |---|---|
-| Harness | DeepSeek Harness `dsh-v0.1.7-rc.1`. Verificado el 2026-09-24 (doble typecheck + suite completa en verde); el rango de peers admite `0.1.2-rc.1`, `0.1.5-alpha.1`, `0.1.5-rc.2`, `0.1.6-alpha.2`, `0.1.7-alpha.1` y `0.1.7-rc.1`, así que no se pierde ninguna línea soportada. |
+| Harness | DeepSeek Harness `dsh-v0.1.7-rc.2`. Verificado el 2026-09-24 (doble typecheck + suite completa en verde); el rango de peers admite `0.1.2-rc.1`, `0.1.5-alpha.1`, `0.1.5-rc.2`, `0.1.6-alpha.2`, `0.1.7-alpha.1` y `0.1.7-rc.2`, así que no se pierde ninguna línea soportada. |
 | Node | `^22.19.0 \|\| >=24.0.0` |
 | Plataformas | Todas (host puro; sin código nativo, sin solicitudes de red directas propias) |
 | Modelo | Cualquiera (el guard nunca llama a un modelo; las fases de crítico y revisor se ejecutan como subagentes del harness) |
