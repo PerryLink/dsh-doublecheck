@@ -2,8 +2,7 @@
 
 All notable changes to dsh-doublecheck are recorded here, newest first.
 
-## [Unreleased]
-
+## [0.9.16] - 2026-09-24
 ### Changed
 
 - Move the `@deepseek-ai/dsh-*` host pins to the published `0.1.7-rc.1` line and re-verify this plugin against that host line.
