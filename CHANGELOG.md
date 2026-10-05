@@ -2,6 +2,14 @@
 
 All notable changes to dsh-doublecheck are recorded here, newest first.
 
+## [0.9.23] - 2026-10-06
+
+### Changed
+
+- **The declared peer band did not admit the line the package runs on.** The dev/test pins sit on `0.2.1-alpha.1`, but the band stopped at `>=0.2.0-0 <0.3.0`, which semver's prerelease rule cannot extend to a `0.2.1` prerelease. A `|| >=0.2.1-0 <0.3.0` clause is appended (and mirrored in `engines.dsh`), as every earlier prerelease tuple gained its own clause. The `0.1.6` floor is unchanged and no earlier clause is restored.
+- `@deepseek-ai/dsh-invariants` remains a declared peer: the host removes that package in `0.2.1-alpha.1`, and this plugin's guard already reaches the registry structurally (`ctx.get('invariants')`) instead of importing it, so the companion degrades to inert rather than failing.
+
+
 ## [0.9.22] - 2026-10-05
 
 ### Changed
