@@ -4,7 +4,7 @@ All notable changes to dsh-doublecheck are recorded here, newest first.
 
 ## [Unreleased]
 
-## [0.9.20] - undefined
+## [0.9.20] - 2026-10-05
 
 undefined
 
