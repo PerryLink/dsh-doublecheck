@@ -2,6 +2,13 @@
 
 All notable changes to dsh-doublecheck are recorded here, newest first.
 
+## [0.9.21] - 2026-10-05
+
+### Changed
+
+- Correct the release date in the previous section, which was stamped with the literal string `undefined` by the release stamper. No content or behaviour change; the version is bumped only because npm will not republish an existing version.
+
+
 ## [Unreleased]
 
 ## [0.9.20] - 2026-10-05
