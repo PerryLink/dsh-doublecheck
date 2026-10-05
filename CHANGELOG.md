@@ -2,6 +2,21 @@
 
 All notable changes to dsh-doublecheck are recorded here, newest first.
 
+## [0.9.22] - 2026-10-05
+
+### Changed
+
+- Raise the declared host floor to `0.1.6`, which is the line this package actually runs on. The peer band previously admitted `0.1.2-rc.1`, `0.1.5-alpha.1` and `0.1.5-rc.2`, but those lines are **incompatible at the host protocol level**, so the claim was false — and it was not merely theoretical: the Compat matrix failed on every pre-`0.1.6` leg while passing every leg from `0.1.6-alpha.2` on.
+  
+  Root cause, measured rather than inferred:
+  
+  - On `@deepseek-ai/dsh@0.1.2-rc.1` this package cannot activate: `typert-loader: ... invocation parameter codec is not backed by a zod v4 schema` → `plugin tree failed to load: 1 entry did not activate`. The same tarball loads on `0.1.6-alpha.2`.
+  - The host source confirms the protocol changed between those lines: the `is not backed by a zod v4 schema` validator exists at `dsh-v0.1.2-rc.1`, `dsh-v0.1.5-alpha.1` and `dsh-v0.1.5-rc.2`, and is gone from `dsh-v0.1.6-alpha.2` onward.
+  - Those lines are also **unreproducible from their own metadata**: `dsh@0.1.2-rc.1` declares `^0.1.2-rc.1` for its own sub-packages, so a fresh install drifts to newer sub-package code (measured: `dsh-app-boot` now demands a Cordis HMR service the old host does not provide).
+  
+  No plugin-side change can fix this. Narrowing the band corrects the declaration instead of continuing to advertise unsupported hosts. The Compat matrix drops the removed lines rather than testing hosts we do not claim.
+
+
 ## [0.9.21] - 2026-10-05
 
 ### Changed
