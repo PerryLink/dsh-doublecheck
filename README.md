@@ -36,6 +36,14 @@
 *English:* part of a 40+ plugin family for DeepSeek Harness. If it is useful, **a star helps the next person find it** — nothing is gated behind it.
 
 
+## What is dsh-doublecheck?
+
+The delivery quality gate for DeepSeek Harness: grill the requirements, test the implementation, prove the delivery — then gate the handoff with a deliverable/rework decision.
+
+Requirements get interrogated before the first edit; delivery is proven, never claimed.
+
+![Terminal demo of dsh-doublecheck: dsh-doublecheck — /gate report (example block from the README)](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-demo.png)
+
 ## Compatibility
 
 | Surface | Status |
@@ -73,8 +81,12 @@ grill ──▶ design ──▶ red ──▶ green ──▶ review ──▶ 
 ## Quick start
 
 ```sh
+dsh plugin --profile web add github:PerryLink/dsh-doublecheck
+```
+
+```sh
 # 1. install the bundle into your profile
-dsh plugin --profile web add "github:PerryLink/dsh-doublecheck#main"
+dsh plugin --profile web add github:PerryLink/dsh-doublecheck
 
 # or from npm (published releases)
 dsh plugin --profile web add dsh-doublecheck
@@ -87,7 +99,7 @@ Both rows (`doublecheck-grill` and `doublecheck-guard`) activate automatically w
 
 ## Install & uninstall
 
-- **git channel** (latest `main`): `dsh plugin --profile web add "github:PerryLink/dsh-doublecheck#main"` — the `prepare` script builds with production dependencies only.
+- **git channel** (latest `main`): `dsh plugin --profile web add github:PerryLink/dsh-doublecheck` — the `prepare` script builds with production dependencies only.
 - **npm channel** (published releases): `dsh plugin --profile web add dsh-doublecheck`.
 - **tarball channel**: `pnpm pack` in this repo, then `dsh plugin --profile web add ./dsh-doublecheck-<version>.tgz`.
 - **uninstall**: `dsh plugin --profile web remove dsh-doublecheck` (or remove the rows from the profile patch).

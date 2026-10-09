@@ -34,6 +34,14 @@
 यह प्लगइन [DSH प्लगइन परिवार](https://github.com/PerryLink) का हिस्सा है (40+ प्लगइन, सभी Apache-2.0)। अगर यह उपयोगी लगे, तो **एक स्टार दें** — इससे कोई सुविधा अनलॉक नहीं होती, पर अगला व्यक्ति इसे खोज में आसानी से पा लेता है।
 
 *English:* part of a 40+ plugin family for DeepSeek Harness. If it is useful, **a star helps the next person find it** — nothing is gated behind it.
+## What is dsh-doublecheck?
+
+DeepSeek Harness के लिए डिलीवरी गुणवत्ता-द्वार: आवश्यकताओं की पड़ताल करें, कार्यान्वयन का परीक्षण करें, डिलीवरी साबित करें — फिर deliverable / rework required निर्णय से हैंडऑफ़ को नियंत्रित करें।
+
+पहली एडिट से पहले आवश्यकताओं की पड़ताल होती है; डिलीवरी साबित की जाती है, दावा नहीं किया जाता।
+
+![dsh-doublecheck का टर्मिनल डेमो: dsh-doublecheck — /gate report (example block from the README)](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-demo.png)
+
 ## अनुकूलता
 
 | सतह | स्थिति |
@@ -71,8 +79,12 @@ grill ──▶ design ──▶ red ──▶ green ──▶ review ──▶ 
 ## त्वरित शुरुआत
 
 ```sh
+dsh plugin --profile web add github:PerryLink/dsh-doublecheck
+```
+
+```sh
 # 1. install the bundle into your profile
-dsh plugin --profile web add "github:PerryLink/dsh-doublecheck#main"
+dsh plugin --profile web add github:PerryLink/dsh-doublecheck
 
 # or from npm (published releases)
 dsh plugin --profile web add dsh-doublecheck
@@ -85,7 +97,7 @@ dsh --profile web --dump-config | grep -E -A3 'id: doublecheck-(grill|guard)'
 
 ## इंस्टॉल और अनइंस्टॉल
 
-- **git चैनल** (नवीनतम `main`): `dsh plugin --profile web add "github:PerryLink/dsh-doublecheck#main"` — `prepare` स्क्रिप्ट केवल उत्पादन निर्भरताओं के साथ बिल्ड करती है।
+- **git चैनल** (नवीनतम `main`): `dsh plugin --profile web add github:PerryLink/dsh-doublecheck` — `prepare` स्क्रिप्ट केवल उत्पादन निर्भरताओं के साथ बिल्ड करती है।
 - **npm चैनल** (प्रकाशित रिलीज़): `dsh plugin --profile web add dsh-doublecheck`।
 - **tarball चैनल**: इस repo में `pnpm pack`, फिर `dsh plugin --profile web add ./dsh-doublecheck-<version>.tgz`।
 - **अनइंस्टॉल**: `dsh plugin --profile web remove dsh-doublecheck` (या प्रोफ़ाइल पैच से पंक्तियाँ हटाएँ)।

@@ -34,6 +34,14 @@
 这个插件是 [DSH 插件家族](https://github.com/PerryLink)的一员（40+ 个，全部 Apache-2.0）。如果你在用，**给个 star** —— 它不会解锁任何功能，但会让下一个人在搜索里更容易找到它。
 
 *English:* part of a 40+ plugin family for DeepSeek Harness. If it is useful, **a star helps the next person find it** — nothing is gated behind it.
+## What is dsh-doublecheck?
+
+DeepSeek Harness 的交付质量门禁：先拷问需求，再测试实现，最后证明交付——并用「可交付 / 需要返工」的裁决来把关交接。
+
+需求在第一次改动之前就被拷问清楚；交付是被证明的，而不是被口头宣称的。
+
+![dsh-doublecheck 终端演示：dsh-doublecheck — /gate report (example block from the README)](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-demo.png)
+
 ## 兼容性
 
 | 方面 | 状态 |
@@ -71,8 +79,12 @@ grill ──▶ design ──▶ red ──▶ green ──▶ review ──▶ 
 ## 快速开始
 
 ```sh
+dsh plugin --profile web add github:PerryLink/dsh-doublecheck
+```
+
+```sh
 # 1. install the bundle into your profile
-dsh plugin --profile web add "github:PerryLink/dsh-doublecheck#main"
+dsh plugin --profile web add github:PerryLink/dsh-doublecheck
 
 # or from npm (published releases)
 dsh plugin --profile web add dsh-doublecheck
@@ -85,7 +97,7 @@ dsh --profile web --dump-config | grep -E -A3 'id: doublecheck-(grill|guard)'
 
 ## 安装与卸载
 
-- **git 渠道**（最新 `main`）：`dsh plugin --profile web add "github:PerryLink/dsh-doublecheck#main"` —— `prepare` 脚本只使用生产依赖进行构建。
+- **git 渠道**（最新 `main`）：`dsh plugin --profile web add github:PerryLink/dsh-doublecheck` —— `prepare` 脚本只使用生产依赖进行构建。
 - **npm 渠道**（发布版本）：`dsh plugin --profile web add dsh-doublecheck`。
 - **tarball 渠道**：在本仓库中执行 `pnpm pack`，然后 `dsh plugin --profile web add ./dsh-doublecheck-<version>.tgz`。
 - **卸载**：`dsh plugin --profile web remove dsh-doublecheck`（或从配置文件补丁中移除这些行）。

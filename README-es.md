@@ -34,6 +34,14 @@
 Este plugin forma parte de la [familia de plugins DSH](https://github.com/PerryLink) (más de 40, todos Apache-2.0). Si te resulta útil, **dale una estrella**: no desbloquea nada, pero ayuda a que la siguiente persona lo encuentre antes.
 
 *English:* part of a 40+ plugin family for DeepSeek Harness. If it is useful, **a star helps the next person find it** — nothing is gated behind it.
+## What is dsh-doublecheck?
+
+La puerta de calidad de entrega para DeepSeek Harness: interroga los requisitos, prueba la implementación, demuestra la entrega — y controla el traspaso con una decisión de entregable / rehacer.
+
+Los requisitos se interrogan antes de la primera edición; la entrega se demuestra, nunca se afirma.
+
+![Demostración de terminal de dsh-doublecheck: dsh-doublecheck — /gate report (example block from the README)](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-demo.png)
+
 ## Compatibilidad
 
 | Superficie | Estado |
@@ -71,8 +79,12 @@ grill ──▶ design ──▶ red ──▶ green ──▶ review ──▶ 
 ## Inicio rápido
 
 ```sh
+dsh plugin --profile web add github:PerryLink/dsh-doublecheck
+```
+
+```sh
 # 1. install the bundle into your profile
-dsh plugin --profile web add "github:PerryLink/dsh-doublecheck#main"
+dsh plugin --profile web add github:PerryLink/dsh-doublecheck
 
 # or from npm (published releases)
 dsh plugin --profile web add dsh-doublecheck
@@ -85,7 +97,7 @@ Ambas filas (`doublecheck-grill` y `doublecheck-guard`) se activan automáticame
 
 ## Instalación y desinstalación
 
-- **canal git** (última `main`): `dsh plugin --profile web add "github:PerryLink/dsh-doublecheck#main"` — el script `prepare` compila solo con dependencias de producción.
+- **canal git** (última `main`): `dsh plugin --profile web add github:PerryLink/dsh-doublecheck` — el script `prepare` compila solo con dependencias de producción.
 - **canal npm** (versiones publicadas): `dsh plugin --profile web add dsh-doublecheck`.
 - **canal tarball**: `pnpm pack` en este repo y luego `dsh plugin --profile web add ./dsh-doublecheck-<version>.tgz`.
 - **desinstalar**: `dsh plugin --profile web remove dsh-doublecheck` (o elimina las filas del parche de perfil).
