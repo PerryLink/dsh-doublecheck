@@ -34,6 +34,7 @@
 这个插件是 [DSH 插件家族](https://github.com/PerryLink)的一员（40+ 个，全部 Apache-2.0）。如果你在用，**给个 star** —— 它不会解锁任何功能，但会让下一个人在搜索里更容易找到它。
 
 *English:* part of a 40+ plugin family for DeepSeek Harness. If it is useful, **a star helps the next person find it** — nothing is gated behind it.
+
 ## What is dsh-doublecheck?
 
 DeepSeek Harness 的交付质量门禁：先拷问需求，再测试实现，最后证明交付——并用「可交付 / 需要返工」的裁决来把关交接。
