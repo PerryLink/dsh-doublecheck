@@ -43,6 +43,10 @@ Os requisitos são interrogados antes da primeira edição; a entrega é comprov
 
 ![Demonstração de terminal do dsh-doublecheck: dsh-doublecheck — /gate report (example block from the README)](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-demo.png)
 
+![Animated terminal demo of dsh-doublecheck](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-demo.gif)
+
+*A mesma execução, animada.*
+
 ## Compatibilidade
 
 | Superfície | Status |

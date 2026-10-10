@@ -44,6 +44,10 @@ Requirements get interrogated before the first edit; delivery is proven, never c
 
 ![Terminal demo of dsh-doublecheck: dsh-doublecheck — /gate report (example block from the README)](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-demo.png)
 
+![Animated terminal demo of dsh-doublecheck](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-demo.gif)
+
+*The same run, animated.*
+
 ## Compatibility
 
 | Surface | Status |

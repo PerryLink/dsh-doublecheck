@@ -43,6 +43,10 @@ DeepSeek Harness के लिए डिलीवरी गुणवत्ता
 
 ![dsh-doublecheck का टर्मिनल डेमो: dsh-doublecheck — /gate report (example block from the README)](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-demo.png)
 
+![Animated terminal demo of dsh-doublecheck](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-demo.gif)
+
+*वही रन, एनिमेटेड।*
+
 ## अनुकूलता
 
 | सतह | स्थिति |

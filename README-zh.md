@@ -43,6 +43,10 @@ DeepSeek Harness 的交付质量门禁：先拷问需求，再测试实现，最
 
 ![dsh-doublecheck 终端演示：dsh-doublecheck — /gate report (example block from the README)](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-demo.png)
 
+![Animated terminal demo of dsh-doublecheck](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-demo.gif)
+
+*同一次运行，动图版。*
+
 ## 兼容性
 
 | 方面 | 状态 |
