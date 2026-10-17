@@ -41,7 +41,7 @@ O portão de qualidade de entrega para o DeepSeek Harness: interrogue os requisi
 
 Os requisitos são interrogados antes da primeira edição; a entrega é comprovada, nunca afirmada.
 
-![Demonstração de terminal do dsh-doublecheck: dsh-doublecheck — /gate report (example block from the README)](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-demo.png)
+![Demonstração de terminal do dsh-doublecheck: dsh-doublecheck — /gate report (example block from the README)](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-hero.png)
 
 ![Animated terminal demo of dsh-doublecheck](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-demo.gif)
 
@@ -172,6 +172,34 @@ A má configuração falha em voz alta ao carregar: regex inválidas, listas de 
 | `gate` | campo de configuração ao vivo | A lista plugável é o único campo `.volatile()` da linha do guard: é editada no cartão de configurações da linha (namespace = o id de entrada de perfil da linha) e lida uma vez ao carregar. |
 | `strict.patch.yml` | camada de sobreposição | Cada portão ativo com intensidade `block` mais o requisito de cobertura, em uma camada de patch. |
 | `dsh-doublecheck/invariant` | linha acompanhante | Reporta contradições de caminho de escrita próprias do pacote por meio do registro `invariants` do host. |
+| `doublecheck` | projeção de sessão | Uma linha de status limitada que o cliente exibe: etapa, último veredicto do portão, contagem de vermelhos, edições e marcas spec/review. Ver [Como ler a linha de status](#como-ler-a-linha-de-status). |
+
+### Como ler a linha de status
+
+A projeção de sessão `doublecheck` é uma **string**, e é deliberadamente uma única linha: a ideia é que qualquer cliente possa exibi-la sem cortar nada. O `/status` de uma ponte de chat, uma barra de status ou qualquer consumidor próprio a exibe como está:
+
+```text
+gate:rework r2 | stage:green | test:green edits:12 spec:yes review:yes | goal:ship parser fix
+```
+
+| Segmento | Lê-se como |
+|---|---|
+| `gate:<veredicto> r<n>` | O último veredicto do portão de entrega — `none` antes de qualquer execução, `deliverable` ou `rework` — e sua contagem de vermelhos `r<n>`. |
+| `stage:<etapa>` | A etapa de disciplina alcançada com evidência durável: `grill`, `design`, `red`, `green`, `review`, `verify`. |
+| `test:<cor>` | A cor da última execução de testes: `none`, `red`, `green`. |
+| `edits:<n>` | Edições de implementação dobradas do registro de sessão (escrever arquivos de teste não conta). |
+| `spec:yes` / `spec:no` | Se existe um `doublecheck_spec` confirmado. |
+| `review:yes` / `review:no` | Se existe um registro de revisão adversária. |
+| `goal:<trecho>` | O objetivo do spec confirmado, recortado. Só aparece com `spec:yes`. |
+
+A linha é limitada **por construção**, então nenhum renderizador a trunca:
+
+- Orçamento rígido: **120 caracteres**. Um renderizador que preserva valores de até 120 caracteres — o renderizador genérico de projeções da ponte do WeChat é um deles — mostra a linha inteira. A forma de objeto anterior tinha 131 caracteres **vazia**, e é por isso que o veredicto e a contagem de vermelhos eram cortados.
+- Os três primeiros segmentos são **sem perda**. Contagens acima de `9999` vermelhos ou `99999` edições são impressas como `9999+` / `99999+` em vez de crescer sem limite; uma contagem não finita ou negativa é impressa como `0`.
+- `goal:` é o único segmento com perda. Ele é achatado em uma única linha (quebras de linha e caracteres de controle viram espaços, `|` vira `/`) e recortado pelo orçamento restante, no máximo 40 caracteres, terminando em `…` quando foi recortado. O objetivo completo está em `/doublecheck status` e no relatório de entrega.
+- Isto é um relance, não o registro: `/gate status` e `/doublecheck status` mostram o estado completo.
+
+O `stateVersion` da projeção é **3**. Incrementá-lo descarta uma linha de cache de projeção escrita por uma versão anterior e dobra a chave novamente a partir do registro de sessão, de modo que uma sessão atualizada recalcula a linha em vez de mostrar uma obsoleta. O estado dobrado em si não muda, e uma sessão anterior à atualização nunca falha ao carregar.
 
 ## Fases do portão
 

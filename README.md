@@ -42,7 +42,7 @@ The delivery quality gate for DeepSeek Harness: grill the requirements, test the
 
 Requirements get interrogated before the first edit; delivery is proven, never claimed.
 
-![Terminal demo of dsh-doublecheck: dsh-doublecheck — /gate report (example block from the README)](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-demo.png)
+![Terminal demo of dsh-doublecheck: dsh-doublecheck — /gate report (example block from the README)](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-hero.png)
 
 ![Animated terminal demo of dsh-doublecheck](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-demo.gif)
 
@@ -180,6 +180,34 @@ Misconfiguration fails loud at load: invalid regexes, empty or duplicated name l
 | `gate` | live config field | The pluggable checklist is the guard row's one `.volatile()` field: it is edited from the row's settings card (namespace = the row's profile entry id) and read once at load. |
 | `strict.patch.yml` | overlay | Every gate on at `block` intensity plus the coverage requirement, in one patch layer. |
 | `dsh-doublecheck/invariant` | companion row | Reports package-owned write-path contradictions through the host `invariants` registry. |
+| `doublecheck` | session projection | One bounded status line a client renders: stage, latest gate verdict, red-light count, edits, spec/review flags. See [Reading the status line](#reading-the-status-line). |
+
+### Reading the status line
+
+The `doublecheck` session projection is a plain **string**, and it is deliberately one line — the whole point is that a client can show it without cutting anything off. A chat bridge's `/status`, a status bar, or any custom consumer renders it as it is:
+
+```text
+gate:rework r2 | stage:green | test:green edits:12 spec:yes review:yes | goal:ship parser fix
+```
+
+| Segment | Reads as |
+|---|---|
+| `gate:<verdict> r<n>` | The latest delivery-gate verdict — `none` before any run, `deliverable`, or `rework` — and its red-light count `r<n>`. |
+| `stage:<stage>` | The discipline stage reached on durable evidence: `grill`, `design`, `red`, `green`, `review`, `verify`. |
+| `test:<color>` | The latest test-run color: `none`, `red`, `green`. |
+| `edits:<n>` | Implementation edits folded from the session log (test-file writes are not counted). |
+| `spec:yes` / `spec:no` | Whether a committed `doublecheck_spec` exists. |
+| `review:yes` / `review:no` | Whether an adversary review record exists. |
+| `goal:<excerpt>` | The committed spec goal, clipped. Present only when `spec:yes`. |
+
+The line is bounded **by construction**, so no renderer truncates it:
+
+- Hard budget: **120 characters**. A renderer that keeps values up to 120 characters — the WeChat bridge's generic projection renderer is one — shows the entire line. The old object-shaped payload was 131 characters when *empty*, which is why the verdict and the red count used to be cut off.
+- The first three segments are **lossless**. Counts above `9999` red lights or `99999` edits print as `9999+` / `99999+` instead of growing without bound; a non-finite or negative count prints as `0`.
+- `goal:` is the one lossy segment. It is flattened to a single line (newlines and control characters become spaces, `|` becomes `/`) and clipped to the budget that is left, at most 40 characters, ending in `…` when it was clipped. The complete goal is in `/doublecheck status` and the delivery report.
+- This is a glance, not the record: `/gate status` and `/doublecheck status` render the full state.
+
+The projection's `stateVersion` is **3**. Bumping it discards a persisted projection-cache row written by an older version and refolds the key from the session log, so an upgraded session recomputes the line instead of showing a stale one. The persisted fold state itself is unchanged, and a pre-upgrade session never fails to load.
 
 ## Gate phases
 

@@ -41,7 +41,7 @@ DeepSeek Harness 的交付质量门禁：先拷问需求，再测试实现，最
 
 需求在第一次改动之前就被拷问清楚；交付是被证明的，而不是被口头宣称的。
 
-![dsh-doublecheck 终端演示：dsh-doublecheck — /gate report (example block from the README)](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-demo.png)
+![dsh-doublecheck 终端演示：dsh-doublecheck — /gate report (example block from the README)](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-hero.png)
 
 ![Animated terminal demo of dsh-doublecheck](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-demo.gif)
 
@@ -172,6 +172,34 @@ dsh --profile web --dump-config | grep -E -A3 'id: doublecheck-(grill|guard)'
 | `gate` | 活动配置字段 | 可插拔清单是守卫行唯一的 `.volatile()` 字段：从该行的设置卡片编辑（命名空间 = 该行的 profile 条目 id），在加载时读取一次。 |
 | `strict.patch.yml` | 覆盖层 | 一个补丁层内以 `block` 强度开启每个门禁并启用覆盖率要求。 |
 | `dsh-doublecheck/invariant` | 伴生行 | 通过宿主 `invariants` 注册表报告包自有写路径矛盾。 |
+| `doublecheck` | 会话投影 | 客户端渲染的一行有界状态：阶段、最近裁决、红灯数、编辑数与 spec/review 标记。见[如何读这一行](#如何读这一行)。 |
+
+### 如何读这一行
+
+`doublecheck` 会话投影是一个**字符串**，而且刻意只有一行——这样任何客户端都能完整显示它、不会切掉任何内容。聊天桥的 `/status`、状态栏或任何自定义消费者都原样渲染：
+
+```text
+gate:rework r2 | stage:green | test:green edits:12 spec:yes review:yes | goal:ship parser fix
+```
+
+| 片段 | 读法 |
+|---|---|
+| `gate:<裁决> r<n>` | 最近一次交付门禁的裁决——未运行时是 `none`，否则是 `deliverable` 或 `rework`——以及它的红灯数 `r<n>`。 |
+| `stage:<阶段>` | 依据持久证据到达的纪律阶段：`grill`、`design`、`red`、`green`、`review`、`verify`。 |
+| `test:<颜色>` | 最近一次测试运行的颜色：`none`、`red`、`green`。 |
+| `edits:<n>` | 从会话日志折叠出的实现编辑数（写测试文件不计入）。 |
+| `spec:yes` / `spec:no` | 日志中是否存在已提交的 `doublecheck_spec`。 |
+| `review:yes` / `review:no` | 是否存在对手审查记录。 |
+| `goal:<摘录>` | 已提交的 spec 目标，会被裁剪。仅当 `spec:yes` 时出现。 |
+
+这一行的长度**由构造保证有界**，因此不会被任何渲染器截断：
+
+- 硬预算：**120 个字符**。凡是原样保留 120 字符以内取值的渲染器——微信桥的通用投影渲染器就是其中之一——都会完整显示这一行。旧的「对象」形态**空态就有 131 个字符**，这正是裁决与红灯数过去总被切掉的原因。
+- 前三段是**无损的**。红灯数超过 `9999`、编辑数超过 `99999` 时打印为 `9999+` / `99999+`，而不会无限增长；非有限值或负数打印为 `0`。
+- `goal:` 是唯一有损的一段。它会被压成单行（换行与控制字符变空格，`|` 变 `/`），并裁剪到剩余预算，最多 40 个字符，被裁剪时以 `…` 结尾。完整目标见 `/doublecheck status` 与交付报告。
+- 这是一眼速览，不是记录本身：`/gate status` 与 `/doublecheck status` 渲染完整状态。
+
+该投影的 `stateVersion` 为 **3**。递增它会丢弃旧版本写入的持久化投影缓存行，并以该键从会话日志重新折叠，因此升级后的会话会重算这一行，而不是显示过期值。折叠状态本身没有变化，升级前的会话不会因此加载失败。
 
 ## 门禁阶段
 

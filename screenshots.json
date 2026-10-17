@@ -1,5 +1,14 @@
-{
-  "screenshots": [
-    "docs/assets/dsh-doublecheck-demo.png"
-  ]
-}
+[
+  {
+    "path": "docs/assets/dsh-doublecheck-hero.png",
+    "kind": "hero",
+    "alt": "dsh-doublecheck terminal output",
+    "caption": "Real dsh-doublecheck test run; 242 tests passed."
+  },
+  {
+    "path": "docs/assets/dsh-doublecheck-demo.gif",
+    "kind": "demo",
+    "alt": "Animated dsh-doublecheck terminal session",
+    "caption": "The same run, assembled line by line."
+  }
+]

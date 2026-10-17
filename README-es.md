@@ -41,7 +41,7 @@ La puerta de calidad de entrega para DeepSeek Harness: interroga los requisitos,
 
 Los requisitos se interrogan antes de la primera edición; la entrega se demuestra, nunca se afirma.
 
-![Demostración de terminal de dsh-doublecheck: dsh-doublecheck — /gate report (example block from the README)](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-demo.png)
+![Demostración de terminal de dsh-doublecheck: dsh-doublecheck — /gate report (example block from the README)](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-hero.png)
 
 ![Animated terminal demo of dsh-doublecheck](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-demo.gif)
 
@@ -172,6 +172,34 @@ La mala configuración falla en voz alta al cargar: regex inválidas, listas de 
 | `gate` | campo de configuración en vivo | La lista enchufable es el único campo `.volatile()` de la fila del guard: se edita desde la tarjeta de ajustes de la fila (espacio de nombres = el id de entrada de perfil de la fila) y se lee una vez al cargar. |
 | `strict.patch.yml` | capa superpuesta | Cada puerta activa con intensidad `block` más el requisito de cobertura, en una capa de parche. |
 | `dsh-doublecheck/invariant` | fila acompañante | Informa contradicciones de ruta de escritura propias del paquete a través del registro `invariants` del host. |
+| `doublecheck` | proyección de sesión | Una línea de estado acotada que el cliente muestra: etapa, último veredicto de la puerta, cuenta de rojos, ediciones y marcas spec/review. Ver [Cómo leer la línea de estado](#cómo-leer-la-línea-de-estado). |
+
+### Cómo leer la línea de estado
+
+La proyección de sesión `doublecheck` es una **cadena**, y es deliberadamente una sola línea: la idea es que cualquier cliente pueda mostrarla sin recortar nada. El `/status` de un puente de chat, una barra de estado o cualquier consumidor propio la muestra tal cual:
+
+```text
+gate:rework r2 | stage:green | test:green edits:12 spec:yes review:yes | goal:ship parser fix
+```
+
+| Segmento | Se lee como |
+|---|---|
+| `gate:<veredicto> r<n>` | El último veredicto de la puerta de entrega — `none` antes de cualquier ejecución, `deliverable` o `rework` — y su cuenta de rojos `r<n>`. |
+| `stage:<etapa>` | La etapa de disciplina alcanzada con evidencia durable: `grill`, `design`, `red`, `green`, `review`, `verify`. |
+| `test:<color>` | El color de la última ejecución de pruebas: `none`, `red`, `green`. |
+| `edits:<n>` | Ediciones de implementación plegadas del registro de sesión (escribir archivos de prueba no cuenta). |
+| `spec:yes` / `spec:no` | Si existe un `doublecheck_spec` confirmado. |
+| `review:yes` / `review:no` | Si existe un registro de revisión adversaria. |
+| `goal:<extracto>` | El objetivo del spec confirmado, recortado. Solo aparece con `spec:yes`. |
+
+La línea está acotada **por construcción**, así que ningún renderizador la trunca:
+
+- Presupuesto duro: **120 caracteres**. Un renderizador que conserva los valores de hasta 120 caracteres — el renderizador genérico de proyecciones del puente de WeChat es uno de ellos — muestra la línea completa. La forma de objeto anterior tenía 131 caracteres **en vacío**, y por eso el veredicto y la cuenta de rojos se recortaban.
+- Los tres primeros segmentos son **sin pérdida**. Las cuentas por encima de `9999` rojos o `99999` ediciones se imprimen como `9999+` / `99999+` en lugar de crecer sin límite; una cuenta no finita o negativa se imprime como `0`.
+- `goal:` es el único segmento con pérdida. Se aplana a una sola línea (los saltos de línea y los caracteres de control pasan a espacios, `|` pasa a `/`) y se recorta al presupuesto restante, como máximo 40 caracteres, terminando en `…` cuando se recortó. El objetivo completo está en `/doublecheck status` y en el informe de entrega.
+- Esto es un vistazo, no el registro: `/gate status` y `/doublecheck status` muestran el estado completo.
+
+El `stateVersion` de la proyección es **3**. Incrementarlo descarta una fila de caché de proyección escrita por una versión anterior y vuelve a plegar la clave desde el registro de sesión, de modo que una sesión actualizada recalcula la línea en lugar de mostrar una obsoleta. El estado plegado en sí no cambia, y una sesión anterior a la actualización nunca falla al cargar.
 
 ## Fases de la puerta
 
