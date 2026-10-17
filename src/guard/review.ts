@@ -21,10 +21,13 @@ import type { SubagentRun } from '@deepseek-ai/dsh-subagent'
 import type { ObjectJsonSchema } from '@deepseek-ai/dsh-tools'
 import type { ReviewFinding, ReviewVerdict } from '../domain/vocabulary.ts'
 import { PROSE, type GuardProse, type ProseLanguage } from './prose.ts'
+import type { GuardActivationService } from './activation.ts'
 
 /** The adversary knobs the review runner reads. */
 export interface AdversaryConfig {
   adversaryProvider: string
+  /** Read-only Agent Preset for the startActivation path. */
+  adversaryPreset?: string
   adversaryModel: string | null
   adversaryMaxFindings: number
   adversaryTools: string[]
@@ -136,15 +139,36 @@ export async function runAdversaryReview(
   const signal = turnSignal === undefined ? timeout : AbortSignal.any([turnSignal, timeout])
   let run: SubagentRun
   try {
-    run = await subagents.start(config.adversaryProvider, {
-      label: 'doublecheck-adversary',
-      prompt: [{ type: 'text', text: prose.criticTask }],
-      parent: agent,
-      signal,
-      ...config.adversaryModel !== null ? { agentOptions: { model: config.adversaryModel } } : {},
-      outputSchema: REVIEW_OUTPUT_SCHEMA,
-      toolFilter: { allow: config.adversaryTools },
-    })
+    const activation = subagents as typeof subagents & GuardActivationService
+    if (typeof activation.startActivation === 'function') {
+      if (config.adversaryPreset === undefined) {
+        return { verdict: 'unavailable', findings: [], text: prose.reviewUnavailableFailed('this host uses subagents.startActivation; set adversaryPreset to a read-only Agent Preset') }
+      }
+      const started = await activation.startActivation({
+        provider: config.adversaryProvider,
+        label: 'doublecheck-adversary',
+        request: {
+          prompt: [{ type: 'text', text: prose.criticTask }],
+          parent: agent,
+          outputSchema: REVIEW_OUTPUT_SCHEMA,
+          agentPreset: config.adversaryPreset,
+          ...config.adversaryModel !== null ? { agentOptions: { model: config.adversaryModel } } : {},
+        },
+        signal,
+        delivery: 'caller',
+      })
+      run = started as unknown as SubagentRun
+    } else {
+      run = await subagents.start(config.adversaryProvider, {
+        label: 'doublecheck-adversary',
+        prompt: [{ type: 'text', text: prose.criticTask }],
+        parent: agent,
+        signal,
+        ...config.adversaryModel !== null ? { agentOptions: { model: config.adversaryModel } } : {},
+        outputSchema: REVIEW_OUTPUT_SCHEMA,
+        toolFilter: { allow: config.adversaryTools },
+      })
+    }
   } catch (error) {
     // Provider absence, capability rejection, or a child that could not be
     // composed: the review itself never ran, and the notice says so.

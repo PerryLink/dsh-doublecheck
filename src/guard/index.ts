@@ -101,6 +101,8 @@ export interface Config {
   adversaryModel: string | null
   /** Subagent provider name the critic runs on (default `fork`). */
   adversaryProvider: string
+  /** Read-only Agent Preset for hosts that use startActivation. */
+  adversaryPreset?: string
   /** Maximum structured findings injected into the session. */
   adversaryMaxFindings: number
   /** Tools the critic may call (read-only by default; never mutation tools). */
@@ -188,6 +190,7 @@ export const Config = z.object({
   }).default({ grill: true, tdd: true, adversary: false }),
   adversaryModel: z.union([z.string(), z.const(null)]).default(null),
   adversaryProvider: z.string().min(1).default('fork'),
+  adversaryPreset: z.string(),
   adversaryMaxFindings: z.number().default(5),
   adversaryTools: z.array(z.string()).default(['read', 'glob', 'grep']),
   adversaryTimeoutMs: z.number().default(120000),
@@ -700,7 +703,8 @@ export function apply(ctx: Context, config: Config): void {
   })
 
   // The `doublecheck` session projection: folds the same durable discipline
-  // facts the guard reads into a plain-JSON wire value a client renders.
+  // facts the guard reads into the wire value a client renders — one bounded
+  // status line (`renderDoublecheckLine`), not a JSON object.
   // Activates only when a projection registry is composed.
   ctx.inject(['sessionProjections'], (projectionCtx) => {
     const registry = projectionCtx.get('sessionProjections') as {
@@ -729,7 +733,16 @@ export function apply(ctx: Context, config: Config): void {
           viewSchema: doublecheckViewSchema,
           view: viewDoublecheck,
         },
-        stateVersion: 2,
+        // v3: the wire value changed type (object -> one bounded line). The
+        // bump is the persisted-cache invalidation the registry documents, and
+        // it IS the backward-compatibility story: the state fields themselves
+        // are unchanged and still pass `doublecheckStateSchema`, but a row
+        // written at `ver: 2` is discarded on a `ver: 3` unit and the key
+        // refolds from `init` over the full log (the host's `restoreFloor`
+        // drops to seq 0 on any version mismatch). No migration code, and a
+        // pre-upgrade session degrades to a recomputed line instead of a
+        // stale one or a crash.
+        stateVersion: 3,
       }),
       'dsh-doublecheck: projection',
     )
@@ -754,6 +767,7 @@ export function apply(ctx: Context, config: Config): void {
 function adversaryConfig(config: Config): AdversaryConfig {
   return {
     adversaryProvider: config.adversaryProvider,
+    adversaryPreset: config.adversaryPreset,
     adversaryModel: config.adversaryModel ?? null,
     adversaryMaxFindings: config.adversaryMaxFindings,
     adversaryTools: config.adversaryTools,

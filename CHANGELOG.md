@@ -1,6 +1,24 @@
 # Changelog
 
+## [0.9.25] - 2026-10-18
+
+### Added
+
+- **Reviewers use `subagents.startActivation` on 0.2.1+.** The adversary and gate reviewers detect the new API, require a read-only Agent Preset (`adversaryPreset` / `gate.consistency|review.preset`), and fail closed without one; alpha hosts keep the old `start()` + `toolFilter` path. This closes the functional failure where every reviewer call on 0.2.1 was rejected.
+
 All notable changes to dsh-doublecheck are recorded here, newest first.
+
+## [Unreleased]
+
+### Fixed
+
+- **The `doublecheck` session projection could never be read in full.** Its wire value was a JSON object of eight fields costing **131 characters when empty** and 139 with a short goal, while the one-line renderer a chat bridge uses keeps a value only up to 120 characters and otherwise cuts it to 117 plus `…`. Every possible value was truncated: the empty state lost `gateVerdict` to `"ga…` and `gateRedCount` entirely, and as soon as a spec goal existed `specGoal`, `reviewed`, `editCount`, `gateVerdict` and `gateRedCount` all disappeared — exactly the verdict and red-light count a user opens `/status` on a phone to see. A JSON object cannot be fixed by shortening fields either: the eight keys alone put its theoretical minimum at 126 characters.
+
+### Changed
+
+- The wire value is now one string this package renders itself, led by the three facts a user reads first and bounded to **120 characters worst case** by construction: `gate:rework r2 | stage:green | test:green edits:12 spec:yes review:yes | goal:ship parser fix`. Every variable field is capped (counts print as `9999+` / `99999+`, the goal excerpt is sanitized to one line and clipped to the remaining budget, at most 40 characters, ending in `…`), so no field can push the line over budget. `goal:` is the only lossy segment; the complete goal stays in `/doublecheck status` and the delivery report. The READMEs document how to read the line.
+- The projection's `stateVersion` moves **2 → 3** (the wire value changed type). A persisted projection-cache row written at `ver: 2` is discarded and the key refolds from the session log, which is the host's documented version-mismatch path — no migration code, and a pre-upgrade session never fails to load. The persisted fold state is unchanged.
+- A string wire value also quiets the change feed: the host publishes a projection change only when `Object.is` differs from the previous raw view, and equal strings compare equal, where the old fresh object literal published on every state change.
 
 ## [0.9.24] - 2026-10-10
 

@@ -66,6 +66,7 @@ import {
 } from '../domain/gate.ts'
 import type { ReviewFinding } from '../domain/vocabulary.ts'
 import { sortFindings } from './review.ts'
+import type { GuardActivationService } from './activation.ts'
 import type { GuardProse, ProseLanguage } from './prose.ts'
 import { PROSE } from './prose.ts'
 
@@ -76,6 +77,8 @@ export interface GateReviewerConfig {
   provider: string
   /** Model route for the local reviewer; null means the main model reviews. */
   model: string | null
+  /** Read-only Agent Preset for the startActivation path. */
+  preset?: string
   /** Tools the local reviewer may call (read-only by default). */
   tools: string[]
   /** Hard time budget for one local reviewer run. */
@@ -213,6 +216,7 @@ export const GateConfigSchema: Schema<GateConfig> = z.object({
   consistency: z.object({
     enabled: z.boolean().default(true),
     provider: z.string().min(1).default('fork'),
+    preset: z.string(),
     model: z.union([z.string(), z.const(null)]).default(null),
     tools: z.array(z.string()).default(['read', 'glob', 'grep']),
     timeoutMs: z.number().default(120000),
@@ -222,6 +226,7 @@ export const GateConfigSchema: Schema<GateConfig> = z.object({
     enabled: z.boolean().default(true),
     engine: z.union(['auto', 'local'] as const).default('auto'),
     provider: z.string().min(1).default('fork'),
+    preset: z.string(),
     model: z.union([z.string(), z.const(null)]).default(null),
     tools: z.array(z.string()).default(['read', 'glob', 'grep']),
     timeoutMs: z.number().default(120000),
@@ -363,15 +368,36 @@ async function runLocalReviewer(
   const runSignal = AbortSignal.any([signal, timeout])
   let run: SubagentRun
   try {
-    run = await subagents.start(reviewer.provider, {
-      label,
-      prompt: [{ type: 'text', text: task }],
-      parent: agent,
-      signal: runSignal,
-      ...reviewer.model !== null ? { agentOptions: { model: reviewer.model } } : {},
-      outputSchema: GATE_FINDINGS_SCHEMA,
-      toolFilter: { allow: reviewer.tools },
-    })
+    const activation = subagents as typeof subagents & GuardActivationService
+    if (typeof activation.startActivation === 'function') {
+      if (reviewer.preset === undefined) {
+        return { findings: null, unavailable: 'this host uses subagents.startActivation; set the reviewer preset to a read-only Agent Preset' }
+      }
+      const started = await activation.startActivation({
+        provider: reviewer.provider,
+        label,
+        request: {
+          prompt: [{ type: 'text', text: task }],
+          parent: agent,
+          outputSchema: GATE_FINDINGS_SCHEMA,
+          agentPreset: reviewer.preset,
+          ...reviewer.model !== null ? { agentOptions: { model: reviewer.model } } : {},
+        },
+        signal: runSignal,
+        delivery: 'caller',
+      })
+      run = started as unknown as SubagentRun
+    } else {
+      run = await subagents.start(reviewer.provider, {
+        label,
+        prompt: [{ type: 'text', text: task }],
+        parent: agent,
+        signal: runSignal,
+        ...reviewer.model !== null ? { agentOptions: { model: reviewer.model } } : {},
+        outputSchema: GATE_FINDINGS_SCHEMA,
+        toolFilter: { allow: reviewer.tools },
+      })
+    }
   } catch (error) {
     return { findings: null, unavailable: String(error) }
   }
