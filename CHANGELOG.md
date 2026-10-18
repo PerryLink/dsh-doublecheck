@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.9.27] - 2026-10-18
+
+### Fixed
+
+- **The generic one-line projection no longer truncates the two fields a phone user reads first.** The object-shaped wire value was always longer than the WeChat renderer's 120-unit budget, so `gateVerdict` and `gateRedCount` were cut off. The projection now renders one bounded line, keeps `gate:`, `stage:` and `r<red>` unclipped, clips only the goal excerpt, and adds lifecycle tests.
+
 ## [0.9.26] - 2026-10-18
 
 ### Changed

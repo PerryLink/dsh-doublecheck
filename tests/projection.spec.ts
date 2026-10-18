@@ -34,10 +34,12 @@ describe('doublecheck projection fold', () => {
     const state = emptyDoublecheckState()
     const unrelated = userTask('hello') as SessionEvent
     expect(applyDoublecheckEvent(state, unrelated, detection())).toBe(state)
-    expect(viewDoublecheck(state)).toEqual({
+    expect(state).toEqual({
       stage: 'grill', color: 'none', hasSpec: false, specGoal: '', reviewed: false, editCount: 0,
-      gateVerdict: 'none', gateRedCount: 0,
+      gateVerdict: 'none', gateRedCount: 0, pendingSpecCalls: {}, pendingTestCalls: {},
     })
+    // The wire value is one bounded line, not the state object.
+    expect(viewDoublecheck(state)).toBe('gate:none r0 | stage:grill | test:none edits:0 spec:no review:no')
   })
 
   it('folds spec → red → green → review into the wire view', () => {
@@ -53,13 +55,14 @@ describe('doublecheck projection fold', () => {
       reviewInjectionEvent('clean'),
     ] as unknown as SessionEvent[]
     const state = foldDoublecheckState(events, detection())
-    const view = viewDoublecheck(state)
-    expect(view).toEqual({
+    expect(state).toMatchObject({
       stage: 'green', color: 'green', hasSpec: true, specGoal: 'ship parser fix', reviewed: true, editCount: 1,
       gateVerdict: 'none', gateRedCount: 0,
     })
-    // The wire payload passes its own schema.
-    expect(doublecheckViewSchema.parse(view)).toEqual(view)
+    const view = viewDoublecheck(state)
+    expect(view).toBe('gate:none r0 | stage:green | test:green edits:1 spec:yes review:yes | goal:ship parser fix')
+    // The wire payload passes its own schema (which also enforces the budget).
+    expect(doublecheckViewSchema.parse(view)).toBe(view)
   })
 
   it('counts only non-test-file mutations as implementation edits', () => {
@@ -68,7 +71,7 @@ describe('doublecheck projection fold', () => {
       mutationCall('write', 'src/app.spec.ts', 'e-2'),
     ] as unknown as SessionEvent[]
     const state = foldDoublecheckState(events, detection())
-    expect(viewDoublecheck(state).editCount).toBe(1)
+    expect(state.editCount).toBe(1)
   })
 
   it('ignores a failed spec attempt (error result) while keeping the goal pending', () => {
@@ -77,7 +80,8 @@ describe('doublecheck projection fold', () => {
       { ...toolResult('spec-1'), data: { ...toolResult('spec-1').data, error: { name: 'ToolCallError', code: 'boom' } } },
     ] as unknown as SessionEvent[]
     const state = foldDoublecheckState(events, detection())
-    expect(viewDoublecheck(state).hasSpec).toBe(false)
+    expect(state.hasSpec).toBe(false)
+    expect(viewDoublecheck(state)).not.toContain('goal:')
   })
 
   it('moves the projection color on a settled PTC sub-dispatch test run', () => {
