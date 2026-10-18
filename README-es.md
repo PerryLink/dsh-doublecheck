@@ -21,6 +21,11 @@
 
 [English](README.md) · [简体中文](README-zh.md) · [Español](README-es.md) · [Português](README-pt.md) · [हिन्दी](README-hi.md)
 
+```sh
+dsh plugin --profile <name> add dsh-doublecheck
+```
+
+
 </div>
 
 ---
@@ -29,6 +34,15 @@
 **📖 Base de conocimiento del ecosistema** — datos medidos, no marketing: [guía de desarrollo · datos de selección · criterios de mantenimiento](https://perrylink.github.io/dsh-plugin-guide/).
 
 <!-- star-cta -->
+## Instalación y desinstalación
+
+- **canal git** (última `main`): `dsh plugin --profile web add github:PerryLink/dsh-doublecheck` — el script `prepare` compila solo con dependencias de producción.
+- **canal npm** (versiones publicadas): `dsh plugin --profile web add dsh-doublecheck`.
+- **canal tarball**: `pnpm pack` en este repo y luego `dsh plugin --profile web add ./dsh-doublecheck-<version>.tgz`.
+- **desinstalar**: `dsh plugin --profile web remove dsh-doublecheck` (o elimina las filas del parche de perfil).
+
+Para un modo estricto sin configuración (cada puerta activa con intensidad `block`, cobertura de la puerta requerida), aplica la capa superpuesta incluida sobre el parche del bundle: `dsh --profile web --patch ./node_modules/dsh-doublecheck/strict.patch.yml`.
+
 ## ⭐ 如果它帮到了你
 
 Este plugin forma parte de la [familia de plugins DSH](https://github.com/PerryLink) (más de 40, todos Apache-2.0). Si te resulta útil, **dale una estrella**: no desbloquea nada, pero ayuda a que la siguiente persona lo encuentre antes.
@@ -99,15 +113,6 @@ dsh --profile web --dump-config | grep -E -A3 'id: doublecheck-(grill|guard)'
 ```
 
 Ambas filas (`doublecheck-grill` y `doublecheck-guard`) se activan automáticamente con el perfil.
-
-## Instalación y desinstalación
-
-- **canal git** (última `main`): `dsh plugin --profile web add github:PerryLink/dsh-doublecheck` — el script `prepare` compila solo con dependencias de producción.
-- **canal npm** (versiones publicadas): `dsh plugin --profile web add dsh-doublecheck`.
-- **canal tarball**: `pnpm pack` en este repo y luego `dsh plugin --profile web add ./dsh-doublecheck-<version>.tgz`.
-- **desinstalar**: `dsh plugin --profile web remove dsh-doublecheck` (o elimina las filas del parche de perfil).
-
-Para un modo estricto sin configuración (cada puerta activa con intensidad `block`, cobertura de la puerta requerida), aplica la capa superpuesta incluida sobre el parche del bundle: `dsh --profile web --patch ./node_modules/dsh-doublecheck/strict.patch.yml`.
 
 ## Configuración
 

@@ -21,6 +21,11 @@
 
 [English](README.md) · [简体中文](README-zh.md) · [Español](README-es.md) · [Português](README-pt.md) · [हिन्दी](README-hi.md)
 
+```sh
+dsh plugin --profile <name> add dsh-doublecheck
+```
+
+
 </div>
 
 ---
@@ -29,6 +34,15 @@
 **📖 इकोसिस्टम नॉलेज बेस** — मापे गए आँकड़े, मार्केटिंग नहीं: [डेवलपमेंट गाइड · चयन डेटा · रखरखाव मानदंड](https://perrylink.github.io/dsh-plugin-guide/)।
 
 <!-- star-cta -->
+## इंस्टॉल और अनइंस्टॉल
+
+- **git चैनल** (नवीनतम `main`): `dsh plugin --profile web add github:PerryLink/dsh-doublecheck` — `prepare` स्क्रिप्ट केवल उत्पादन निर्भरताओं के साथ बिल्ड करती है।
+- **npm चैनल** (प्रकाशित रिलीज़): `dsh plugin --profile web add dsh-doublecheck`।
+- **tarball चैनल**: इस repo में `pnpm pack`, फिर `dsh plugin --profile web add ./dsh-doublecheck-<version>.tgz`।
+- **अनइंस्टॉल**: `dsh plugin --profile web remove dsh-doublecheck` (या प्रोफ़ाइल पैच से पंक्तियाँ हटाएँ)।
+
+बिना कॉन्फ़िगरेशन वाले सख्त मोड के लिए (हर द्वार `block` तीव्रता पर चालू, द्वार कवरेज आवश्यक), bundle पैच के ऊपर शामिल ओवरले लागू करें: `dsh --profile web --patch ./node_modules/dsh-doublecheck/strict.patch.yml`।
+
 ## ⭐ 如果它帮到了你
 
 यह प्लगइन [DSH प्लगइन परिवार](https://github.com/PerryLink) का हिस्सा है (40+ प्लगइन, सभी Apache-2.0)। अगर यह उपयोगी लगे, तो **एक स्टार दें** — इससे कोई सुविधा अनलॉक नहीं होती, पर अगला व्यक्ति इसे खोज में आसानी से पा लेता है।
@@ -99,15 +113,6 @@ dsh --profile web --dump-config | grep -E -A3 'id: doublecheck-(grill|guard)'
 ```
 
 दोनों पंक्तियाँ (`doublecheck-grill` और `doublecheck-guard`) प्रोफ़ाइल के साथ स्वतः सक्रिय हो जाती हैं।
-
-## इंस्टॉल और अनइंस्टॉल
-
-- **git चैनल** (नवीनतम `main`): `dsh plugin --profile web add github:PerryLink/dsh-doublecheck` — `prepare` स्क्रिप्ट केवल उत्पादन निर्भरताओं के साथ बिल्ड करती है।
-- **npm चैनल** (प्रकाशित रिलीज़): `dsh plugin --profile web add dsh-doublecheck`।
-- **tarball चैनल**: इस repo में `pnpm pack`, फिर `dsh plugin --profile web add ./dsh-doublecheck-<version>.tgz`।
-- **अनइंस्टॉल**: `dsh plugin --profile web remove dsh-doublecheck` (या प्रोफ़ाइल पैच से पंक्तियाँ हटाएँ)।
-
-बिना कॉन्फ़िगरेशन वाले सख्त मोड के लिए (हर द्वार `block` तीव्रता पर चालू, द्वार कवरेज आवश्यक), bundle पैच के ऊपर शामिल ओवरले लागू करें: `dsh --profile web --patch ./node_modules/dsh-doublecheck/strict.patch.yml`।
 
 ## कॉन्फ़िगरेशन
 
