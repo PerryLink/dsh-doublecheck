@@ -1,6 +1,6 @@
 {
   "name": "dsh-doublecheck",
-  "version": "0.9.27",
+  "version": "0.9.28",
   "description": "Delivery quality gate for DeepSeek Harness: grill the requirements, test the implementation, prove the delivery, and gate the handoff with a deliverable/rework decision.",
   "packageManager": "pnpm@11.7.0",
   "repository": {
@@ -148,7 +148,6 @@
     "@deepseek-ai/schemastery": "^3.18.5-alpha.1"
   },
   "dependencies": {
-    "typescript": "^5.7.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -173,7 +172,8 @@
     "@vitest/coverage-v8": "^3.2.0",
     "eslint": "^9.30.0",
     "typescript-eslint": "^8.35.0",
-    "vitest": "^3.2.0"
+    "vitest": "^3.2.0",
+    "typescript": "^5.7.0"
   },
   "funding": {
     "type": "individual",
