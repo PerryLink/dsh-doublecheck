@@ -36,9 +36,9 @@ dsh plugin --profile <name> add dsh-doublecheck
 <!-- star-cta -->
 ## ⭐ 如果它帮到了你
 
-这个插件是 [DSH 插件家族](https://github.com/PerryLink)的一员（40+ 个，全部 Apache-2.0）。如果你在用，**给个 star** —— 它不会解锁任何功能，但会让下一个人在搜索里更容易找到它。
+这个插件是 [DSH 插件家族](https://github.com/PerryLink)的一员（95 个，全部 Apache-2.0）。如果你在用，**给个 star** —— 它不会解锁任何功能，但会让下一个人在搜索里更容易找到它。
 
-*English:* part of a 40+ plugin family for DeepSeek Harness. If it is useful, **a star helps the next person find it** — nothing is gated behind it.
+*English:* part of a 95 plugin family for DeepSeek Harness. If it is useful, **a star helps the next person find it** — nothing is gated behind it.
 
 ## What is dsh-doublecheck?
 
@@ -56,7 +56,7 @@ DeepSeek Harness 的交付质量门禁：先拷问需求，再测试实现，最
 
 | 方面 | 状态 |
 |---|---|
-| Harness | DeepSeek Harness `dsh-v0.2.1-alpha.1`。已于 2026-09-24 核验（双 typecheck 尺子 + 全量测试绿）；peer 区间接纳 `0.1.2-rc.1`、`0.1.5-alpha.1`、`0.1.5-rc.2`、`0.1.6-alpha.2`、`0.1.7-alpha.1` 与 `0.1.7-rc.2`，不丢任何已支持宿主线。 |
+| Harness | DeepSeek Harness `dsh-v0.2.1-rc.2` (verified 2026-10-18): `engines.dsh >=0.2.1-0 <0.3.0`; the gate and projection paths are covered by the rc.2 test suite. |
 | Node | `^22.19.0 \|\| >=24.0.0` |
 | 平台 | 全部（纯宿主；无原生代码，自身无直接网络请求） |
 | 模型 | 任意（守卫本身从不调用模型；评审与批评阶段作为宿主 subagent 运行） |
