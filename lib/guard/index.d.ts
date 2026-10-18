@@ -58,6 +58,8 @@ export interface Config {
     adversaryModel: string | null;
     /** Subagent provider name the critic runs on (default `fork`). */
     adversaryProvider: string;
+    /** Read-only Agent Preset for hosts that use startActivation. */
+    adversaryPreset?: string;
     /** Maximum structured findings injected into the session. */
     adversaryMaxFindings: number;
     /** Tools the critic may call (read-only by default; never mutation tools). */
@@ -125,6 +127,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     }>>, "defined">;
     adversaryModel: z<string | null, string | null, "defined">;
     adversaryProvider: z<string, string, "defined">;
+    adversaryPreset: z<string, string, "plain">;
     adversaryMaxFindings: z<number, number, "defined">;
     adversaryTools: z<string[], string[], "defined">;
     adversaryTimeoutMs: z<number, number, "defined">;
@@ -150,6 +153,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     }>>, "defined">;
     adversaryModel: z<string | null, string | null, "defined">;
     adversaryProvider: z<string, string, "defined">;
+    adversaryPreset: z<string, string, "plain">;
     adversaryMaxFindings: z<number, number, "defined">;
     adversaryTools: z<string[], string[], "defined">;
     adversaryTimeoutMs: z<number, number, "defined">;

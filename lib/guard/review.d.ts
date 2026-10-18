@@ -21,6 +21,8 @@ import { type GuardProse, type ProseLanguage } from './prose.js';
 /** The adversary knobs the review runner reads. */
 export interface AdversaryConfig {
     adversaryProvider: string;
+    /** Read-only Agent Preset for the startActivation path. */
+    adversaryPreset?: string;
     adversaryModel: string | null;
     adversaryMaxFindings: number;
     adversaryTools: string[];
