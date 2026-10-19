@@ -121,7 +121,22 @@ São os pontos de entrada reais; instale e chame um.
 
 #### Exemplo detalhado
 
-- `doublecheck_report`
+**Comando**
+
+~~~sh
+/gate run
+~~~
+
+**Saída**
+
+~~~text
+# Delivery gate report
+
+> **Verdict: rework required** — 2 red item(s)
+> The gate is red. Re-open the work in plan mode to re-check the open items before delivering.
+~~~
+
+*Observado em `README.md §Example report (lines 243-251)`*
 
 #### Exemplos breves
 

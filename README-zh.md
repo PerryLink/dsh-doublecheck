@@ -121,7 +121,22 @@ dsh --profile web --dump-config | grep -E -A3 'id: doublecheck-(grill|guard)'
 
 #### 详细示例
 
-- `doublecheck_report`
+**命令**
+
+~~~sh
+/gate run
+~~~
+
+**输出**
+
+~~~text
+# Delivery gate report
+
+> **Verdict: rework required** — 2 red item(s)
+> The gate is red. Re-open the work in plan mode to re-check the open items before delivering.
+~~~
+
+*来源 `README.md §Example report (lines 243-251)`*
 
 #### 简短示例
 

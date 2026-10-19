@@ -121,7 +121,22 @@ These are the plugin's real entry points; install once, then call one.
 
 #### Detailed example
 
-- `doublecheck_report`
+**Command**
+
+~~~sh
+/gate run
+~~~
+
+**Output**
+
+~~~text
+# Delivery gate report
+
+> **Verdict: rework required** — 2 red item(s)
+> The gate is red. Re-open the work in plan mode to re-check the open items before delivering.
+~~~
+
+*Observed from `README.md §Example report (lines 243-251)`*
 
 #### Brief examples
 
