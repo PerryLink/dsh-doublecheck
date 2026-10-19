@@ -46,9 +46,10 @@ O portão de qualidade de entrega para o DeepSeek Harness: interrogue os requisi
 
 Os requisitos são interrogados antes da primeira edição; a entrega é comprovada, nunca afirmada.
 
-![Demonstração de terminal do dsh-doublecheck: dsh-doublecheck — /gate report (example block from the README)](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-hero.png)
+![Diagrama de fluxo de dsh-doublecheck: solicitação → política/revisão → veredito.](docs/assets/dsh-doublecheck-flow.svg)
 
-![Animated terminal demo of dsh-doublecheck](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-demo.gif)
+*Visão geral do fluxo: solicitação → política/revisão → veredito. Os exemplos abaixo usam a superfície real de comandos.*
+
 
 *A mesma execução, animada.*
 
@@ -113,6 +114,19 @@ Ambas as linhas (`doublecheck-grill` e `doublecheck-guard`) são ativadas automa
 - **desinstalar**: `dsh plugin --profile web remove dsh-doublecheck` (ou remova as linhas do patch de perfil).
 
 Para um modo estrito sem configuração (cada portão ativo com intensidade `block`, cobertura do portão exigida), aplique a camada de sobreposição incluída sobre o patch do bundle: `dsh --profile web --patch ./node_modules/dsh-doublecheck/strict.patch.yml`.
+
+### Exemplos
+
+São os pontos de entrada reais; instale e chame um.
+
+#### Exemplo detalhado
+
+- `doublecheck_report`
+
+#### Exemplos breves
+
+- `doublecheck_skills`
+- `doublecheck_spec`
 
 ## Configuração
 

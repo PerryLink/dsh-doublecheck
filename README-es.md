@@ -55,9 +55,10 @@ La puerta de calidad de entrega para DeepSeek Harness: interroga los requisitos,
 
 Los requisitos se interrogan antes de la primera edición; la entrega se demuestra, nunca se afirma.
 
-![Demostración de terminal de dsh-doublecheck: dsh-doublecheck — /gate report (example block from the README)](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-hero.png)
+![Diagrama de flujo de dsh-doublecheck: solicitud → política/revisión → veredicto.](docs/assets/dsh-doublecheck-flow.svg)
 
-![Animated terminal demo of dsh-doublecheck](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-demo.gif)
+*Resumen del flujo: solicitud → política/revisión → veredicto. Los ejemplos siguientes usan la superficie de comandos real.*
+
 
 *La misma ejecución, animada.*
 
@@ -113,6 +114,19 @@ dsh --profile web --dump-config | grep -E -A3 'id: doublecheck-(grill|guard)'
 ```
 
 Ambas filas (`doublecheck-grill` y `doublecheck-guard`) se activan automáticamente con el perfil.
+
+### Ejemplos
+
+Son los puntos de entrada reales; instala y llama a uno.
+
+#### Ejemplo detallado
+
+- `doublecheck_report`
+
+#### Ejemplos breves
+
+- `doublecheck_skills`
+- `doublecheck_spec`
 
 ## Configuración
 

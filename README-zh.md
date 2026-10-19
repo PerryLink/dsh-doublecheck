@@ -46,9 +46,10 @@ DeepSeek Harness 的交付质量门禁：先拷问需求，再测试实现，最
 
 需求在第一次改动之前就被拷问清楚；交付是被证明的，而不是被口头宣称的。
 
-![dsh-doublecheck 终端演示：dsh-doublecheck — /gate report (example block from the README)](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-hero.png)
+![dsh-doublecheck 工作流图：请求 → 策略/复核 → 判定。](docs/assets/dsh-doublecheck-flow.svg)
 
-![Animated terminal demo of dsh-doublecheck](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-demo.gif)
+*工作流概览：请求 → 策略/复核 → 判定。下面的示例使用实际命令面。*
+
 
 *同一次运行，动图版。*
 
@@ -113,6 +114,19 @@ dsh --profile web --dump-config | grep -E -A3 'id: doublecheck-(grill|guard)'
 - **卸载**：`dsh plugin --profile web remove dsh-doublecheck`（或从配置文件补丁中移除这些行）。
 
 如需零配置的严格模式（每个门禁都以 `block` 强度开启、要求门禁覆盖率），在捆绑补丁之上应用随附的覆盖层：`dsh --profile web --patch ./node_modules/dsh-doublecheck/strict.patch.yml`。
+
+### 示例
+
+以下为插件真实入口；安装后调用一个即可。
+
+#### 详细示例
+
+- `doublecheck_report`
+
+#### 简短示例
+
+- `doublecheck_skills`
+- `doublecheck_spec`
 
 ## 配置
 

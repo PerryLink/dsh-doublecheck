@@ -56,11 +56,11 @@ The delivery quality gate for DeepSeek Harness: grill the requirements, test the
 
 Requirements get interrogated before the first edit; delivery is proven, never claimed.
 
-![Terminal demo of dsh-doublecheck: dsh-doublecheck — /gate report (example block from the README)](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-hero.png)
+![Workflow diagram for dsh-doublecheck: request → policy / review → verdict.](docs/assets/dsh-doublecheck-flow.svg)
 
-![Animated terminal demo of dsh-doublecheck](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-demo.gif)
+*Workflow overview: request → policy / review → verdict. The examples below use the real command surface.*
 
-*The same run, animated.*
+
 
 ## Compatibility
 
@@ -114,6 +114,19 @@ dsh --profile web --dump-config | grep -E -A3 'id: doublecheck-(grill|guard)'
 ```
 
 Both rows (`doublecheck-grill` and `doublecheck-guard`) activate automatically with the profile.
+
+### Examples
+
+These are the plugin's real entry points; install once, then call one.
+
+#### Detailed example
+
+- `doublecheck_report`
+
+#### Brief examples
+
+- `doublecheck_skills`
+- `doublecheck_spec`
 
 ## Configuration
 

@@ -55,9 +55,10 @@ DeepSeek Harness के लिए डिलीवरी गुणवत्ता
 
 पहली एडिट से पहले आवश्यकताओं की पड़ताल होती है; डिलीवरी साबित की जाती है, दावा नहीं किया जाता।
 
-![dsh-doublecheck का टर्मिनल डेमो: dsh-doublecheck — /gate report (example block from the README)](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-hero.png)
+![dsh-doublecheck कार्यप्रवाह आरेख: अनुरोध → नीति/समीक्षा → निर्णय।](docs/assets/dsh-doublecheck-flow.svg)
 
-![Animated terminal demo of dsh-doublecheck](https://raw.githubusercontent.com/PerryLink/dsh-doublecheck/main/docs/assets/dsh-doublecheck-demo.gif)
+*कार्यप्रवाह: अनुरोध → नीति/समीक्षा → निर्णय। नीचे के उदाहरण वास्तविक कमांड सतह का उपयोग करते हैं।*
+
 
 *वही रन, एनिमेटेड।*
 
@@ -113,6 +114,19 @@ dsh --profile web --dump-config | grep -E -A3 'id: doublecheck-(grill|guard)'
 ```
 
 दोनों पंक्तियाँ (`doublecheck-grill` और `doublecheck-guard`) प्रोफ़ाइल के साथ स्वतः सक्रिय हो जाती हैं।
+
+### उदाहरण
+
+ये वास्तविक प्रवेश बिंदु हैं; इंस्टॉल के बाद एक चलाएँ।
+
+#### विस्तृत उदाहरण
+
+- `doublecheck_report`
+
+#### संक्षिप्त उदाहरण
+
+- `doublecheck_skills`
+- `doublecheck_spec`
 
 ## कॉन्फ़िगरेशन
 
