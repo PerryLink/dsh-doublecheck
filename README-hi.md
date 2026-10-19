@@ -138,6 +138,22 @@ dsh --profile web --dump-config | grep -E -A3 'id: doublecheck-(grill|guard)'
 
 *स्रोत `README.md §Example report (lines 243-251)`*
 
+#### विफलता शाखा
+
+**इनपुट**
+
+~~~text
+/doublecheck maybe
+~~~
+
+**आउटपुट**
+
+~~~text
+Unknown /doublecheck argument "maybe". Usage: /doublecheck status|report|on|off
+~~~
+
+*स्रोत `plugins/dsh-doublecheck/src/guard/prose.ts:191-192; plugins/dsh-doublecheck/src/guard/command.ts:156; plugins/dsh-doublecheck/tests/command.spec.ts:201-208`*
+
 #### संक्षिप्त उदाहरण
 
 - `doublecheck_skills`

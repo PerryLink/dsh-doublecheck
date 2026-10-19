@@ -138,6 +138,22 @@ São os pontos de entrada reais; instale e chame um.
 
 *Observado em `README.md §Example report (lines 243-251)`*
 
+#### Ramo de falha
+
+**Entrada**
+
+~~~text
+/doublecheck maybe
+~~~
+
+**Saída**
+
+~~~text
+Unknown /doublecheck argument "maybe". Usage: /doublecheck status|report|on|off
+~~~
+
+*Observado em `plugins/dsh-doublecheck/src/guard/prose.ts:191-192; plugins/dsh-doublecheck/src/guard/command.ts:156; plugins/dsh-doublecheck/tests/command.spec.ts:201-208`*
+
 #### Exemplos breves
 
 - `doublecheck_skills`

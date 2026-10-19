@@ -138,6 +138,22 @@ These are the plugin's real entry points; install once, then call one.
 
 *Observed from `README.md §Example report (lines 243-251)`*
 
+#### Failure branch
+
+**Input**
+
+~~~text
+/doublecheck maybe
+~~~
+
+**Output**
+
+~~~text
+Unknown /doublecheck argument "maybe". Usage: /doublecheck status|report|on|off
+~~~
+
+*Observed from `plugins/dsh-doublecheck/src/guard/prose.ts:191-192; plugins/dsh-doublecheck/src/guard/command.ts:156; plugins/dsh-doublecheck/tests/command.spec.ts:201-208`*
+
 #### Brief examples
 
 - `doublecheck_skills`

@@ -138,6 +138,22 @@ dsh --profile web --dump-config | grep -E -A3 'id: doublecheck-(grill|guard)'
 
 *来源 `README.md §Example report (lines 243-251)`*
 
+#### 失败分支
+
+**输入**
+
+~~~text
+/doublecheck maybe
+~~~
+
+**输出**
+
+~~~text
+Unknown /doublecheck argument "maybe". Usage: /doublecheck status|report|on|off
+~~~
+
+*来源 `plugins/dsh-doublecheck/src/guard/prose.ts:191-192; plugins/dsh-doublecheck/src/guard/command.ts:156; plugins/dsh-doublecheck/tests/command.spec.ts:201-208`*
+
 #### 简短示例
 
 - `doublecheck_skills`
