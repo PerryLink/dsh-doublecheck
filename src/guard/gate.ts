@@ -388,7 +388,8 @@ async function runLocalReviewer(
       })
       run = started as unknown as SubagentRun
     } else {
-      run = await subagents.start(reviewer.provider, {
+      const legacy = subagents as unknown as { start: (provider: string, options: Record<string, unknown>) => Promise<SubagentRun> }
+      run = await legacy.start(reviewer.provider, {
         label,
         prompt: [{ type: 'text', text: task }],
         parent: agent,

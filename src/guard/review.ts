@@ -159,7 +159,8 @@ export async function runAdversaryReview(
       })
       run = started as unknown as SubagentRun
     } else {
-      run = await subagents.start(config.adversaryProvider, {
+      const legacy = subagents as unknown as { start: (provider: string, options: Record<string, unknown>) => Promise<SubagentRun> }
+      run = await legacy.start(config.adversaryProvider, {
         label: 'doublecheck-adversary',
         prompt: [{ type: 'text', text: prose.criticTask }],
         parent: agent,

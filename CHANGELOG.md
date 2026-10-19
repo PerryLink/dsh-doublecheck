@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.9.29] - 2026-10-19
+
+### Fixed
+
+- Restore the CI type gate on DSH 0.2.1: the legacy `subagents.start` fallback now goes through an explicit compatibility interface, so the removed host method no longer fails `tsc` while old-host fallback behavior is retained.
+
 ## [0.9.28] - 2026-10-18
 
 ### Changed
