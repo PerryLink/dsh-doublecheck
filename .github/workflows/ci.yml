@@ -15,7 +15,7 @@ jobs:
         node: ['22', '24']
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # The packageManager field in package.json pins the exact pnpm version,
       # so CI and local development resolve the same toolchain.
@@ -76,7 +76,7 @@ jobs:
       matrix:
         dsh: ['0.1.2-rc.1', '0.1.5-alpha.1', '0.1.7-alpha.1']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v6
 

@@ -11,7 +11,7 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # The packageManager field in package.json pins the exact pnpm version.
       - uses: pnpm/action-setup@v6
@@ -92,7 +92,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Release
         env:
