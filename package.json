@@ -51,7 +51,9 @@
     "README-es.md",
     "README-pt.md",
     "README-hi.md",
-    "LICENSE"
+    "LICENSE",
+    "PRIVACY.md",
+    "icon.svg"
   ],
   "scripts": {
     "build": "tsc --noEmitOnError && node scripts/fix-dts.mjs",
@@ -178,5 +180,6 @@
   "funding": {
     "type": "individual",
     "url": "https://github.com/sponsors/PerryLink"
-  }
+  },
+  "icon": "icon.svg"
 }
