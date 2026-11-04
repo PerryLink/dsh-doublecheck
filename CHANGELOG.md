@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- Align with the DSH **0.2.2** host line. Every `@deepseek-ai/dsh-*` devDependency that publishes a 0.2.2 release moves from `0.2.1-rc.2` to `0.2.2-rc.1`; `@deepseek-ai/dsh-invariants` stays at `0.2.0-rc.2` because that package has no 0.2.2 release. The cordis family moves to the vendors of 0.2.2 (`^4.1.0` / `^1.1.0`), `@deepseek-ai/schemastery` moves to `~3.19.0`, and `@deepseek-ai/dsh-package-manifest@0.2.2-rc.1` joins the devDependencies (0.2.2's published `dsh-llm` types import it without declaring it). `engines.dsh` gains the `>=0.2.2-0 <0.3.0` clause and `engines.node` gains the `>=24.9.0` clause. Peer ranges only widen: no host line is dropped, and the cordis/schemastery peer ranges stay at their old loose values.
+- Add `@deepseek-ai/dsh-tool-executor-native@0.2.2-rc.1` as a devDependency. 0.2.2 moved raw batch execution behind a pluggable executor, so the test harnesses mount it after `ToolRuntime`.
+
+### Fixed
+
+- `ctx.tools.execute()` in the grill and guard test harnesses uses the 0.2.2 batch contract (`calls: [{ type: 'tool-call', … }]` plus `signal`/`agent`, settling through `batch.results[0].result`). The batch-level `additionalContexts` is asserted where the removed single-call field used to carry it.
+- The `doublecheck` session projection awaits the now-asynchronous `ctx.sessionProjections.register()` inside its effect, holds the returned handle, and releases it with `handle.dispose()` on unload. A new regression test mounts the REAL 0.2.2 registry and proves the key goes live and disappears on dispose.
+- `ptcSettle()` matches both `tool/ptc-dispatch` and its predecessor `tool/code-dispatch` structurally. The 0.2.2 tools contract retires the typed PTC event while persistence still recognizes both labels, so a restored pre-upgrade log keeps folding.
+
 ## [0.9.29] - 2026-10-19
 
 ### Fixed

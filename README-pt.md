@@ -57,8 +57,8 @@ Os requisitos são interrogados antes da primeira edição; a entrega é comprov
 
 | Superfície | Status |
 |---|---|
-| Harness | DeepSeek Harness `dsh-v0.2.1-rc.2` (verified 2026-10-18): `engines.dsh >=0.2.1-0 <0.3.0`; the gate and projection paths are covered by the rc.2 test suite. |
-| Node | `^22.19.0 \|\| >=24.0.0` |
+| Harness | DeepSeek Harness `dsh-v0.2.2-rc.1` (adapted 2026-11-05): `engines.dsh` gains `>=0.2.2-0 <0.3.0` (every earlier line stays admitted); the gate and projection paths are covered by the rc.1 test suite. |
+| Node | `^22.19.0 \|\| >=24.9.0` |
 | Plataformas | Todas (host puro; sem código nativo, sem requisições de rede diretas próprias) |
 | Modelo | Qualquer (o guard nunca chama um modelo; as fases de crítico e revisor rodam como subagentes do harness) |
 

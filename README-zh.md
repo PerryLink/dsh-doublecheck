@@ -57,8 +57,8 @@ DeepSeek Harness 的交付质量门禁：先拷问需求，再测试实现，最
 
 | 方面 | 状态 |
 |---|---|
-| Harness | DeepSeek Harness `dsh-v0.2.1-rc.2` (verified 2026-10-18): `engines.dsh >=0.2.1-0 <0.3.0`; the gate and projection paths are covered by the rc.2 test suite. |
-| Node | `^22.19.0 \|\| >=24.0.0` |
+| Harness | DeepSeek Harness `dsh-v0.2.2-rc.1` (adapted 2026-11-05): `engines.dsh` gains `>=0.2.2-0 <0.3.0` (every earlier line stays admitted); the gate and projection paths are covered by the rc.1 test suite. |
+| Node | `^22.19.0 \|\| >=24.9.0` |
 | 平台 | 全部（纯宿主；无原生代码，自身无直接网络请求） |
 | 模型 | 任意（守卫本身从不调用模型；评审与批评阶段作为宿主 subagent 运行） |
 

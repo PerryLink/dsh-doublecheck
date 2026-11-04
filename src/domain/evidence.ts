@@ -110,33 +110,27 @@ export interface PtcSettle {
  * Normalize one settled PTC sub-dispatch event, across the event-vocabulary
  * rename at the session-format V2→V3 edge.
  *
- * The current line names the settled sub-dispatch `tool/ptc-dispatch` (the
- * host's V2→V3 migration renames the predecessor `tool/code-dispatch`, keeping
- * the payload values), so a stored V2 log arrives under the new label. A host
- * on the older release line still emits the predecessor label, which is outside
- * this line's `SessionEventMap`; it is matched structurally instead of as a
- * switch case, so the fold never depends on which generation wrote the log.
+ * The V3 line names the settled sub-dispatch `tool/ptc-dispatch` (the host's
+ * V2→V3 migration renames the predecessor `tool/code-dispatch`, keeping the
+ * payload values), so a stored V2 log arrives under the new label. Neither
+ * label is a member of this host line's `SessionEventMap` — the 0.2.2 tools
+ * contract retires the PTC declaration while persistence still recognizes both
+ * names — so both are matched structurally instead of as switch cases. The
+ * fold therefore never depends on which generation wrote the log.
  *
  * @param event - one committed session event.
  * @returns the settled payload, or `undefined` when the event is not a settled sub-dispatch.
  */
 export function ptcSettle(event: SessionEvent): PtcSettle | undefined {
-  if (event.type === 'tool/ptc-dispatch') {
-    return {
-      name: event.data.name,
-      arguments: event.data.arguments,
-      isError: event.data.isError,
-      content: event.data.content,
-    }
-  }
-  if ((event.type as string) !== 'tool/code-dispatch') return undefined
-  const legacy = event.data as unknown as Partial<PtcSettle> | null | undefined
-  if (legacy === null || legacy === undefined || typeof legacy.name !== 'string') return undefined
+  const type = event.type as string
+  if (type !== 'tool/ptc-dispatch' && type !== 'tool/code-dispatch') return undefined
+  const settled = event.data as unknown as Partial<PtcSettle> | null | undefined
+  if (settled === null || settled === undefined || typeof settled.name !== 'string') return undefined
   return {
-    name: legacy.name,
-    arguments: legacy.arguments,
-    isError: legacy.isError === true,
-    content: Array.isArray(legacy.content) ? legacy.content : [],
+    name: settled.name,
+    arguments: settled.arguments,
+    isError: settled.isError === true,
+    content: Array.isArray(settled.content) ? settled.content : [],
   }
 }
 

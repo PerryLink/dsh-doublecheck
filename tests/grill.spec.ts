@@ -5,6 +5,7 @@ import SkillRegistry from '@deepseek-ai/dsh-skill'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
+import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import { WorkflowRunId } from '@deepseek-ai/dsh-workflow'
 import type { WorkflowStartRequest } from '@deepseek-ai/dsh-workflow'
 import * as grillModule from '../src/grill/index.ts'
@@ -26,6 +27,8 @@ async function setup(options: SetupOptions = {}, configOverrides: Partial<grillM
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(SkillRegistry)
   await ctx.plugin(ToolRuntime)
+  // 0.2.2: raw batch execution lives behind a pluggable executor.
+  await ctx.plugin(NativeToolExecutor)
   const starts: WorkflowStartRequest[] = []
   if (options.workflowChecks !== undefined || options.workflowReject === true) {
     class FakeWorkflowEngine extends Service {
@@ -98,12 +101,11 @@ describe('doublecheck-grill', () => {
 
   it('lists the doublecheck skill catalog through the catalog tool', async () => {
     const { ctx } = await setup()
-    const result = await ctx.tools.execute({
+    const batch = await ctx.tools.execute({
       signal,
-      callId: CallId('catalog-1'),
-      name: 'doublecheck_skills',
-      arguments: {},
+      calls: [{ type: 'tool-call', id: CallId('catalog-1'), name: 'doublecheck_skills', arguments: '{}' }],
     })
+    const result = batch.results[0]!.result
     expect(result.isError).toBe(false)
     const value = result.value as { skills: { name: string }[] }
     expect(value.skills.map(skill => skill.name)).toEqual([
@@ -117,12 +119,11 @@ describe('doublecheck-grill', () => {
 
   it('loads one skill body through the catalog tool', async () => {
     const { ctx } = await setup()
-    const result = await ctx.tools.execute({
+    const batch = await ctx.tools.execute({
       signal,
-      callId: CallId('catalog-2'),
-      name: 'doublecheck_skills',
-      arguments: { name: 'grill-requirements' },
+      calls: [{ type: 'tool-call', id: CallId('catalog-2'), name: 'doublecheck_skills', arguments: JSON.stringify({ name: 'grill-requirements' }) }],
     })
+    const result = batch.results[0]!.result
     expect(result.isError).toBe(false)
     const value = result.value as { content?: string; provider?: string }
     expect(value.content).toContain('grill-requirements')
@@ -131,23 +132,21 @@ describe('doublecheck-grill', () => {
 
   it('fails loudly for an unknown skill name', async () => {
     const { ctx } = await setup()
-    const result = await ctx.tools.execute({
+    const batch = await ctx.tools.execute({
       signal,
-      callId: CallId('catalog-3'),
-      name: 'doublecheck_skills',
-      arguments: { name: 'no-such-skill' },
+      calls: [{ type: 'tool-call', id: CallId('catalog-3'), name: 'doublecheck_skills', arguments: JSON.stringify({ name: 'no-such-skill' }) }],
     })
+    const result = batch.results[0]!.result
     expect(result.isError).toBe(true)
   })
 
   it('records a spec without a filesystem seam and reports written: false', async () => {
     const { ctx } = await setup()
-    const result = await ctx.tools.execute({
+    const batch = await ctx.tools.execute({
       signal,
-      callId: CallId('spec-1'),
-      name: SPEC_TOOL_NAME,
-      arguments: { ...fullSpec },
+      calls: [{ type: 'tool-call', id: CallId('spec-1'), name: SPEC_TOOL_NAME, arguments: JSON.stringify({ ...fullSpec }) }],
     })
+    const result = batch.results[0]!.result
     expect(result.isError).toBe(false)
     expect(result.value).toEqual({
       spec: fullSpec,
@@ -158,12 +157,11 @@ describe('doublecheck-grill', () => {
 
   it('rejects a spec with an empty dimension instead of committing it', async () => {
     const { ctx } = await setup()
-    const result = await ctx.tools.execute({
+    const batch = await ctx.tools.execute({
       signal,
-      callId: CallId('spec-empty'),
-      name: SPEC_TOOL_NAME,
-      arguments: { ...fullSpec, failureModes: '   ' },
+      calls: [{ type: 'tool-call', id: CallId('spec-empty'), name: SPEC_TOOL_NAME, arguments: JSON.stringify({ ...fullSpec, failureModes: '   ' }) }],
     })
+    const result = batch.results[0]!.result
     expect(result.isError).toBe(true)
     if (result.isError) {
       expect(result.error.message).toContain('failureModes')
@@ -213,13 +211,12 @@ describe('doublecheck-grill', () => {
   ])
 
   async function runReport(ctx: Context, agent: unknown, args: Record<string, unknown> = {}) {
-    return ctx.tools.execute({
+    const batch = await ctx.tools.execute({
       signal,
-      callId: CallId('report-1'),
-      name: 'doublecheck_report',
-      arguments: args,
+      calls: [{ type: 'tool-call', id: CallId('report-1'), name: 'doublecheck_report', arguments: JSON.stringify(args) }],
       agent: agent as never,
     })
+    return batch.results[0]!.result
   }
 
   it('folds the session into a report without verification when the seam is missing', async () => {

@@ -66,8 +66,8 @@ Requirements get interrogated before the first edit; delivery is proven, never c
 
 | Surface | Status |
 |---|---|
-| Harness | DeepSeek Harness `dsh-v0.2.1-rc.2` (verified 2026-10-18): `engines.dsh >=0.2.1-0 <0.3.0`; the gate and projection paths are covered by the rc.2 test suite. |
-| Node | `^22.19.0 \|\| >=24.0.0` |
+| Harness | DeepSeek Harness `dsh-v0.2.2-rc.1` (adapted 2026-11-05): `engines.dsh` gains `>=0.2.2-0 <0.3.0` (every earlier line stays admitted); the gate and projection paths are covered by the rc.1 test suite. |
+| Node | `^22.19.0 \|\| >=24.9.0` |
 | Platforms | All (pure host; no native code, no direct network requests of its own) |
 | Model | Any (the guard itself never calls a model; the critic and reviewer phases run as harness subagents) |
 

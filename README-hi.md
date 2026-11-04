@@ -66,8 +66,8 @@ DeepSeek Harness के लिए डिलीवरी गुणवत्ता
 
 | सतह | स्थिति |
 |---|---|
-| Harness | DeepSeek Harness `dsh-v0.2.1-rc.2` (verified 2026-10-18): `engines.dsh >=0.2.1-0 <0.3.0`; the gate and projection paths are covered by the rc.2 test suite. |
-| Node | `^22.19.0 \|\| >=24.0.0` |
+| Harness | DeepSeek Harness `dsh-v0.2.2-rc.1` (adapted 2026-11-05): `engines.dsh` gains `>=0.2.2-0 <0.3.0` (every earlier line stays admitted); the gate and projection paths are covered by the rc.1 test suite. |
+| Node | `^22.19.0 \|\| >=24.9.0` |
 | प्लेटफ़ॉर्म | सभी (शुद्ध host; कोई नेटिव कोड नहीं, स्वयं का कोई सीधा नेटवर्क अनुरोध नहीं) |
 | मॉडल | कोई भी (guard स्वयं कभी मॉडल नहीं बुलाता; critic और reviewer चरण harness subagent के रूप में चलते हैं) |
 

@@ -7,6 +7,7 @@ import { SessionId } from '@deepseek-ai/dsh-session'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import { defineTool, ToolRuntime } from '@deepseek-ai/dsh-tools'
 import type { PreToolDecision, ToolExecution } from '@deepseek-ai/dsh-tools'
+import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import * as guardModule from '../src/guard/index.ts'
 import { SPEC_TOOL_NAME } from '../src/domain/stages.ts'
 import type { GuardIntensity, ReviewFinding } from '../src/events.ts'
@@ -53,6 +54,8 @@ async function setup(config: guardModule.Config = fullConfig(), options: SetupOp
   const ctx = new Context()
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
+  // 0.2.2: raw batch execution lives behind a pluggable executor.
+  await ctx.plugin(NativeToolExecutor)
   const editTool = defineTool({
     name: 'edit',
     description: 'edit a file',
@@ -120,15 +123,19 @@ function greenDeliverySession(): unknown[] {
   ]
 }
 
-/** Execute an `edit` call for a session whose log is `events`. */
+/**
+ * Execute an `edit` call for a session whose log is `events`.
+ *
+ * 0.2.2 settles a whole batch and lifts `additionalContexts` onto the batch
+ * result; project both back onto the flat shape these assertions read.
+ */
 async function runEdit(ctx: Context, agent: Agent, callId: string, path = 'src/app.ts') {
-  return ctx.tools.execute({
+  const batch = await ctx.tools.execute({
     signal,
-    callId: CallId(callId),
-    name: 'edit',
-    arguments: { file_path: path },
+    calls: [{ type: 'tool-call', id: CallId(callId), name: 'edit', arguments: JSON.stringify({ file_path: path }) }],
     agent,
   })
+  return { ...batch.results[0]!.result, additionalContexts: batch.additionalContexts }
 }
 
 /** The guard's pre-execute decision for one synthetic execution. */
@@ -280,7 +287,7 @@ describe('doublecheck-guard', () => {
     const session = fakeSession([userTask('fix the bug in parser.ts')])
     const result = await runEdit(ctx, fakeAgent(session), 'edit-2')
     expect(result.isError).toBe(false)
-    expect(result.additionalContexts).toBeUndefined()
+    expect(result.additionalContexts).toHaveLength(0)
   })
 
   it('leaves a session with a committed spec alone', async () => {
@@ -292,7 +299,7 @@ describe('doublecheck-guard', () => {
     ])
     const result = await runEdit(ctx, fakeAgent(session), 'edit-3')
     expect(result.isError).toBe(false)
-    expect(result.additionalContexts).toBeUndefined()
+    expect(result.additionalContexts).toHaveLength(0)
   })
 
   it('reopens the grill when a new vague task arrives after the spec commit', async () => {
@@ -333,27 +340,25 @@ describe('doublecheck-guard', () => {
       async execute() { return 'content' },
     })
     ctx.tools.register(readTool)
-    const result = await ctx.tools.execute({
+    const batch = await ctx.tools.execute({
       signal,
-      callId: CallId('read-1'),
-      name: 'read',
-      arguments: {},
+      calls: [{ type: 'tool-call', id: CallId('read-1'), name: 'read', arguments: '{}' }],
       agent: fakeAgent(session),
     })
+    const result = { ...batch.results[0]!.result, additionalContexts: batch.additionalContexts }
     expect(result.isError).toBe(false)
-    expect(result.additionalContexts).toBeUndefined()
+    expect(result.additionalContexts).toHaveLength(0)
   })
 
   it('leaves agent-less direct calls alone', async () => {
     const { ctx } = await setup()
-    const result = await ctx.tools.execute({
+    const batch = await ctx.tools.execute({
       signal,
-      callId: CallId('edit-4'),
-      name: 'edit',
-      arguments: { file_path: 'x.ts' },
+      calls: [{ type: 'tool-call', id: CallId('edit-4'), name: 'edit', arguments: JSON.stringify({ file_path: 'x.ts' }) }],
     })
+    const result = { ...batch.results[0]!.result, additionalContexts: batch.additionalContexts }
     expect(result.isError).toBe(false)
-    expect(result.additionalContexts).toBeUndefined()
+    expect(result.additionalContexts).toHaveLength(0)
   })
 
   it('reminds at most once per session under remindOnce', async () => {
@@ -363,7 +368,7 @@ describe('doublecheck-guard', () => {
     const first = await runEdit(ctx, agent, 'edit-5')
     const second = await runEdit(ctx, agent, 'edit-6')
     expect(first.additionalContexts).toHaveLength(1)
-    expect(second.additionalContexts).toBeUndefined()
+    expect(second.additionalContexts).toHaveLength(0)
   })
 
   it('reminds again after the first reminder when remindOnce is off', async () => {
@@ -419,7 +424,7 @@ describe('doublecheck-guard', () => {
     const session = vagueSession()
     const result = await runEdit(ctx, fakeAgent(session), 'edit-11')
     expect(result.isError).toBe(false)
-    expect(result.additionalContexts).toBeUndefined()
+    expect(result.additionalContexts).toHaveLength(0)
   })
 
   it('recomputes its snapshot when the session log grows', async () => {
@@ -431,7 +436,7 @@ describe('doublecheck-guard', () => {
 
     ;(session.events as SessionEvent[]).push(toolCall(SPEC_TOOL_NAME, 'spec-2'), toolResult('spec-2'))
     const after = await runEdit(ctx, agent, 'edit-13')
-    expect(after.additionalContexts).toBeUndefined()
+    expect(after.additionalContexts).toHaveLength(0)
   })
 
   it('pairs a spec call and its result folded in separate snapshot batches', async () => {
@@ -448,7 +453,7 @@ describe('doublecheck-guard', () => {
 
     ;(session.events as SessionEvent[]).push(toolResult('spec-3'))
     const committed = await runEdit(ctx, agent, 'edit-17')
-    expect(committed.additionalContexts).toBeUndefined()
+    expect(committed.additionalContexts).toHaveLength(0)
   })
 
   it('emits one reminder event per reaction with the intensity verdict', async () => {
@@ -483,7 +488,7 @@ describe('doublecheck-guard', () => {
     const session = concreteSession()
     const result = await runEdit(ctx, fakeAgent(session), 'tdd-2', 'tests/app.spec.ts')
     expect(result.isError).toBe(false)
-    expect(result.additionalContexts).toBeUndefined()
+    expect(result.additionalContexts).toHaveLength(0)
   })
 
   it('lets implementation edits through once a failing test is on record', async () => {
@@ -495,7 +500,7 @@ describe('doublecheck-guard', () => {
     ])
     const result = await runEdit(ctx, fakeAgent(session), 'tdd-3')
     expect(result.isError).toBe(false)
-    expect(result.additionalContexts).toBeUndefined()
+    expect(result.additionalContexts).toHaveLength(0)
   })
 
   it('requires the red step again after a passing run', async () => {
@@ -574,7 +579,7 @@ describe('doublecheck-guard', () => {
 
     ;(session.events as SessionEvent[]).push(sessionEvent('doublecheck/state', { enabled: false }))
     const after = await runEdit(ctx, agent, 'switch-fold-2')
-    expect(after.additionalContexts).toBeUndefined()
+    expect(after.additionalContexts).toHaveLength(0)
   })
 
   it('injects the green reminder at turn end when edits lack a passing run', async () => {

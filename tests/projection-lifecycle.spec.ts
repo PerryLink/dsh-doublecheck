@@ -12,6 +12,7 @@
 
 import { Context, Service } from '@deepseek-ai/cordis'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import { describe, expect, it } from 'vitest'
@@ -32,22 +33,26 @@ interface RegisteredProjection {
   }
 }
 
-/** A recording `sessionProjections` registry: captures definitions and their disposers. */
+/** A recording `sessionProjections` registry: captures definitions and their handles. */
 class FakeProjections extends Service {
   readonly registrations: RegisteredProjection[] = []
-  /** Indices whose returned disposer has NOT run yet. */
+  /** Indices whose returned handle has NOT been disposed yet. */
   readonly live = new Set<number>()
 
   constructor(childCtx: Context) {
     super(childCtx, 'sessionProjections')
   }
 
-  register(definition: RegisteredProjection): () => void {
+  // 0.2.2: registration is asynchronous and yields a handle whose `dispose()`
+  // is the unregistration path.
+  register(definition: RegisteredProjection): Promise<{ dispose(): Promise<void> }> {
     const index = this.registrations.push(definition) - 1
     this.live.add(index)
-    return () => {
-      this.live.delete(index)
-    }
+    return Promise.resolve({
+      dispose: async () => {
+        this.live.delete(index)
+      },
+    })
   }
 }
 
@@ -166,5 +171,31 @@ describe('doublecheck projection registration lifecycle', () => {
     expect(definition?.wire.view(definition.init())).toBe('gate:none r0 | stage:grill | test:none edits:0 spec:no review:no')
 
     await fiber.dispose()
+  })
+})
+
+/**
+ * 0.2.2 regression: `sessionProjections.register()` became asynchronous and
+ * yields a handle whose `dispose()` is the unregistration path. Mount the REAL
+ * registry (not the recording fake above) so the awaited-registration contract
+ * is exercised end to end: the key goes live and disappears on fiber dispose.
+ */
+describe('doublecheck projection against the real 0.2.2 registry', () => {
+  it('awaits the asynchronous handle and releases the key on dispose', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SystemPrompt)
+    await ctx.plugin(ToolRuntime)
+    await ctx.plugin(FakeCommands)
+    await ctx.plugin(SessionProjectionRegistry)
+    const projections = ctx.get('sessionProjections') as SessionProjectionRegistry
+
+    const fiber = await ctx.plugin(guardModule, projectionOnlyConfig())
+    // The effect awaits the registration; flush its continuation deterministically.
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(projections.summaryKeys().has('doublecheck')).toBe(true)
+
+    await fiber.dispose()
+    expect(projections.summaryKeys().has('doublecheck')).toBe(false)
+    await ctx.fiber.dispose()
   })
 })
