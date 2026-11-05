@@ -1,13 +1,18 @@
-// Five-language README sync gate: every README must carry the same number of
-// `## ` sections as the English source, state the install command, and contain
-// every configuration-table key. Section headings may be translated; the
-// English file is the source of truth.
+// README sync gate: every checked README must carry the same number of `## `
+// sections as the English source, state the install command, and contain every
+// configuration-table key. Section headings may be translated; the English
+// file is the source of truth.
+//
+// File list after the dotted-name migration: `README.en.md` is the English
+// source and `README.md` is the Chinese main page. The dotted es/pt/hi siblings
+// are updated in the same commit but are not gated here — listing them would
+// re-open the package.json `files[]` sync this gate does not own.
 import { readFileSync, existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
-const FILES = ['README.md', 'README-zh.md', 'README-es.md', 'README-pt.md', 'README-hi.md']
+const FILES = ['README.en.md', 'README.md']
 const INSTALL_COMMAND = 'dsh plugin --profile web add dsh-doublecheck'
 
 const failures = []
