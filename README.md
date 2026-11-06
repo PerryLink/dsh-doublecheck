@@ -1,8 +1,8 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/dsh-doublecheck-flow-dark.svg">
-  <img src="docs/assets/dsh-doublecheck-flow-light.svg" width="100%" alt="dsh-doublecheck 工作流：grill → design → red → green → review → verify，由 /gate run 折叠成可交付 / 返工裁决">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/dsh-doublecheck-hero-zh-dark.webp">
+  <img src="docs/assets/dsh-doublecheck-hero-zh-light.webp" width="100%" alt="dsh-doublecheck 配图：左侧是插件名与「先证后交」；右侧是一次 /gate run 定下的交付报告——需求拷问 6/6 通过，测试证据因覆盖率 61% 低于 80% 下限亮红灯，实现一致性只有一条 minor 警告、不翻转裁决，最终裁决为 rework（1 个红灯）">
 </picture>
 
 # dsh-doublecheck
@@ -41,6 +41,11 @@ dsh plugin --profile <name> add dsh-doublecheck
 一次 `/gate run` 会把会话里已经发生的事实折叠成四阶段清单：需求是否逐项被确认、最近一次测试是红还是绿、每处改动是否服务于某个 spec 维度、评审结论是什么，然后给出**可交付 / 需要返工**的裁决，并写成一份可直接贴进 PR 描述的报告。
 
 它不替你写代码，也不判断代码好不好看；它只做一件事——让「做完了」这句话必须带上证据。
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/dsh-doublecheck-flow-v5-dark.svg">
+  <img src="docs/assets/dsh-doublecheck-flow-v5-light.svg" width="100%" alt="dsh-doublecheck 结构图：左侧持久会话日志（tool/call、tool/result、user/message、autoReview/verdict、dsh-eval report，以及 doublecheck/state、doublecheck/gate）经总线进入四阶段清单——需求拷问与测试证据是 0 模型调用的确定性折叠，实现一致性与评审结论各起一个分叉评审者；只有失败的检查汇入右侧裁决轨，警告与跳过永不翻转裁决；底部是 gate-report.md / gate-report.json、CI 退出码与 120 字符以内的单行投影">
+</picture>
 
 ## 三步上手
 
@@ -452,7 +457,7 @@ pnpm run pack:check      # build + 打包 tarball
 pnpm run check:readmes   # 五语 README 一致性门禁
 ```
 
-`lib/` 是刻意提交的：git 安装渠道无需构建即可解析本包，源码改动后请重新 `pnpm run build` 并一并提交。README 的配图由 [`scripts/gen-readme-assets.py`](scripts/gen-readme-assets.py) 程序化生成（Python + Pillow，输出 SVG 矢量图），可重复执行、幂等覆盖。
+`lib/` 是刻意提交的：git 安装渠道无需构建即可解析本包，源码改动后请重新 `pnpm run build` 并一并提交。README 的配图由 [`scripts/gen-readme-assets.py`](scripts/gen-readme-assets.py) 程序化生成：hero 横幅用 Pillow 画成中/英 × 深/浅四版 WebP，结构图用手写 SVG 画成 flow-v5 深/浅两版；脚本可重复执行、幂等覆盖。旧的单版流程图与演示图保留在 `docs/assets/` 供外链使用，README 只引用新的 hero 与 flow-v5。
 
 Topics：`dsh`, `dsh-plugin`, `deepseek-harness`, `engineering-discipline`, `requirements`, `guard`, `skill`, `quality-gate`, `delivery-gate`
 

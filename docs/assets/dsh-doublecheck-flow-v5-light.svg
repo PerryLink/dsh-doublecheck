@@ -1,0 +1,137 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="660" viewBox="0 0 1100 660" role="img" aria-labelledby="fig-title fig-desc">
+<title id="fig-title">dsh-doublecheck delivery gate — four phases, two kinds of evidence, one verdict</title>
+<desc id="fig-desc">The durable session log feeds four phase rows: requirements and tests fold deterministically with no model call, consistency and review each fork one read-only reviewer. Only a failing check crosses into the verdict rail; warnings and skips never flip the verdict. The footer carries gate-report.md, gate-report.json, the CI exit code and the bounded one-line projection.</desc>
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f9f6fd"/><stop offset="1" stop-color="#e4eaf8"/></linearGradient>
+<filter id="soft" x="-25%" y="-25%" width="150%" height="170%"><feDropShadow dx="0" dy="7" stdDeviation="9" flood-color="#1b1735" flood-opacity="0.14"/></filter>
+<radialGradient id="glow" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#4B67B4" stop-opacity="0.06"/><stop offset="1" stop-color="#4B67B4" stop-opacity="0"/></radialGradient>
+<marker id="arr-acc" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0.5 0.5 L9.5 5 L0.5 9.5 z" fill="#4B67B4"/></marker>
+<marker id="arr-fail" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0.5 0.5 L9.5 5 L0.5 9.5 z" fill="#dc2626"/></marker>
+<marker id="arr-mut" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0.5 0.5 L9.5 5 L0.5 9.5 z" fill="#4d5261"/></marker>
+</defs>
+<rect width="1100" height="660" rx="22" fill="url(#bg)"/>
+<circle cx="1000" cy="70" r="230" fill="url(#glow)"/>
+<circle cx="110" cy="640" r="180" fill="url(#glow)"/>
+<text x="44" y="46" fill="#4B67B4" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11.5" font-weight="700" letter-spacing="1.6">DELIVERY GATE · /gate run</text>
+<text x="44" y="82" fill="#141419" font-family="Segoe UI, Microsoft YaHei, PingFang SC, Noto Sans CJK SC, sans-serif" font-size="27" font-weight="700">Four phases, two kinds of evidence, one verdict</text>
+<text x="44" y="106" fill="#4d5261" font-family="Segoe UI, Microsoft YaHei, PingFang SC, Noto Sans CJK SC, sans-serif" font-size="13">Every check reads the durable session log; one failing check flips the verdict — warnings and skips never do.</text>
+<rect x="44" y="122" width="176" height="448" rx="16" fill="#ffffff" stroke="#e6e2ef" stroke-width="1" filter="url(#soft)"/>
+<text x="64" y="152" fill="#4B67B4" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5" font-weight="700" letter-spacing="1.1">SESSION LOG</text>
+<text x="64" y="172" fill="#4d5261" font-family="Segoe UI, Microsoft YaHei, PingFang SC, Noto Sans CJK SC, sans-serif" font-size="11">append-only · replay = state</text>
+<line x1="64" y1="188" x2="200" y2="188" stroke="#e6e2ef" stroke-width="1"/>
+<circle cx="68" cy="210" r="2.4" fill="#4B67B4"/>
+<text x="80" y="214" fill="#141419" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11">tool/call</text>
+<circle cx="68" cy="234" r="2.4" fill="#4B67B4"/>
+<text x="80" y="238" fill="#141419" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11">tool/result</text>
+<circle cx="68" cy="258" r="2.4" fill="#4B67B4"/>
+<text x="80" y="262" fill="#141419" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11">user/message</text>
+<circle cx="68" cy="282" r="2.4" fill="#4B67B4"/>
+<text x="80" y="286" fill="#141419" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11">autoReview/verdict</text>
+<line x1="64" y1="302" x2="200" y2="302" stroke="#e6e2ef" stroke-width="1"/>
+<text x="64" y="324" fill="#4B67B4" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="700" letter-spacing="0.8">DURABLE FACTS</text>
+<circle cx="68" cy="344" r="2.4" fill="#4B67B4" opacity="0.55"/>
+<text x="80" y="348" fill="#141419" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11">doublecheck/state</text>
+<circle cx="68" cy="366" r="2.4" fill="#4B67B4" opacity="0.55"/>
+<text x="80" y="370" fill="#141419" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11">doublecheck/gate</text>
+<line x1="64" y1="386" x2="200" y2="386" stroke="#e6e2ef" stroke-width="1"/>
+<text x="64" y="408" fill="#4B67B4" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="700" letter-spacing="0.8">OPTIONAL FILE</text>
+<circle cx="68" cy="428" r="2.4" fill="#4B67B4" opacity="0.55"/>
+<text x="80" y="432" fill="#141419" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11">dsh-eval report</text>
+<text x="64" y="454" fill="#8f94a4" font-family="Segoe UI, Microsoft YaHei, PingFang SC, Noto Sans CJK SC, sans-serif" font-size="11">default off</text>
+<line x1="64" y1="474" x2="200" y2="474" stroke="#e6e2ef" stroke-width="1"/>
+<text x="64" y="498" fill="#8f94a4" font-family="Segoe UI, Microsoft YaHei, PingFang SC, Noto Sans CJK SC, sans-serif" font-size="11">no network</text>
+<text x="64" y="518" fill="#8f94a4" font-family="Segoe UI, Microsoft YaHei, PingFang SC, Noto Sans CJK SC, sans-serif" font-size="11">replay-stable</text>
+<line x1="220" y1="200" x2="228" y2="200" stroke="#4B67B4" stroke-width="1.4"/>
+<line x1="228" y1="200" x2="228" y2="524" stroke="#4B67B4" stroke-width="1.4" opacity="0.5"/>
+<path d="M228 200 H233" fill="none" stroke="#4B67B4" stroke-width="1.4" marker-end="url(#arr-acc)"/>
+<path d="M228 300 H233" fill="none" stroke="#4B67B4" stroke-width="1.4" marker-end="url(#arr-acc)"/>
+<path d="M228 424 H233" fill="none" stroke="#4B67B4" stroke-width="1.4" marker-end="url(#arr-acc)"/>
+<path d="M228 524 H233" fill="none" stroke="#4B67B4" stroke-width="1.4" marker-end="url(#arr-acc)"/>
+<rect x="236" y="133" width="8" height="8" rx="2" fill="#4B67B4"/>
+<text x="254" y="144" fill="#4B67B4" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11.5" font-weight="700" letter-spacing="0.6">DETERMINISTIC FOLD · 0 MODEL CALLS</text>
+<rect x="236" y="357" width="8" height="8" rx="2" fill="#4B67B4"/>
+<text x="254" y="368" fill="#4B67B4" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11.5" font-weight="700" letter-spacing="0.6">FORKED REVIEWER · UP TO 1 SUBAGENT EACH</text>
+<rect x="236" y="154" width="594" height="92" rx="16" fill="#ffffff" stroke="#e6e2ef" stroke-width="1" filter="url(#soft)"/>
+<rect x="252" y="168" width="26" height="26" rx="8" fill="#eaf6ef" stroke="#16a34a" stroke-width="1"/>
+<text x="265" y="185" fill="#16a34a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="700" text-anchor="middle">1</text>
+<rect x="752" y="168" width="62" height="22" rx="11" fill="#eaf6ef" stroke="#16a34a" stroke-width="1"/>
+<text x="783.0" y="183" fill="#16a34a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="700" text-anchor="middle">PASS</text>
+<text x="290" y="186" fill="#141419" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" font-weight="700">requirements</text>
+<text x="290" y="206" fill="#4d5261" font-family="Segoe UI, Microsoft YaHei, PingFang SC, Noto Sans CJK SC, sans-serif" font-size="11">doublecheck_spec · ask_user_question</text>
+<rect x="290" y="214" width="147" height="22" rx="11" fill="#eaf6ef" stroke="#16a34a" stroke-width="1"/>
+<circle cx="301" cy="225" r="3" fill="#16a34a"/>
+<text x="310" y="229" fill="#16a34a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11">6/6 key questions</text>
+<rect x="445" y="214" width="126" height="22" rx="11" fill="#eaf6ef" stroke="#16a34a" stroke-width="1"/>
+<circle cx="456" cy="225" r="3" fill="#16a34a"/>
+<text x="465" y="229" fill="#16a34a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11">spec committed</text>
+<rect x="236" y="254" width="594" height="92" rx="16" fill="#ffffff" stroke="#e6e2ef" stroke-width="1" filter="url(#soft)"/>
+<rect x="237" y="255" width="592" height="90" rx="15" fill="#fdecec" opacity="0.55"/>
+<rect x="252" y="268" width="26" height="26" rx="8" fill="#fdecec" stroke="#dc2626" stroke-width="1"/>
+<text x="265" y="285" fill="#dc2626" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="700" text-anchor="middle">2</text>
+<rect x="752" y="268" width="62" height="22" rx="11" fill="#fdecec" stroke="#dc2626" stroke-width="1"/>
+<text x="783.0" y="283" fill="#dc2626" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="700" text-anchor="middle">FAIL</text>
+<text x="290" y="286" fill="#141419" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" font-weight="700">tests</text>
+<text x="290" y="306" fill="#4d5261" font-family="Segoe UI, Microsoft YaHei, PingFang SC, Noto Sans CJK SC, sans-serif" font-size="11">shell test runs · [exit code: N] · coverage %</text>
+<rect x="290" y="314" width="140" height="22" rx="11" fill="#eaf6ef" stroke="#16a34a" stroke-width="1"/>
+<circle cx="301" cy="325" r="3" fill="#16a34a"/>
+<text x="310" y="329" fill="#16a34a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11">latest run green</text>
+<rect x="438" y="314" width="154" height="22" rx="11" fill="#fdecec" stroke="#dc2626" stroke-width="1"/>
+<circle cx="449" cy="325" r="3" fill="#dc2626"/>
+<text x="458" y="329" fill="#dc2626" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11">coverage 61% &lt; 80%</text>
+<rect x="236" y="378" width="594" height="92" rx="16" fill="#ffffff" stroke="#e6e2ef" stroke-width="1" filter="url(#soft)"/>
+<rect x="252" y="392" width="26" height="26" rx="8" fill="#fdf3e9" stroke="#b45309" stroke-width="1"/>
+<text x="265" y="409" fill="#b45309" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="700" text-anchor="middle">3</text>
+<rect x="752" y="392" width="62" height="22" rx="11" fill="#fdf3e9" stroke="#b45309" stroke-width="1"/>
+<text x="783.0" y="407" fill="#b45309" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="700" text-anchor="middle">WARN</text>
+<text x="290" y="410" fill="#141419" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" font-weight="700">consistency</text>
+<text x="290" y="430" fill="#4d5261" font-family="Segoe UI, Microsoft YaHei, PingFang SC, Noto Sans CJK SC, sans-serif" font-size="11">forked reviewer · read|glob|grep · maxFindings 5</text>
+<rect x="290" y="438" width="133" height="22" rx="11" fill="#eaf6ef" stroke="#16a34a" stroke-width="1"/>
+<circle cx="301" cy="449" r="3" fill="#16a34a"/>
+<text x="310" y="453" fill="#16a34a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11">12 edits mapped</text>
+<rect x="431" y="438" width="174" height="22" rx="11" fill="#fdf3e9" stroke="#b45309" stroke-width="1"/>
+<circle cx="442" cy="449" r="3" fill="#b45309"/>
+<text x="451" y="453" fill="#b45309" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11">[minor] unmapped edit</text>
+<rect x="236" y="478" width="594" height="92" rx="16" fill="#ffffff" stroke="#e6e2ef" stroke-width="1" filter="url(#soft)"/>
+<rect x="252" y="492" width="26" height="26" rx="8" fill="#eaf6ef" stroke="#16a34a" stroke-width="1"/>
+<text x="265" y="509" fill="#16a34a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" font-weight="700" text-anchor="middle">4</text>
+<rect x="752" y="492" width="62" height="22" rx="11" fill="#eaf6ef" stroke="#16a34a" stroke-width="1"/>
+<text x="783.0" y="507" fill="#16a34a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="700" text-anchor="middle">PASS</text>
+<text x="290" y="510" fill="#141419" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" font-weight="700">review</text>
+<text x="290" y="530" fill="#4d5261" font-family="Segoe UI, Microsoft YaHei, PingFang SC, Noto Sans CJK SC, sans-serif" font-size="11">autoReview/verdict · else local reviewer</text>
+<rect x="290" y="538" width="105" height="22" rx="11" fill="#eaf6ef" stroke="#16a34a" stroke-width="1"/>
+<circle cx="301" cy="549" r="3" fill="#16a34a"/>
+<text x="310" y="553" fill="#16a34a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11">3 approvals</text>
+<rect x="403" y="538" width="133" height="22" rx="11" fill="#eaf6ef" stroke="#16a34a" stroke-width="1"/>
+<circle cx="414" cy="549" r="3" fill="#16a34a"/>
+<text x="423" y="553" fill="#16a34a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11">latest risk low</text>
+<path d="M830 200 H852" fill="none" stroke="#4d5261" stroke-width="1.2" marker-end="url(#arr-mut)" opacity="0.55"/>
+<path d="M830 300 H852" fill="none" stroke="#dc2626" stroke-width="2.2" marker-end="url(#arr-fail)"/>
+<path d="M830 424 H852" fill="none" stroke="#4d5261" stroke-width="1.2" marker-end="url(#arr-mut)" opacity="0.55"/>
+<path d="M830 524 H852" fill="none" stroke="#4d5261" stroke-width="1.2" marker-end="url(#arr-mut)" opacity="0.55"/>
+<rect x="856" y="154" width="200" height="416" rx="18" fill="#ffffff" stroke="#e6e2ef" stroke-width="1" filter="url(#soft)"/>
+<text x="876" y="186" fill="#4B67B4" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="700" letter-spacing="1.4">VERDICT</text>
+<text x="874" y="244" fill="#dc2626" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="40" font-weight="700">1</text>
+<text x="906" y="244" fill="#dc2626" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11.5" font-weight="700">red item</text>
+<text x="876" y="264" fill="#4d5261" font-family="Segoe UI, Microsoft YaHei, PingFang SC, Noto Sans CJK SC, sans-serif" font-size="11">one FAIL is enough</text>
+<line x1="876" y1="280" x2="1036" y2="280" stroke="#e6e2ef" stroke-width="1"/>
+<text x="876" y="314" fill="#dc2626" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="24" font-weight="700">rework</text>
+<text x="876" y="334" fill="#4d5261" font-family="Segoe UI, Microsoft YaHei, PingFang SC, Noto Sans CJK SC, sans-serif" font-size="11">warn · skip never flip</text>
+<line x1="876" y1="350" x2="1036" y2="350" stroke="#e6e2ef" stroke-width="1"/>
+<text x="876" y="374" fill="#dc2626" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="700" letter-spacing="0.8">RED CHECK</text>
+<text x="876" y="396" fill="#141419" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="700">tests/coverage</text>
+<text x="876" y="414" fill="#4d5261" font-family="Segoe UI, Microsoft YaHei, PingFang SC, Noto Sans CJK SC, sans-serif" font-size="11">61% &lt; 80% minimum</text>
+<line x1="876" y1="432" x2="1036" y2="432" stroke="#e6e2ef" stroke-width="1"/>
+<rect x="876" y="452" width="156" height="60" rx="12" fill="none" stroke="#8f94a4" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="888" y="478" fill="#8f94a4" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="700">deliverable</text>
+<text x="888" y="498" fill="#8f94a4" font-family="Segoe UI, Microsoft YaHei, PingFang SC, Noto Sans CJK SC, sans-serif" font-size="11">0 red items</text>
+<rect x="44" y="586" width="1012" height="54" rx="14" fill="#ffffff" stroke="#e6e2ef" stroke-width="1" filter="url(#soft)"/>
+<text x="64" y="608" fill="#4B67B4" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="700" letter-spacing="0.9">OUTPUTS</text>
+<rect x="154" y="596" width="113" height="22" rx="11" fill="#eceaf9" stroke="#e6e2ef" stroke-width="1"/>
+<text x="165" y="611" fill="#141419" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11">gate-report.md</text>
+<rect x="275" y="596" width="126" height="22" rx="11" fill="#eceaf9" stroke="#e6e2ef" stroke-width="1"/>
+<text x="286" y="611" fill="#141419" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11">gate-report.json</text>
+<text x="419" y="611" fill="#4d5261" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11">doublecheck-gate --format json|sarif → exit 1</text>
+<text x="64" y="632" fill="#4B67B4" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="700" letter-spacing="0.9">PROJECTION</text>
+<text x="154" y="632" fill="#141419" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11">gate:rework r1 | stage:green | test:green edits:12 spec:yes review:yes</text>
+<text x="1036" y="632" fill="#8f94a4" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" text-anchor="end">≤ 120 chars</text>
+</svg>

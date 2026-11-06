@@ -1,8 +1,8 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/dsh-doublecheck-flow-dark.svg">
-  <img src="docs/assets/dsh-doublecheck-flow-light.svg" width="100%" alt="dsh-doublecheck का वर्कफ़्लो: grill → design → red → green → review → verify, जिसे /gate run डिलीवरेबल या रीवर्क के फ़ैसले में बदलता है">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/dsh-doublecheck-hero-en-dark.webp">
+  <img src="docs/assets/dsh-doublecheck-hero-en-light.webp" width="100%" alt="dsh-doublecheck: बाईं ओर नाम और Prove it first शीर्षक; दाईं ओर वह रिपोर्ट जो /gate run तय करता है — ज़रूरतें 6/6 पास, टेस्ट लाल हैं क्योंकि कवरेज 61% है जबकि न्यूनतम 80% है, consistency में केवल एक मामूली चेतावनी है जो फ़ैसला नहीं बदलती, और अंतिम फ़ैसला एक लाल मद के साथ rework है">
 </picture>
 
 # dsh-doublecheck
@@ -41,6 +41,11 @@ dsh plugin --profile <name> add dsh-doublecheck
 एक `/gate run` सेशन में पहले से घटी बातों को चार-चरणीय चेकलिस्ट में बदलता है — ज़रूरतें एक-एक करके पुष्ट हुईं या नहीं, नवीनतम टेस्ट लाल है या हरा, हर एडिट spec के किसी आयाम की सेवा करता है या नहीं, समीक्षा का निष्कर्ष क्या है — और **डिलीवरेबल / रीवर्क ज़रूरी** का एक फ़ैसला तय करता है, जिसे PR विवरण में चिपकाया जा सकने वाली रिपोर्ट के रूप में लिखा जाता है।
 
 यह आपका कोड नहीं लिखता और न ही उसकी सुंदरता तय करता है। यह एक ही काम करता है: «काम हो गया» वाक्य के पीछे सबूत खड़ा करता है।
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/dsh-doublecheck-flow-v5-dark.svg">
+  <img src="docs/assets/dsh-doublecheck-flow-v5-light.svg" width="100%" alt="dsh-doublecheck की संरचना: बाईं ओर टिकाऊ सेशन लॉग — tool/call, tool/result, user/message, autoReview/verdict, dsh-eval report तथा doublecheck/state, doublecheck/gate — चार चरण-पंक्तियों को खिलाता है: requirements और tests बिना किसी मॉडल कॉल के नियतात्मक रूप से मोड़े जाते हैं, consistency और review प्रत्येक एक केवल-पढ़ने वाला समीक्षक चलाते हैं; केवल विफल जाँच निर्णय-पथ में जाती है, चेतावनियाँ और छूटे हुए कभी उसे नहीं बदलते, और नीचे gate-report.md, gate-report.json, CI निकास कोड और सीमित एक-पंक्ति प्रोजेक्शन दिए गए हैं">
+</picture>
 
 ## तीन चरणों में शुरुआत
 
@@ -452,7 +457,7 @@ pnpm run pack:check      # build + tarball पैक
 pnpm run check:readmes   # पाँच भाषाओं के README की संगति जाँच
 ```
 
-`lib/` जान-बूझकर कमिट है: git इंस्टॉल चैनल पैकेज को बिना build चरण के हल करता है, इसलिए सोर्स बदलने के बाद `pnpm run build` से दोबारा बनाकर बनी ट्री भी कमिट करें। README की तस्वीरें [`scripts/gen-readme-assets.py`](scripts/gen-readme-assets.py) से प्रोग्रामेटिक रूप से बनती हैं (Python + Pillow, SVG वेक्टर आउटपुट) और बिना जोखिम दोबारा चलाई जा सकती हैं।
+`lib/` जान-बूझकर कमिट है: git इंस्टॉल चैनल पैकेज को बिना build चरण के हल करता है, इसलिए सोर्स बदलने के बाद `pnpm run build` से दोबारा बनाकर बनी ट्री भी कमिट करें। README की तस्वीरें [`scripts/gen-readme-assets.py`](scripts/gen-readme-assets.py) से प्रोग्रामेटिक रूप से बनती हैं: hero बैनर Pillow से (zh/en × हल्का/गहरा WebP) और संरचना चित्र हाथ से लिखे SVG से (flow-v5, हल्का/गहरा), इसलिए स्क्रिप्ट बिना जोखिम दोबारा चलाई जा सकती है और idempotent ढंग से ओवरराइट करती है। पुराना एकल-स्किन फ़्लो चित्र और डेमो छवियाँ बाहरी लिंक के लिए `docs/assets/` में बनी रहती हैं; README केवल नए hero और flow-v5 को संदर्भित करते हैं।
 
 Topics: `dsh`, `dsh-plugin`, `deepseek-harness`, `engineering-discipline`, `requirements`, `guard`, `skill`, `quality-gate`, `delivery-gate`
 

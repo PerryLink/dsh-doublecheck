@@ -1,8 +1,8 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/dsh-doublecheck-flow-dark.svg">
-  <img src="docs/assets/dsh-doublecheck-flow-light.svg" width="100%" alt="dsh-doublecheck workflow: grill → design → red → green → review → verify, folded by /gate run into a deliverable or rework verdict">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/dsh-doublecheck-hero-en-dark.webp">
+  <img src="docs/assets/dsh-doublecheck-hero-en-light.webp" width="100%" alt="dsh-doublecheck: the name and the headline Prove it first on the left; on the right the gate report a /gate run settles — requirements pass 6/6, tests are red because coverage is 61% against an 80% minimum, consistency carries one minor warning that does not flip the verdict, and the settled verdict is rework with one red item">
 </picture>
 
 # dsh-doublecheck
@@ -41,6 +41,11 @@ dsh plugin --profile <name> add dsh-doublecheck
 A `/gate run` folds what already happened in the session into a four-phase checklist — were the requirements confirmed one by one, is the latest test run red or green, does every edit serve a spec dimension, what does the review conclude — and settles one **deliverable / rework required** verdict, written as a report you can paste into a PR description.
 
 It does not write your code and it does not judge how the code looks. It does one thing: it makes the sentence "it's done" carry evidence.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/dsh-doublecheck-flow-v5-dark.svg">
+  <img src="docs/assets/dsh-doublecheck-flow-v5-light.svg" width="100%" alt="dsh-doublecheck structure: the durable session log on the left — tool/call, tool/result, user/message, autoReview/verdict, dsh-eval report plus doublecheck/state and doublecheck/gate — feeds four phase rows: requirements and tests fold deterministically with no model call, consistency and review each fork one read-only reviewer; only a failing check crosses into the verdict rail, warnings and skips never flip it, and the footer carries gate-report.md, gate-report.json, the CI exit code and the bounded one-line projection">
+</picture>
 
 ## Three-step setup
 
@@ -452,7 +457,7 @@ pnpm run pack:check      # build + pack the tarball
 pnpm run check:readmes   # five-language README consistency gate
 ```
 
-`lib/` is committed on purpose: the git-install channel resolves the package without a build step, so rebuild with `pnpm run build` and commit the regenerated tree after source changes. The README images are generated programmatically by [`scripts/gen-readme-assets.py`](scripts/gen-readme-assets.py) (Python + Pillow, SVG vector output) and are safe to re-run.
+`lib/` is committed on purpose: the git-install channel resolves the package without a build step, so rebuild with `pnpm run build` and commit the regenerated tree after source changes. The README images are generated programmatically by [`scripts/gen-readme-assets.py`](scripts/gen-readme-assets.py): Pillow draws the hero banner (zh/en × light/dark WebP) and hand-written SVG draws the structure diagram (flow-v5, light/dark), so the script is safe to re-run and overwrites idempotently. The older single-skin flow diagram and demo images stay in `docs/assets/` for external links; the READMEs reference only the new hero and flow-v5.
 
 Topics: `dsh`, `dsh-plugin`, `deepseek-harness`, `engineering-discipline`, `requirements`, `guard`, `skill`, `quality-gate`, `delivery-gate`
 

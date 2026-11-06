@@ -1,8 +1,8 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/dsh-doublecheck-flow-dark.svg">
-  <img src="docs/assets/dsh-doublecheck-flow-light.svg" width="100%" alt="Fluxo de trabalho do dsh-doublecheck: grill → design → red → green → review → verify, dobrado por /gate run em um veredicto de entregável ou retrabalho">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/dsh-doublecheck-hero-en-dark.webp">
+  <img src="docs/assets/dsh-doublecheck-hero-en-light.webp" width="100%" alt="dsh-doublecheck: o nome e o título Prove it first à esquerda; à direita, o relatório que um /gate run fixa — os requisitos passam 6/6, os testes estão em vermelho porque a cobertura é de 61% contra um mínimo de 80%, a consistência tem apenas um aviso menor que não muda o veredito, e o veredito final é rework com um item em vermelho">
 </picture>
 
 # dsh-doublecheck
@@ -41,6 +41,11 @@ O `dsh-doublecheck` não instala um prompt: instala duas linhas de plugin. O `do
 Um `/gate run` dobra o que já aconteceu na sessão em uma lista de quatro fases — se os requisitos foram confirmados um a um, se a última execução de testes está em vermelho ou verde, se cada edição serve a uma dimensão do spec, o que a revisão conclui — e fixa um veredicto **entregável / requer retrabalho**, escrito como um relatório que você cola na descrição de um PR.
 
 Ele não escreve o seu código nem julga a aparência dele. Faz uma coisa só: faz a frase «já está pronto» carregar provas.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/dsh-doublecheck-flow-v5-dark.svg">
+  <img src="docs/assets/dsh-doublecheck-flow-v5-light.svg" width="100%" alt="Estrutura do dsh-doublecheck: à esquerda o registro de sessão durável — tool/call, tool/result, user/message, autoReview/verdict, dsh-eval report e doublecheck/state, doublecheck/gate — alimenta quatro linhas de fase: requisitos e testes são dobrados de forma determinística sem chamada ao modelo, consistência e revisão iniciam cada uma um revisor somente leitura; só uma verificação falha cruza para a via do veredito, avisos e omissões nunca o mudam, e o rodapé leva gate-report.md, gate-report.json, o código de saída da CI e a projeção de uma linha limitada">
+</picture>
 
 ## Instalação em três passos
 
@@ -452,7 +457,7 @@ pnpm run pack:check      # build + empacotar o tarball
 pnpm run check:readmes   # portão de consistência dos README em cinco idiomas
 ```
 
-`lib/` é comprometido de propósito: o canal de instalação git resolve o pacote sem etapa de build, então reconstrua com `pnpm run build` e confirme a árvore regenerada depois de mudar o código-fonte. As imagens do README são geradas programaticamente por [`scripts/gen-readme-assets.py`](scripts/gen-readme-assets.py) (Python + Pillow, saída SVG vetorial) e podem ser reexecutadas sem risco.
+`lib/` é comprometido de propósito: o canal de instalação git resolve o pacote sem etapa de build, então reconstrua com `pnpm run build` e confirme a árvore regenerada depois de mudar o código-fonte. As imagens do README são geradas programaticamente por [`scripts/gen-readme-assets.py`](scripts/gen-readme-assets.py): o Pillow desenha o banner hero (zh/en × claro/escuro, WebP) e um SVG escrito à mão desenha o diagrama de estrutura (flow-v5, claro/escuro), então o script pode ser reexecutado sem risco e sobrescreve de forma idempotente. O diagrama de fluxo antigo de uma só pele e as imagens de demonstração ficam em `docs/assets/` para links externos; os READMEs referenciam apenas o novo hero e o flow-v5.
 
 Topics: `dsh`, `dsh-plugin`, `deepseek-harness`, `engineering-discipline`, `requirements`, `guard`, `skill`, `quality-gate`, `delivery-gate`
 
