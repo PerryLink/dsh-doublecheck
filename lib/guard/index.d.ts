@@ -56,6 +56,8 @@ export interface Config {
     };
     /** Model route for the adversary critic; null means the main model self-reviews. */
     adversaryModel: string | null;
+    /** Reasoning effort for the critic route; unset keeps the route's default. */
+    adversaryReasoningEffort?: string;
     /** Subagent provider name the critic runs on (default `fork`). */
     adversaryProvider: string;
     /** Read-only Agent Preset for hosts that use startActivation. */
@@ -126,6 +128,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
         adversary: z<boolean, boolean, "defined">;
     }>>, "defined">;
     adversaryModel: z<string | null, string | null, "defined">;
+    adversaryReasoningEffort: z<string, string, "plain">;
     adversaryProvider: z<string, string, "defined">;
     adversaryPreset: z<string, string, "plain">;
     adversaryMaxFindings: z<number, number, "defined">;
@@ -152,6 +155,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
         adversary: z<boolean, boolean, "defined">;
     }>>, "defined">;
     adversaryModel: z<string | null, string | null, "defined">;
+    adversaryReasoningEffort: z<string, string, "plain">;
     adversaryProvider: z<string, string, "defined">;
     adversaryPreset: z<string, string, "plain">;
     adversaryMaxFindings: z<number, number, "defined">;

@@ -24,6 +24,8 @@ export interface AdversaryConfig {
     /** Read-only Agent Preset for the startActivation path. */
     adversaryPreset?: string;
     adversaryModel: string | null;
+    /** Reasoning effort for the critic route; unset inherits the route default. */
+    adversaryReasoningEffort?: string;
     adversaryMaxFindings: number;
     adversaryTools: string[];
     adversaryTimeoutMs: number;

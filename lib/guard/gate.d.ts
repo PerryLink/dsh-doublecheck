@@ -38,6 +38,8 @@ export interface GateReviewerConfig {
     provider: string;
     /** Model route for the local reviewer; null means the main model reviews. */
     model: string | null;
+    /** Reasoning effort for the reviewer route; unset inherits the route default. */
+    reasoningEffort?: string;
     /** Read-only Agent Preset for the startActivation path. */
     preset?: string;
     /** Tools the local reviewer may call (read-only by default). */
