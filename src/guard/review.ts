@@ -22,6 +22,7 @@ import type { ObjectJsonSchema } from '@deepseek-ai/dsh-tools'
 import type { ReviewFinding, ReviewVerdict } from '../domain/vocabulary.ts'
 import { PROSE, type GuardProse, type ProseLanguage } from './prose.ts'
 import type { GuardActivationService } from './activation.ts'
+import { buildActivationSpec, hostAgentOptions } from './activation-compat.ts'
 
 /** The adversary knobs the review runner reads. */
 export interface AdversaryConfig {
@@ -29,6 +30,8 @@ export interface AdversaryConfig {
   /** Read-only Agent Preset for the startActivation path. */
   adversaryPreset?: string
   adversaryModel: string | null
+  /** Reasoning effort for the critic route; unset inherits the route default. */
+  adversaryReasoningEffort?: string
   adversaryMaxFindings: number
   adversaryTools: string[]
   adversaryTimeoutMs: number
@@ -140,23 +143,22 @@ export async function runAdversaryReview(
   let run: SubagentRun
   try {
     const activation = subagents as typeof subagents & GuardActivationService
+    const agentOptions = hostAgentOptions(config.adversaryModel, config.adversaryReasoningEffort)
     if (typeof activation.startActivation === 'function') {
       if (config.adversaryPreset === undefined) {
         return { verdict: 'unavailable', findings: [], text: prose.reviewUnavailableFailed('this host uses subagents.startActivation; set adversaryPreset to a read-only Agent Preset') }
       }
-      const started = await activation.startActivation({
+      const started = await activation.startActivation(buildActivationSpec({
         provider: config.adversaryProvider,
         label: 'doublecheck-adversary',
-        request: {
-          prompt: [{ type: 'text', text: prose.criticTask }],
-          parent: agent,
-          outputSchema: REVIEW_OUTPUT_SCHEMA,
-          agentPreset: config.adversaryPreset,
-          ...config.adversaryModel !== null ? { agentOptions: { model: config.adversaryModel } } : {},
-        },
+        prompt: [{ type: 'text', text: prose.criticTask }],
+        parent: agent,
+        outputSchema: REVIEW_OUTPUT_SCHEMA,
+        agentPreset: config.adversaryPreset,
+        ...agentOptions === undefined ? {} : { agentOptions },
         signal,
         delivery: 'caller',
-      })
+      }))
       run = started as unknown as SubagentRun
     } else {
       const legacy = subagents as unknown as { start: (provider: string, options: Record<string, unknown>) => Promise<SubagentRun> }
@@ -165,7 +167,7 @@ export async function runAdversaryReview(
         prompt: [{ type: 'text', text: prose.criticTask }],
         parent: agent,
         signal,
-        ...config.adversaryModel !== null ? { agentOptions: { model: config.adversaryModel } } : {},
+        ...agentOptions === undefined ? {} : { agentOptions },
         outputSchema: REVIEW_OUTPUT_SCHEMA,
         toolFilter: { allow: config.adversaryTools },
       })

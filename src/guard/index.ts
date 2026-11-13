@@ -99,6 +99,8 @@ export interface Config {
   }
   /** Model route for the adversary critic; null means the main model self-reviews. */
   adversaryModel: string | null
+  /** Reasoning effort for the critic route; unset keeps the route's default. */
+  adversaryReasoningEffort?: string
   /** Subagent provider name the critic runs on (default `fork`). */
   adversaryProvider: string
   /** Read-only Agent Preset for hosts that use startActivation. */
@@ -189,6 +191,7 @@ export const Config = z.object({
     adversary: z.boolean().default(false),
   }).default({ grill: true, tdd: true, adversary: false }),
   adversaryModel: z.union([z.string(), z.const(null)]).default(null),
+  adversaryReasoningEffort: z.string(),
   adversaryProvider: z.string().min(1).default('fork'),
   adversaryPreset: z.string(),
   adversaryMaxFindings: z.number().default(5),
@@ -774,6 +777,7 @@ function adversaryConfig(config: Config): AdversaryConfig {
     adversaryProvider: config.adversaryProvider,
     adversaryPreset: config.adversaryPreset,
     adversaryModel: config.adversaryModel ?? null,
+    adversaryReasoningEffort: config.adversaryReasoningEffort,
     adversaryMaxFindings: config.adversaryMaxFindings,
     adversaryTools: config.adversaryTools,
     adversaryTimeoutMs: config.adversaryTimeoutMs,

@@ -48,6 +48,11 @@ interface SetupOptions {
   review?: ReviewStub
   /** Make the critic result reject only when the review's abort signal fires. */
   reviewSignalAware?: boolean
+  /**
+   * Expose only `startActivation` and read the task from the spec shape this
+   * host line declares: `flat` = 0.2.2-rc.3, `nested` = 0.2.2-rc.1.
+   */
+  activation?: 'flat' | 'nested'
 }
 
 async function setup(config: guardModule.Config = fullConfig(), options: SetupOptions = {}) {
@@ -75,8 +80,48 @@ async function setup(config: guardModule.Config = fullConfig(), options: SetupOp
     }
   }
   await ctx.plugin(FakeCommands)
-  const starts: { name: string; request: unknown }[] = []
-  if (!options.noSubagents) {
+  const starts: { name: string; request: unknown; spec?: unknown }[] = []
+  const settled = (activationSignal: AbortSignal | undefined) => options.reviewSignalAware === true
+    ? new Promise<never>((_, reject) => {
+      if (activationSignal === undefined || activationSignal.aborted) reject(new Error('aborted'))
+      else activationSignal.addEventListener('abort', () => reject(new Error('aborted')), { once: true })
+    })
+    : Promise.resolve({
+      output: [{ type: 'text', text: 'critique text' }],
+      structured: { findings: options.review?.findings ?? [] },
+      stopReason: options.review?.stopReason ?? 'completed',
+    })
+  const fakeActivation = (result: Promise<unknown>) => ({
+    id: SessionId('child-1'),
+    localAgent: undefined,
+    result,
+    async dispose() {},
+  })
+  if (!options.noSubagents && options.activation !== undefined) {
+    // A host that exposes only `startActivation`: the critic task must arrive in
+    // the shape this host line reads (flat on rc.3, nested on rc.1), or the
+    // review silently runs with an empty prompt.
+    class FakeActivationSubagents extends Service {
+      constructor(childCtx: Context) {
+        super(childCtx, 'subagents')
+      }
+
+      async startActivation(spec: {
+        provider?: string
+        prompt?: unknown[]
+        request?: { prompt?: unknown[] }
+        signal?: AbortSignal
+      }) {
+        const request = options.activation === 'nested' ? spec.request : spec
+        if (request?.prompt === undefined) {
+          throw new Error(`the ${options.activation} activation spec carried no prompt`)
+        }
+        starts.push({ name: spec.provider ?? '', request: { ...request, signal: spec.signal }, spec })
+        return fakeActivation(settled(spec.signal))
+      }
+    }
+    await ctx.plugin(FakeActivationSubagents)
+  } else if (!options.noSubagents) {
     class FakeSubagents extends Service {
       constructor(childCtx: Context) {
         super(childCtx, 'subagents')
@@ -84,23 +129,7 @@ async function setup(config: guardModule.Config = fullConfig(), options: SetupOp
 
       async start(name: string, request: unknown) {
         starts.push({ name, request })
-        const result = options.reviewSignalAware === true
-          ? new Promise<never>((_, reject) => {
-            const signal = (request as { signal?: AbortSignal }).signal
-            if (signal === undefined || signal.aborted) reject(new Error('aborted'))
-            else signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true })
-          })
-          : Promise.resolve({
-            output: [{ type: 'text', text: 'critique text' }],
-            structured: { findings: options.review?.findings ?? [] },
-            stopReason: options.review?.stopReason ?? 'completed',
-          })
-        return {
-          id: SessionId('child-1'),
-          localAgent: undefined,
-          result,
-          async dispose() {},
-        }
+        return fakeActivation(settled((request as { signal?: AbortSignal }).signal))
       }
     }
     await ctx.plugin(FakeSubagents)
@@ -729,6 +758,47 @@ describe('doublecheck-guard', () => {
     const request = starts[0]?.request as { agentOptions?: { model?: string }; toolFilter?: { allow?: string[] } }
     expect(request.agentOptions).toEqual({ model: 'deepseek-v4-pro' })
     expect(request.toolFilter).toEqual({ allow: ['read', 'glob', 'grep'] })
+  })
+
+  it('delivers the critic task to a flat startActivation host (0.2.2-rc.3)', async () => {
+    const { ctx, starts } = await setup(
+      adversary({ adversaryPreset: 'doublecheck-readonly', adversaryModel: 'deepseek-v4-pro', adversaryReasoningEffort: 'high' }),
+      { activation: 'flat', review: { findings: [] } },
+    )
+    const session = fakeSession(greenDeliverySession() as never)
+    await ctx.serial('agent/turn-stopping', { agent: fakeAgent(session), turn: 1, signal })
+
+    expect(starts).toHaveLength(1)
+    const request = starts[0]?.request as {
+      prompt?: { type: string; text: string }[]
+      parent?: unknown
+      outputSchema?: unknown
+      agentPreset?: string
+      agentOptions?: { model?: string; reasoningEffort?: string }
+    }
+    expect(request.prompt?.[0]?.text).toContain('delivery reviewer')
+    expect(request.parent).toBeDefined()
+    expect(request.outputSchema).toBeDefined()
+    expect(request.agentPreset).toBe('doublecheck-readonly')
+    expect(request.agentOptions).toEqual({ model: 'deepseek-v4-pro', reasoningEffort: 'high' })
+    // The rc.1 `request` alias rides along, so one build serves both host lines.
+    expect((starts[0]?.spec as { request?: { prompt?: unknown[] } }).request?.prompt).toHaveLength(1)
+  })
+
+  it('delivers the critic task to a host that only reads the nested request (0.2.2-rc.1)', async () => {
+    const { ctx, starts } = await setup(
+      adversary({ adversaryPreset: 'doublecheck-readonly' }),
+      { activation: 'nested', review: { findings: [] } },
+    )
+    const session = fakeSession(greenDeliverySession() as never)
+    await ctx.serial('agent/turn-stopping', { agent: fakeAgent(session), turn: 1, signal })
+
+    expect(starts).toHaveLength(1)
+    const request = starts[0]?.request as { prompt?: { type: string; text: string }[]; agentPreset?: string }
+    expect(request.prompt?.[0]?.text).toContain('delivery reviewer')
+    expect(request.agentPreset).toBe('doublecheck-readonly')
+    // The flat alias is present too; rc.3 hosts read it and ignore the alias.
+    expect((starts[0]?.spec as { prompt?: unknown[] }).prompt).toHaveLength(1)
   })
 
   it('sends the localized critic task when language is zh', async () => {

@@ -376,6 +376,22 @@ function fullConfig(overrides: Partial<guardModule.Config> = {}): guardModule.Co
   }
 }
 
+/**
+ * A config whose local reviewers are preset-composed, so both reviewer phases
+ * run on a host that has `startActivation` (and skip the preset guard).
+ */
+function withReviewerPresets(base: guardModule.Config = fullConfig()): guardModule.Config {
+  const gate = guardModule.Config(base).gate.get()
+  return {
+    ...base,
+    gate: {
+      ...gate,
+      consistency: { ...gate.consistency, preset: 'doublecheck-readonly' },
+      review: { ...gate.review, preset: 'doublecheck-readonly' },
+    },
+  }
+}
+
 interface RegisteredCommand {
   name: string
   description: string
@@ -389,6 +405,11 @@ interface GateSetupOptions {
   extraCommands?: string[]
   /** Fail the reviewer starts (seam missing). */
   noSubagents?: boolean
+  /**
+   * Expose only `startActivation` and read the task from the spec shape this
+   * host line declares: `flat` = 0.2.2-rc.3, `nested` = 0.2.2-rc.1.
+   */
+  activation?: 'flat' | 'nested'
   /** Serve this dsh-eval report JSON through a fake fs seam (enables the fold). */
   evalReport?: string
 }
@@ -420,30 +441,59 @@ async function setup(config: guardModule.Config = fullConfig(), options: GateSet
     }
   }
   await ctx.plugin(FakeCommands)
-  const starts: { name: string; request: unknown }[] = []
+  const starts: { name: string; request: unknown; spec?: unknown }[] = []
   if (!options.noSubagents) {
     const queue = [...(options.reviews ?? [])]
-    class FakeSubagents extends Service {
-      constructor(childCtx: Context) {
-        super(childCtx, 'subagents')
-      }
-
-      async start(name: string, request: unknown) {
-        starts.push({ name, request })
-        const findings = queue.shift() ?? []
-        return {
-          id: SessionId(`child-${starts.length}`),
-          localAgent: undefined,
-          result: Promise.resolve({
-            output: [{ type: 'text', text: 'review' }],
-            structured: { findings },
-            stopReason: 'completed',
-          }),
-          async dispose() {},
-        }
+    const settled = () => {
+      const findings = queue.shift() ?? []
+      return {
+        id: SessionId(`child-${starts.length}`),
+        localAgent: undefined,
+        result: Promise.resolve({
+          output: [{ type: 'text', text: 'review' }],
+          structured: { findings },
+          stopReason: 'completed',
+        }),
+        async dispose() {},
       }
     }
-    await ctx.plugin(FakeSubagents)
+    if (options.activation !== undefined) {
+      // A host that exposes only `startActivation`: the reviewer task must arrive
+      // in the shape this host line reads (flat on rc.3, nested on rc.1).
+      class FakeActivationSubagents extends Service {
+        constructor(childCtx: Context) {
+          super(childCtx, 'subagents')
+        }
+
+        async startActivation(spec: {
+          provider?: string
+          label?: string
+          prompt?: unknown[]
+          request?: { prompt?: unknown[] }
+          signal?: AbortSignal
+        }) {
+          const request = options.activation === 'nested' ? spec.request : spec
+          if (request?.prompt === undefined) {
+            throw new Error(`the ${options.activation} activation spec carried no prompt`)
+          }
+          starts.push({ name: spec.provider ?? '', request: { ...request, signal: spec.signal }, spec })
+          return settled()
+        }
+      }
+      await ctx.plugin(FakeActivationSubagents)
+    } else {
+      class FakeSubagents extends Service {
+        constructor(childCtx: Context) {
+          super(childCtx, 'subagents')
+        }
+
+        async start(name: string, request: unknown) {
+          starts.push({ name, request })
+          return settled()
+        }
+      }
+      await ctx.plugin(FakeSubagents)
+    }
   }
   if (options.evalReport !== undefined) {
     class FakeFs extends Service {
@@ -531,6 +581,47 @@ describe('/gate command', () => {
     expect(result.text).toContain('dsh-auto-review is not installed')
     // The gate record is not durable on rc.6 hosts (no ignorable stamp).
     expect(session.events.filter(event => event.type === 'doublecheck/gate')).toHaveLength(0)
+  })
+
+  it('run reaches a flat startActivation host (0.2.2-rc.3)', async () => {
+    const { registered, starts } = await setup(withReviewerPresets(), { reviews: [[], []], activation: 'flat' })
+    const handler = gateCommand(registered).handler
+    const result = (await handler({ agent: fakeAgent(fakeSession(deliveredSession())), rawInput: 'run', signal })) as { kind: string; text: string }
+
+    expect(result.kind).toBe('success')
+    expect(result.text).toContain('Implementation consistency — PASS')
+    expect(starts).toHaveLength(2)
+    for (const start of starts) {
+      const request = start.request as {
+        prompt?: { type: string; text: string }[]
+        parent?: unknown
+        outputSchema?: unknown
+        agentPreset?: string
+      }
+      expect(request.prompt?.[0]?.text).not.toBe('')
+      expect(request.parent).toBeDefined()
+      expect(request.outputSchema).toBeDefined()
+      expect(request.agentPreset).toBe('doublecheck-readonly')
+      // The rc.1 `request` alias rides along, so one build serves both lines.
+      expect((start.spec as { request?: { prompt?: unknown[] } }).request?.prompt).toHaveLength(1)
+    }
+  })
+
+  it('run reaches a host that only reads the nested request (0.2.2-rc.1)', async () => {
+    const { registered, starts } = await setup(withReviewerPresets(), { reviews: [[], []], activation: 'nested' })
+    const handler = gateCommand(registered).handler
+    const result = (await handler({ agent: fakeAgent(fakeSession(deliveredSession())), rawInput: 'run', signal })) as { kind: string; text: string }
+
+    expect(result.kind).toBe('success')
+    expect(result.text).toContain('Implementation consistency — PASS')
+    expect(starts).toHaveLength(2)
+    for (const start of starts) {
+      const request = start.request as { prompt?: { type: string; text: string }[]; agentPreset?: string }
+      expect(request.prompt?.[0]?.text).not.toBe('')
+      expect(request.agentPreset).toBe('doublecheck-readonly')
+      // The flat alias is present too; rc.3 hosts read it and ignore the alias.
+      expect((start.spec as { prompt?: unknown[] }).prompt).toHaveLength(1)
+    }
   })
 
   it('run folds the engine verdict records when dsh-auto-review judged this session', async () => {

@@ -67,6 +67,7 @@ import {
 import type { ReviewFinding } from '../domain/vocabulary.ts'
 import { sortFindings } from './review.ts'
 import type { GuardActivationService } from './activation.ts'
+import { buildActivationSpec, hostAgentOptions } from './activation-compat.ts'
 import type { GuardProse, ProseLanguage } from './prose.ts'
 import { PROSE } from './prose.ts'
 
@@ -77,6 +78,8 @@ export interface GateReviewerConfig {
   provider: string
   /** Model route for the local reviewer; null means the main model reviews. */
   model: string | null
+  /** Reasoning effort for the reviewer route; unset inherits the route default. */
+  reasoningEffort?: string
   /** Read-only Agent Preset for the startActivation path. */
   preset?: string
   /** Tools the local reviewer may call (read-only by default). */
@@ -218,6 +221,7 @@ export const GateConfigSchema: Schema<GateConfig> = z.object({
     provider: z.string().min(1).default('fork'),
     preset: z.string(),
     model: z.union([z.string(), z.const(null)]).default(null),
+    reasoningEffort: z.string(),
     tools: z.array(z.string()).default(['read', 'glob', 'grep']),
     timeoutMs: z.number().default(120000),
     maxFindings: z.number().default(5),
@@ -228,6 +232,7 @@ export const GateConfigSchema: Schema<GateConfig> = z.object({
     provider: z.string().min(1).default('fork'),
     preset: z.string(),
     model: z.union([z.string(), z.const(null)]).default(null),
+    reasoningEffort: z.string(),
     tools: z.array(z.string()).default(['read', 'glob', 'grep']),
     timeoutMs: z.number().default(120000),
     maxFindings: z.number().default(5),
@@ -369,23 +374,22 @@ async function runLocalReviewer(
   let run: SubagentRun
   try {
     const activation = subagents as typeof subagents & GuardActivationService
+    const agentOptions = hostAgentOptions(reviewer.model, reviewer.reasoningEffort)
     if (typeof activation.startActivation === 'function') {
       if (reviewer.preset === undefined) {
         return { findings: null, unavailable: 'this host uses subagents.startActivation; set the reviewer preset to a read-only Agent Preset' }
       }
-      const started = await activation.startActivation({
+      const started = await activation.startActivation(buildActivationSpec({
         provider: reviewer.provider,
         label,
-        request: {
-          prompt: [{ type: 'text', text: task }],
-          parent: agent,
-          outputSchema: GATE_FINDINGS_SCHEMA,
-          agentPreset: reviewer.preset,
-          ...reviewer.model !== null ? { agentOptions: { model: reviewer.model } } : {},
-        },
+        prompt: [{ type: 'text', text: task }],
+        parent: agent,
+        outputSchema: GATE_FINDINGS_SCHEMA,
+        agentPreset: reviewer.preset,
+        ...agentOptions === undefined ? {} : { agentOptions },
         signal: runSignal,
         delivery: 'caller',
-      })
+      }))
       run = started as unknown as SubagentRun
     } else {
       const legacy = subagents as unknown as { start: (provider: string, options: Record<string, unknown>) => Promise<SubagentRun> }
@@ -394,7 +398,7 @@ async function runLocalReviewer(
         prompt: [{ type: 'text', text: task }],
         parent: agent,
         signal: runSignal,
-        ...reviewer.model !== null ? { agentOptions: { model: reviewer.model } } : {},
+        ...agentOptions === undefined ? {} : { agentOptions },
         outputSchema: GATE_FINDINGS_SCHEMA,
         toolFilter: { allow: reviewer.tools },
       })
