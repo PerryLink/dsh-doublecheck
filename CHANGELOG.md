@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.31] - 2026-11-13
+
+### Fixed
+
+- **`verify: true` now finds the engine that lives in the agent preset.** In the web profile the workflow engine is mounted inside the calling preset's isolated `delegation` group, so `ctx.get('workflowEngine')` from the profile-level grill plugin returns `undefined` and every report silently fell back to `Not run.`. The lookup now goes through the host's cross-realm accessor `agentPresets.serviceFor(agent, 'workflowEngine')` first and keeps the plain `ctx.get` as the fallback for host-plane profiles. Fixes #22.
+- **A verification attempt that did not run now says why.** Every failure path (no spec, no owning agent, unreachable engine, rejected `start`, early `stopReason`, malformed value, rejected result) carries a note that renders as `Not run — <reason>` instead of a bare `Not run.`; the same note is on the report value (`verificationNote`) and the `doublecheck/report` event. Run disposal failures no longer fail the report call. Fixes #22.
+
 ## [0.9.30] - 2026-11-05
 
 ### Changed

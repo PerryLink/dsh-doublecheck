@@ -190,6 +190,8 @@ declare module '@deepseek-ai/cordis' {
       session: Session
       verdict: ReportVerdict
       verification: { checks: VerifyCheck[]; complete: boolean } | null
+      /** Why verification did not run, when it was requested; null otherwise. */
+      verificationNote?: string | null
       path: string | null
       written: boolean
     }): void

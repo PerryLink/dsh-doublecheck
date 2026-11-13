@@ -68,6 +68,12 @@ export interface ReportData extends ReportFacts {
    * rests on silently missing dimensions.
    */
   verification: { checks: VerifyCheck[]; complete: boolean } | null
+  /**
+   * Why verification did not run, when it was requested. `null` when it ran or
+   * was not requested — the renderer must not reduce a failed attempt to a
+   * bare "Not run.".
+   */
+  verificationNote: string | null
   /** Workspace markdown copy outcome. */
   path: string | null
   written: boolean
@@ -243,7 +249,7 @@ export function renderReportMarkdown(data: ReportData): string {
   }
   lines.push('', '## Verification')
   if (data.verification === null) {
-    lines.push('Not run.')
+    lines.push(data.verificationNote === null || data.verificationNote === undefined ? 'Not run.' : `Not run — ${data.verificationNote}`)
   } else {
     for (const check of data.verification.checks) {
       lines.push(`- [${check.verdict}] ${check.dimension}: ${check.evidence} ${check.note.length > 0 ? `(${check.note})` : ''}`.trim())
