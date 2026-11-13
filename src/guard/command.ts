@@ -146,6 +146,7 @@ export function doublecheckHandler(deps: CommandDeps): (invocation: CommandInvoc
         ...facts,
         verdict: deriveReportVerdict(facts, null),
         verification: null,
+        verificationNote: null,
         path: null,
         written: false,
       }

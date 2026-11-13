@@ -20,6 +20,14 @@ interface SetupOptions {
   workflowChecks?: unknown[] | null
   /** Reject the workflow run's result instead of settling checks (failure path). */
   workflowReject?: boolean
+  /** End the verify run with this stop reason instead of `completed`. */
+  workflowStopReason?: string
+  /**
+   * Mount the engine behind an agent-preset registry instead of the host plane,
+   * reproducing the web profile where the engine lives in the preset's
+   * isolated delegation group and `ctx.get('workflowEngine')` is undefined.
+   */
+  presetEngine?: boolean
 }
 
 async function setup(options: SetupOptions = {}, configOverrides: Partial<grillModule.Config> = {}) {
@@ -30,27 +38,42 @@ async function setup(options: SetupOptions = {}, configOverrides: Partial<grillM
   // 0.2.2: raw batch execution lives behind a pluggable executor.
   await ctx.plugin(NativeToolExecutor)
   const starts: WorkflowStartRequest[] = []
-  if (options.workflowChecks !== undefined || options.workflowReject === true) {
+  const fakeRun = (request: WorkflowStartRequest) => {
+    starts.push(request)
+    return {
+      id: WorkflowRunId('wf-1'),
+      meta: request.meta,
+      result: options.workflowReject === true
+        ? Promise.reject(new Error('engine down'))
+        : Promise.resolve({
+          value: { checks: options.workflowChecks ?? [] },
+          stopReason: options.workflowStopReason ?? 'completed',
+          agentsStarted: 6,
+        }),
+      cancel() {},
+      async dispose() {},
+    }
+  }
+  if (options.presetEngine === true) {
+    const scopedEngine = { start: fakeRun }
+    class FakeAgentPresets extends Service {
+      constructor(childCtx: Context) {
+        super(childCtx, 'agentPresets')
+      }
+
+      serviceFor(_agent: unknown, serviceName: string) {
+        return serviceName === 'workflowEngine' ? scopedEngine : undefined
+      }
+    }
+    await ctx.plugin(FakeAgentPresets)
+  } else if (options.workflowChecks !== undefined || options.workflowReject === true || options.workflowStopReason !== undefined) {
     class FakeWorkflowEngine extends Service {
       constructor(childCtx: Context) {
         super(childCtx, 'workflowEngine')
       }
 
       start(request: WorkflowStartRequest) {
-        starts.push(request)
-        return {
-          id: WorkflowRunId('wf-1'),
-          meta: request.meta,
-          result: options.workflowReject === true
-            ? Promise.reject(new Error('engine down'))
-            : Promise.resolve({
-              value: { checks: options.workflowChecks ?? [] },
-              stopReason: 'completed',
-              agentsStarted: 6,
-            }),
-          cancel() {},
-          async dispose() {},
-        }
+        return fakeRun(request)
       }
     }
     await ctx.plugin(FakeWorkflowEngine)
@@ -225,7 +248,10 @@ describe('doublecheck-grill', () => {
     ctx.on('doublecheck/report', payload => { reviews.push(payload) })
     const result = await runReport(ctx, fakeAgent(reportSession()))
     expect(result.isError).toBe(false)
-    const value = result.value as { verdict: string; spec: unknown; testRuns: { failed: number; passed: number }; edits: number; verification: unknown; written: boolean }
+    const value = result.value as { verdict: string; spec: unknown; testRuns: { failed: number; passed: number }; edits: number; verification: unknown; verificationNote: string | null; written: boolean }
+    expect(value.verificationNote).toContain('workflowEngine')
+    const text = (result.content[0] as { text: string }).text
+    expect(text).toContain('Not run — verification did not run')
     expect(value.verdict).toBe('green')
     expect(value.spec).toEqual(fullSpec)
     expect(value.testRuns).toEqual({ failed: 1, passed: 1 })
@@ -250,6 +276,35 @@ describe('doublecheck-grill', () => {
     const value = result.value as { verdict: string; verification: unknown }
     expect(value.verification).toBeNull()
     expect(value.verdict).toBe('green')
+  })
+
+  it('resolves workflowEngine through the agent preset when the profile realm cannot see it', async () => {
+    const { ctx, starts } = await setup({
+      presetEngine: true,
+      workflowChecks: [
+        { dimension: 'goal', verdict: 'pass', evidence: 'spec goal matches', note: '' },
+        { dimension: 'scope', verdict: 'pass', evidence: 'scope respected', note: '' },
+      ],
+    })
+    // The web profile mounts the engine inside the preset's isolated group, so
+    // the profile-level plugin context cannot see it.
+    expect(ctx.get('workflowEngine')).toBeUndefined()
+    const agent = Object.assign(fakeAgent(reportSession()), { ctx })
+    const result = await runReport(ctx, agent, { verify: true })
+    const value = result.value as { verdict: string; verification: { checks: unknown[]; complete: boolean } | null; verificationNote: string | null }
+    expect(starts).toHaveLength(1)
+    expect(value.verification?.checks).toHaveLength(2)
+    expect(value.verificationNote).toBeNull()
+  })
+
+  it('names the stop reason when the workflow ends before completing', async () => {
+    const { ctx } = await setup({ workflowStopReason: 'error' })
+    const result = await runReport(ctx, fakeAgent(reportSession()), { verify: true })
+    const value = result.value as { verification: unknown; verificationNote: string | null }
+    expect(value.verification).toBeNull()
+    expect(value.verificationNote).toContain('error')
+    const text = (result.content[0] as { text: string }).text
+    expect(text).toContain('Not run — verification did not run')
   })
 
   it('orchestrates the verify workflow and folds its checks into the verdict', async () => {

@@ -55,6 +55,12 @@ export interface ReportData extends ReportFacts {
         checks: VerifyCheck[];
         complete: boolean;
     } | null;
+    /**
+     * Why verification did not run, when it was requested. `null` when it ran or
+     * was not requested — the renderer must not reduce a failed attempt to a
+     * bare "Not run.".
+     */
+    verificationNote: string | null;
     /** Workspace markdown copy outcome. */
     path: string | null;
     written: boolean;
