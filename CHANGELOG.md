@@ -54,6 +54,8 @@ All notable changes to dsh-doublecheck are recorded here, newest first.
 
 ## [Unreleased]
 
+## [0.9.33] - 2026-11-18
+
 ### Fixed
 
 - **The `doublecheck` session projection could never be read in full.** Its wire value was a JSON object of eight fields costing **131 characters when empty** and 139 with a short goal, while the one-line renderer a chat bridge uses keeps a value only up to 120 characters and otherwise cuts it to 117 plus `…`. Every possible value was truncated: the empty state lost `gateVerdict` to `"ga…` and `gateRedCount` entirely, and as soon as a spec goal existed `specGoal`, `reviewed`, `editCount`, `gateVerdict` and `gateRedCount` all disappeared — exactly the verdict and red-light count a user opens `/status` on a phone to see. A JSON object cannot be fixed by shortening fields either: the eight keys alone put its theoretical minimum at 126 characters.
