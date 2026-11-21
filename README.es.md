@@ -47,6 +47,11 @@ No escribe tu código ni juzga su aspecto. Hace una sola cosa: que la frase «ya
   <img src="docs/assets/dsh-doublecheck-flow-v5-light.svg" width="100%" alt="Estructura de dsh-doublecheck: a la izquierda el registro de sesión durable — tool/call, tool/result, user/message, autoReview/verdict, dsh-eval report y doublecheck/state, doublecheck/gate — alimenta cuatro filas de fase: requisitos y pruebas se pliegan de forma determinista sin llamadas al modelo, consistencia y revisión lanzan cada una un revisor de solo lectura; solo una comprobación fallida cruza a la vía del veredicto, los avisos y las omisiones nunca lo cambian, y el pie lleva gate-report.md, gate-report.json, el código de salida de CI y la proyección de una línea acotada">
 </picture>
 
+![dsh-doublecheck: ejecución real de terminal](docs/assets/dsh-doublecheck-demo.gif)
+
+*Repetición animada de una ejecución real registrada en este repositorio.*
+
+
 ## Instalación en tres pasos
 
 1. **Instalar** (elige un canal):

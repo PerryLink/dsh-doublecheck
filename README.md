@@ -36,6 +36,10 @@ dsh plugin --profile <name> add dsh-doublecheck
 
 ## 它是什么
 
+![dsh-doublecheck 真实终端运行](docs/assets/dsh-doublecheck-demo.gif)
+
+*本仓库一次真实运行的动图回放。*
+
 `dsh-doublecheck` 装进来的不是一段提示词，而是两个插件行：`doublecheck-grill` 把需求拷问清楚并落成 spec，`doublecheck-guard` 在改动、测试与交接的每个边界上把关。两者读的是同一份持久会话日志——恢复、分叉、重启之后，它们看到的证据完全一样。
 
 一次 `/gate run` 会把会话里已经发生的事实折叠成四阶段清单：需求是否逐项被确认、最近一次测试是红还是绿、每处改动是否服务于某个 spec 维度、评审结论是什么，然后给出**可交付 / 需要返工**的裁决，并写成一份可直接贴进 PR 描述的报告。

@@ -47,6 +47,11 @@ dsh plugin --profile <name> add dsh-doublecheck
   <img src="docs/assets/dsh-doublecheck-flow-v5-light.svg" width="100%" alt="dsh-doublecheck की संरचना: बाईं ओर टिकाऊ सेशन लॉग — tool/call, tool/result, user/message, autoReview/verdict, dsh-eval report तथा doublecheck/state, doublecheck/gate — चार चरण-पंक्तियों को खिलाता है: requirements और tests बिना किसी मॉडल कॉल के नियतात्मक रूप से मोड़े जाते हैं, consistency और review प्रत्येक एक केवल-पढ़ने वाला समीक्षक चलाते हैं; केवल विफल जाँच निर्णय-पथ में जाती है, चेतावनियाँ और छूटे हुए कभी उसे नहीं बदलते, और नीचे gate-report.md, gate-report.json, CI निकास कोड और सीमित एक-पंक्ति प्रोजेक्शन दिए गए हैं">
 </picture>
 
+![dsh-doublecheck का असली टर्मिनल रन](docs/assets/dsh-doublecheck-demo.gif)
+
+*इस रिपॉज़िटरी में दर्ज असली रन का एनिमेटेड रीप्ले।*
+
+
 ## तीन चरणों में शुरुआत
 
 1. **इंस्टॉल** (कोई एक चैनल चुनें):

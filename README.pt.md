@@ -47,6 +47,11 @@ Ele não escreve o seu código nem julga a aparência dele. Faz uma coisa só: f
   <img src="docs/assets/dsh-doublecheck-flow-v5-light.svg" width="100%" alt="Estrutura do dsh-doublecheck: à esquerda o registro de sessão durável — tool/call, tool/result, user/message, autoReview/verdict, dsh-eval report e doublecheck/state, doublecheck/gate — alimenta quatro linhas de fase: requisitos e testes são dobrados de forma determinística sem chamada ao modelo, consistência e revisão iniciam cada uma um revisor somente leitura; só uma verificação falha cruza para a via do veredito, avisos e omissões nunca o mudam, e o rodapé leva gate-report.md, gate-report.json, o código de saída da CI e a projeção de uma linha limitada">
 </picture>
 
+![dsh-doublecheck: execução real de terminal](docs/assets/dsh-doublecheck-demo.gif)
+
+*Repetição animada de uma execução real registrada neste repositório.*
+
+
 ## Instalação em três passos
 
 1. **Instalar** (escolha um canal):

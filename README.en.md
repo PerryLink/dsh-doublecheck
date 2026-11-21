@@ -167,6 +167,10 @@ Red lights are failed checks (a missing spec, a failing latest run, coverage bel
 
 ## Examples
 
+![dsh-doublecheck: real terminal run](docs/assets/dsh-doublecheck-demo.gif)
+
+*Animated replay of a real run recorded in this repository.*
+
 These are the plugin's real entry points; install once, then call one.
 
 ### Detailed example
