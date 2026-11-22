@@ -11,6 +11,8 @@
 
 DeepSeek Harness के लिए डिलीवरी क्वालिटी गेट: दो प्लगइन पंक्तियाँ उसी दोबारा चलाए जा सकने वाले सेशन लॉग को देखती हैं और grill → design → red → green → review → verify अनुशासन-चक्र को कमांड, टूल और एक ऐसे फ़ैसले में बदल देती हैं जो रिपोर्ट में दर्ज होता है।
 
+अंतिम सत्यापन: DeepSeek Harness `dsh-v0.2.3-alpha.1` (2026-11-22).
+
 [इंस्टॉल करें](#तीन-चरणों-में-शुरुआत) · [कॉन्फ़िगरेशन](#कॉन्फ़िगरेशन) · [FAQ](#faq) · [简体中文](README.md) · [English](README.en.md) · [Español](README.es.md) · [Português](README.pt.md) · [हिन्दी](README.hi.md)
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-3366CC?style=flat-square&labelColor=2B3245)](LICENSE)

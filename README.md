@@ -11,6 +11,8 @@
 
 DeepSeek Harness 的交付质量门禁：两个插件行盯住同一份可重放的会话日志，把 grill → design → red → green → review → verify 的纪律闭环变成命令、工具，和一条会被写进报告的裁决。
 
+最近一次核验：DeepSeek Harness `dsh-v0.2.3-alpha.1`（2026-11-22）。
+
 [安装](#三步上手) · [配置](#配置) · [FAQ](#faq) · [简体中文](README.md) · [English](README.en.md) · [Español](README.es.md) · [Português](README.pt.md) · [हिन्दी](README.hi.md)
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-3366CC?style=flat-square&labelColor=2B3245)](LICENSE)
