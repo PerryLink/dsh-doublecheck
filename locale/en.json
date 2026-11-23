@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "DoubleCheck",
+    "description": "Turn \"it's done\" into an evidence-backed verdict: grill the requirements first, prove the test red then green, and let a four-phase gate settle deliverable or rework before the handoff."
+  }
+}

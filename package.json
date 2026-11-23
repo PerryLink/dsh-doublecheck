@@ -1,6 +1,6 @@
 {
   "name": "dsh-doublecheck",
-  "version": "0.9.34",
+  "version": "0.9.35",
   "description": "Delivery quality gate for DeepSeek Harness: grill the requirements, test the implementation, prove the delivery, and gate the handoff with a deliverable/rework decision.",
   "packageManager": "pnpm@11.7.0",
   "repository": {
@@ -34,7 +34,8 @@
       "types": "./lib/invariant.d.ts",
       "import": "./lib/invariant.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
   },
   "publishConfig": {
     "access": "public"
@@ -54,7 +55,8 @@
     "LICENSE",
     "PRIVACY.md",
     "docs/assets/*",
-    "icon.svg"
+    "icon.svg",
+    "locale/*.json"
   ],
   "scripts": {
     "build": "tsc --noEmitOnError && node scripts/fix-dts.mjs",

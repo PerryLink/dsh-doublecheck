@@ -7,6 +7,8 @@
 
 # dsh-doublecheck
 
+Current version `0.9.35`.
+
 **Turn "it's done" into an evidence-backed verdict: grill the requirements first, prove the test red then green, and let a four-phase gate settle deliverable or rework before the handoff.**
 
 The delivery quality gate for DeepSeek Harness: two plugin rows watch the same replayable session log and turn the grill → design → red → green → review → verify discipline loop into commands, tools, and one verdict that lands in a report.
