@@ -7,7 +7,7 @@
 
 # dsh-doublecheck
 
-Current version `0.9.35`.
+Current version `0.9.37`.
 
 **Turn "it's done" into an evidence-backed verdict: grill the requirements first, prove the test red then green, and let a four-phase gate settle deliverable or rework before the handoff.**
 

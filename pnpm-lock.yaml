@@ -27,9 +27,6 @@ importers:
       '@deepseek-ai/dsh-fs':
         specifier: 0.2.2-rc.4
         version: 0.2.2-rc.4(@deepseek-ai/cordis@4.1.0)(@deepseek-ai/dsh-brand@0.2.2-rc.4(@deepseek-ai/cordis@4.1.0))(@deepseek-ai/dsh-llm@0.2.2-rc.4(@deepseek-ai/cordis@4.1.0)(@deepseek-ai/dsh-error@0.2.2-rc.4(@deepseek-ai/cordis@4.1.0)))(@deepseek-ai/dsh-sandbox@0.2.2-rc.4(@deepseek-ai/cordis@4.1.0)(@deepseek-ai/dsh-error@0.2.2-rc.4(@deepseek-ai/cordis@4.1.0))(@deepseek-ai/dsh-llm@0.2.2-rc.4(@deepseek-ai/cordis@4.1.0)(@deepseek-ai/dsh-error@0.2.2-rc.4(@deepseek-ai/cordis@4.1.0)))(@deepseek-ai/dsh-session@0.2.2-rc.4(@deepseek-ai/cordis@4.1.0)(@deepseek-ai/dsh-error@0.2.2-rc.4(@deepseek-ai/cordis@4.1.0))(@deepseek-ai/dsh-scope@0.2.2-rc.4(@deepseek-ai/cordis@4.1.0))))
-      '@deepseek-ai/dsh-invariants':
-        specifier: 0.2.0-rc.2
-        version: 0.2.0-rc.2(@deepseek-ai/cordis@4.1.0)
       '@deepseek-ai/dsh-llm':
         specifier: 0.2.2-rc.4
         version: 0.2.2-rc.4(@deepseek-ai/cordis@4.1.0)(@deepseek-ai/dsh-error@0.2.2-rc.4(@deepseek-ai/cordis@4.1.0))
@@ -148,9 +145,6 @@ packages:
       '@deepseek-ai/cordis-plugin-loader':
         optional: true
 
-  '@deepseek-ai/cosmokit@1.8.6':
-    resolution: {integrity: sha512-ZSD/fN52L498LBIOYwjIOlaLv5veY6ZEwI2yzvZUKQtctn0QAPqu8tKdJ+OF5+Tv6NBq1U+wJWH+QI6OGy5EvQ==}
-
   '@deepseek-ai/cosmokit@1.9.0':
     resolution: {integrity: sha512-5O1S53mZiJyZYcvxxD0Qv1EY7qFPSxbGyD8CbVK6gw7W9FvcXZj2YIX1ZkOqyQQ3Xt2rFkZDHJv0+V3Zmmp8CA==}
 
@@ -248,11 +242,6 @@ packages:
     resolution: {integrity: sha512-sboXiKybrhlodQSrTuaXHlCBMDFnEZqMGhGPld5JWMl6kkvQaDY9wZSCbUD2Wy3XpwUdGl4N6MUE3X39aLQ7pQ==}
     peerDependencies:
       '@deepseek-ai/cordis': ~4.1.0
-
-  '@deepseek-ai/dsh-invariants@0.2.0-rc.2':
-    resolution: {integrity: sha512-QOVc0HpRsS8ekvprb45FlxieDvgR/cAMaxW289HASjMoV/U/B54FpbkHuPBw4EnTw07/sPkjx2B/23+YqE0cbg==}
-    peerDependencies:
-      '@deepseek-ai/cordis': ~4.0.4
 
   '@deepseek-ai/dsh-launch-environment@0.2.2-rc.4':
     resolution: {integrity: sha512-I9AFJcA4cUY4YQrSBOOI/sXewlTQVhjQajgtRyQEzZbceKl0sLu2fEDUPNuvYCiY/RAZy8Vs2K/aml02WdpDZg==}
@@ -442,9 +431,6 @@ packages:
       '@deepseek-ai/dsh-session': 0.2.2-rc.4
       '@deepseek-ai/dsh-session-projection': 0.2.2-rc.4
       '@deepseek-ai/dsh-system-prompt': 0.2.2-rc.4
-
-  '@deepseek-ai/schemastery@3.18.5':
-    resolution: {integrity: sha512-Mnobvqf9rHsZYv4g5edj5ddxS1oF1kIdSlz0DunUgnY3LWG5F26MqvH3YOOsSaodCgyzJ16OMN9O99/s5Crtdw==}
 
   '@deepseek-ai/schemastery@3.19.0':
     resolution: {integrity: sha512-bDXoYQa7ghAhmdYD5VPlzKxEzJV/aKkz5l4V5h1u06z8GAPN1ROewSjvR9WiXhpa52E9fng8lpH5QdCRIQgnyQ==}
@@ -1749,8 +1735,6 @@ snapshots:
       '@deepseek-ai/cordis-plugin-include': 1.0.8(@deepseek-ai/cordis-plugin-loader@1.1.0)(@deepseek-ai/cordis@4.1.0)
       '@deepseek-ai/cordis-plugin-loader': 1.1.0(@deepseek-ai/cordis@4.1.0)(node-addon-require-builtin@0.1.9)
 
-  '@deepseek-ai/cosmokit@1.8.6': {}
-
   '@deepseek-ai/cosmokit@1.9.0': {}
 
   '@deepseek-ai/dsh-agent@0.2.2-rc.4(a69585b9a6276a454107261a1455b6db)':
@@ -1846,11 +1830,6 @@ snapshots:
   '@deepseek-ai/dsh-home-paths@0.2.2-rc.4(@deepseek-ai/cordis@4.1.0)':
     dependencies:
       '@deepseek-ai/cordis': 4.1.0(@deepseek-ai/cordis-plugin-include@1.0.8)(@deepseek-ai/cordis-plugin-loader@1.1.0)
-
-  '@deepseek-ai/dsh-invariants@0.2.0-rc.2(@deepseek-ai/cordis@4.1.0)':
-    dependencies:
-      '@deepseek-ai/cordis': 4.1.0(@deepseek-ai/cordis-plugin-include@1.0.8)(@deepseek-ai/cordis-plugin-loader@1.1.0)
-      '@deepseek-ai/schemastery': 3.18.5
 
   '@deepseek-ai/dsh-launch-environment@0.2.2-rc.4(@deepseek-ai/cordis@4.1.0)':
     dependencies:
@@ -2039,11 +2018,6 @@ snapshots:
       '@deepseek-ai/dsh-system-prompt': 0.2.2-rc.4(@deepseek-ai/cordis@4.1.0)(@deepseek-ai/dsh-llm@0.2.2-rc.4(@deepseek-ai/cordis@4.1.0)(@deepseek-ai/dsh-error@0.2.2-rc.4(@deepseek-ai/cordis@4.1.0)))(@deepseek-ai/dsh-scope@0.2.2-rc.4(@deepseek-ai/cordis@4.1.0))
       '@deepseek-ai/schemastery': 3.19.0
       zod: 4.6.6
-
-  '@deepseek-ai/schemastery@3.18.5':
-    dependencies:
-      '@deepseek-ai/cosmokit': 1.8.6
-      '@standard-schema/spec': 1.1.0
 
   '@deepseek-ai/schemastery@3.19.0':
     dependencies:

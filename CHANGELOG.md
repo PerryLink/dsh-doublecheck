@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.9.37] - 2026-11-25
+
+### Fixed
+
+- **DSH 0.2.3-alpha.2 compatibility: remove the `@deepseek-ai/dsh-invariants` peer.** That package has no 0.2.3-alpha.2 release — the `invariants` service did not carry over to the alpha line — so the non-optional peer could never resolve for a 0.2.3 profile. The peer declaration and the unused devDependency are removed. The guard already reaches the service through the optional `ctx.inject(['invariants'], …)` path, and the standalone `./invariant` row stays dormant when the service is absent, so no runtime code changes.
+
+### Changed
+
+- README: refresh the current-version line.
+
 ## [0.9.31] - 2026-11-13
 
 ### Fixed
